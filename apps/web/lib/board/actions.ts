@@ -3,7 +3,7 @@
 import { CardService, ForbiddenError, GateBlockedError, type RuleViolation } from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
-import { provisionAndGetActor } from "@/lib/actor";
+import { provisionAndGetActor, requireActor } from "@/lib/actor";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -432,6 +432,92 @@ export async function addComment(cardId: string, body: string): Promise<void> {
     mentions: [],
   });
   if (error) throw new Error(error.message);
+}
+
+// ── Configuração de etapas (colunas) — só Gestor (board:configure) ───────────
+
+export async function addStage(name: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { data: board } = await db
+    .from("board")
+    .select("id, organization_id")
+    .order("created_at")
+    .limit(1)
+    .single();
+  if (!board) throw new Error("Nenhum board.");
+  const { data: last } = await db
+    .from("stage")
+    .select("position")
+    .eq("board_id", board.id)
+    .order("position", { ascending: false })
+    .limit(1);
+  const position = last?.[0] ? Number(last[0].position) + 1 : 0;
+  const { error } = await db.from("stage").insert({
+    organization_id: board.organization_id,
+    board_id: board.id,
+    name: name.trim() || "Nova etapa",
+    position,
+    category: "in_progress",
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function renameStage(stageId: string, name: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("stage")
+    .update({ name: name.trim() || "Etapa" })
+    .eq("id", stageId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function setStageCategory(stageId: string, category: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db.from("stage").update({ category }).eq("id", stageId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function deleteStage(stageId: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { count } = await db
+    .from("card")
+    .select("id", { count: "exact", head: true })
+    .eq("stage_id", stageId);
+  if ((count ?? 0) > 0) {
+    throw new Error("Mova os cards desta etapa antes de removê-la.");
+  }
+  const { error } = await db.from("stage").delete().eq("id", stageId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/** Troca a etapa de lugar com a vizinha (reordena as colunas). */
+export async function reorderStage(stageId: string, direction: "left" | "right"): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { data: st } = await db.from("stage").select("board_id").eq("id", stageId).single();
+  if (!st) throw new Error("Etapa não encontrada.");
+  const { data: stages } = await db
+    .from("stage")
+    .select("id, position")
+    .eq("board_id", st.board_id)
+    .order("position");
+  const list = stages ?? [];
+  const idx = list.findIndex((s) => s.id === stageId);
+  const swap = direction === "left" ? idx - 1 : idx + 1;
+  if (idx < 0 || swap < 0 || swap >= list.length) return;
+  const a = list[idx]!;
+  const b = list[swap]!;
+  await db.from("stage").update({ position: b.position }).eq("id", a.id);
+  await db.from("stage").update({ position: a.position }).eq("id", b.id);
+  revalidatePath("/board");
 }
 
 /** Remove o comentário — só o autor pode. */

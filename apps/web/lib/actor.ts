@@ -1,4 +1,4 @@
-import { asId, type Action, type Actor } from "@ecco/core";
+import { asId, assertCan, UnauthorizedError, type Action, type Actor } from "@ecco/core";
 
 import { getSessionUser, isInternalEmail } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,7 +23,29 @@ async function ensureDefaultRole(db: Db, userId: string, orgId: string, internal
     .select("user_id", { count: "exact", head: true })
     .eq("user_id", userId);
   if ((count ?? 0) > 0) return;
-  const roleName = internal ? "Membro interno" : "Externo";
+
+  let roleName: string;
+  if (!internal) {
+    roleName = "Externo";
+  } else {
+    // Bootstrap: o primeiro interno (enquanto não houver nenhum Gestor) vira Gestor.
+    const { data: gestor } = await db
+      .from("role")
+      .select("id")
+      .eq("organization_id", orgId)
+      .eq("name", "Gestor")
+      .maybeSingle();
+    let hasGestor = false;
+    if (gestor) {
+      const { count: gc } = await db
+        .from("user_role")
+        .select("user_id", { count: "exact", head: true })
+        .eq("role_id", gestor.id);
+      hasGestor = (gc ?? 0) > 0;
+    }
+    roleName = hasGestor ? "Membro interno" : "Gestor";
+  }
+
   const { data: role } = await db
     .from("role")
     .select("id")
@@ -70,4 +92,15 @@ export async function provisionAndGetActor(): Promise<Actor | null> {
     permissions,
     teamIds: [],
   };
+}
+
+/**
+ * Garante um ator autenticado e (opcional) uma permissão — lança
+ * UnauthorizedError/ForbiddenError se faltar. Use nas escritas do servidor.
+ */
+export async function requireActor(action?: Action): Promise<Actor> {
+  const actor = await provisionAndGetActor();
+  if (!actor) throw new UnauthorizedError("Autenticação necessária.");
+  if (action) assertCan(actor, action);
+  return actor;
 }

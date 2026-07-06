@@ -16,14 +16,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 
 import { CardTile } from "./CardTile";
-import type { CardView, StageCategory, StageView } from "@/lib/board/types";
-
-const CATEGORY_DOT: Record<StageCategory, string> = {
-  backlog: "bg-neutral-400",
-  in_progress: "bg-sky-500",
-  review: "bg-amber-500",
-  done: "bg-emerald-500",
-};
+import { NewStageButton } from "./NewStageButton";
+import { StageHeader } from "./StageHeader";
+import type { CardView, StageView } from "@/lib/board/types";
 
 function DraggableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -47,19 +42,27 @@ function Column({
   stage,
   cards,
   onOpenCard,
+  canConfigure,
+  isFirst,
+  isLast,
 }: {
   stage: StageView;
   cards: CardView[];
   onOpenCard: (id: string) => void;
+  canConfigure: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
     <div className="flex w-72 shrink-0 flex-col">
-      <div className="mb-2 flex items-center gap-2 px-1">
-        <span className={"h-2 w-2 rounded-full " + CATEGORY_DOT[stage.category]} />
-        <h3 className="text-sm font-semibold text-neutral-700">{stage.name}</h3>
-        <span className="ml-auto text-xs text-neutral-400">{cards.length}</span>
-      </div>
+      <StageHeader
+        stage={stage}
+        count={cards.length}
+        canConfigure={canConfigure}
+        isFirst={isFirst}
+        isLast={isLast}
+      />
       <div
         ref={setNodeRef}
         className={
@@ -80,11 +83,13 @@ export function KanbanBoard({
   cards,
   onMove,
   onOpenCard,
+  canConfigure,
 }: {
   stages: StageView[];
   cards: CardView[];
   onMove: (cardId: string, toStageId: string) => void;
   onOpenCard: (id: string) => void;
+  canConfigure: boolean;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
@@ -114,14 +119,18 @@ export function KanbanBoard({
       onDragEnd={handleEnd}
     >
       <div className="flex gap-3 overflow-x-auto pb-4">
-        {stages.map((stage) => (
+        {stages.map((stage, i) => (
           <Column
             key={stage.id}
             stage={stage}
             cards={cards.filter((c) => c.stageId === stage.id)}
             onOpenCard={onOpenCard}
+            canConfigure={canConfigure}
+            isFirst={i === 0}
+            isLast={i === stages.length - 1}
           />
         ))}
+        {canConfigure && <NewStageButton />}
       </div>
       <DragOverlay>
         {activeCard ? (

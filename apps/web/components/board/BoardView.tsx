@@ -12,7 +12,13 @@ import type { BoardData } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
-export function BoardView({ board }: { board: BoardData }) {
+export function BoardView({
+  board,
+  canConfigure = false,
+}: {
+  board: BoardData;
+  canConfigure?: boolean;
+}) {
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
@@ -83,6 +89,7 @@ export function BoardView({ board }: { board: BoardData }) {
             cards={cards}
             onMove={move}
             onOpenCard={setSelectedCardId}
+            canConfigure={canConfigure}
           />
         ) : (
           <ListView cards={cards} stages={board.stages} onOpenCard={setSelectedCardId} />
