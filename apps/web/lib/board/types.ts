@@ -1,7 +1,6 @@
 /**
- * View-models da UI do quadro. Propositalmente leves e desacoplados da forma de
- * persistência (@ecco/core / banco). Quando plugarmos dados reais, mapeamos as
- * entidades do core para estes tipos numa camada fina.
+ * View-models da UI do quadro. Leves e desacoplados da persistência.
+ * O card é identificado pela numeração (#number) + título — sem taxonomia.
  */
 
 export interface Member {
@@ -16,7 +15,7 @@ export interface Label {
   colorClass: string;
 }
 
-/** Valor de um "Status" (campo customizado tipo select) para demonstração. */
+/** Valor de um "Status" (campo customizado tipo select) — futuro. */
 export interface StatusValue {
   label: string;
   colorClass: string;
@@ -24,21 +23,13 @@ export interface StatusValue {
 
 export interface CardView {
   id: string;
-  number: number; // ID sequencial por quadro (#1, #2…), estilo Notion
-  code: string; // TEX-7A-FUND2-1B-2027
+  number: number; // ID sequencial por quadro (#1, #2…)
   title: string;
   stageId: string;
   assignee: Member | null;
   labels: Label[];
   dueDate: string | null; // ISO
-  status: StatusValue | null; // campo customizado
-  materia: string;
-  serie: string;
-  bimestre: number;
-  // IDs da taxonomia (para o editor do detalhe pré-selecionar). Null enquanto a
-  // equipe não preencheu.
-  materiaId?: string | null;
-  serieId?: string | null;
+  status: StatusValue | null;
 }
 
 export type StageCategory = "backlog" | "in_progress" | "review" | "done";
@@ -56,10 +47,16 @@ export interface BoardData {
   members: Member[];
 }
 
-/** Opção de taxonomia para o formulário de novo card. */
-export interface TaxonomyOption {
+export interface ChecklistItemView {
   id: string;
-  name: string;
-  code: string;
+  text: string;
+  done: boolean;
+  position: number;
 }
 
+export interface ChecklistView {
+  id: string;
+  name: string;
+  position: number;
+  items: ChecklistItemView[];
+}

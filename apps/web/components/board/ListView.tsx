@@ -36,17 +36,7 @@ export function ListView({
         header: "#",
         cell: (c) => <span className="font-medium text-neutral-500">#{c.getValue()}</span>,
       }),
-      col.accessor("code", {
-        header: "Código",
-        cell: (c) => <span className="font-mono text-xs">{c.getValue()}</span>,
-      }),
       col.accessor("title", { header: "Título" }),
-      col.accessor("materia", { header: "Matéria" }),
-      col.accessor("serie", { header: "Série" }),
-      col.accessor("bimestre", {
-        header: "Bim.",
-        cell: (c) => (c.getValue() === 0 ? "Anual" : `${c.getValue()}º`),
-      }),
       col.accessor((r) => stageName(r.stageId), {
         id: "stage",
         header: "Etapa",
@@ -55,20 +45,6 @@ export function ListView({
         id: "assignee",
         header: "Responsável",
         cell: (c) => c.getValue() || <span className="text-neutral-300">—</span>,
-      }),
-      col.accessor((r) => r.status?.label ?? "", {
-        id: "status",
-        header: "Status",
-        cell: (c) => {
-          const v = c.row.original.status;
-          return v ? (
-            <span className={"rounded px-1.5 py-0.5 text-[11px] font-medium " + v.colorClass}>
-              {v.label}
-            </span>
-          ) : (
-            <span className="text-neutral-300">—</span>
-          );
-        },
       }),
     ],
     [stageName],
