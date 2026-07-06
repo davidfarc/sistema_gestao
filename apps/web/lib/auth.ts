@@ -16,9 +16,13 @@ export async function getSessionUser(): Promise<User | null> {
  * domínio da organização. Não confiar só no `hd` do Google — checar aqui.
  */
 export function isInternalEmail(email: string | undefined | null): boolean {
-  const domain = process.env.INTERNAL_EMAIL_DOMAIN?.toLowerCase();
-  if (!domain || !email) return false;
-  return email.toLowerCase().endsWith("@" + domain);
+  const domains = (process.env.INTERNAL_EMAIL_DOMAIN ?? "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  if (!email || domains.length === 0) return false;
+  const emailDomain = email.toLowerCase().split("@")[1] ?? "";
+  return domains.includes(emailDomain);
 }
 
 // TODO(auth): montar o Actor completo do @ecco/core (organizationId +

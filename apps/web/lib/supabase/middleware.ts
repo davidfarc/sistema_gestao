@@ -37,12 +37,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  // TODO(auth): remover "/board" daqui quando o quadro usar dados reais atrás de
-  // login. Por ora é público para permitir a demo do Kanban/lista sem Google auth.
-  const isPublic =
-    path.startsWith("/login") ||
-    path.startsWith("/auth") ||
-    path.startsWith("/board");
+  const isPublic = path.startsWith("/login") || path.startsWith("/auth");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

@@ -12,7 +12,13 @@ import type { BoardData } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
-export function BoardView({ board }: { board: BoardData }) {
+export function BoardView({
+  board,
+  user,
+}: {
+  board: BoardData;
+  user?: { email: string; internal: boolean } | null;
+}) {
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
@@ -59,6 +65,29 @@ export function BoardView({ board }: { board: BoardData }) {
             </ToggleButton>
           </div>
           <NewCardDialog />
+          {user && (
+            <div className="flex items-center gap-2 border-l border-neutral-200 pl-3 text-xs">
+              <span className="text-neutral-500">{user.email}</span>
+              <span
+                className={
+                  "rounded px-1.5 py-0.5 font-medium " +
+                  (user.internal
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700")
+                }
+              >
+                {user.internal ? "interno" : "externo"}
+              </span>
+              <form action="/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="text-neutral-400 underline underline-offset-2 hover:text-neutral-700"
+                >
+                  Sair
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </header>
 
