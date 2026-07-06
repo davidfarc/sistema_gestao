@@ -17,9 +17,11 @@ const col = createColumnHelper<CardView>();
 export function ListView({
   cards,
   stages,
+  onOpenCard,
 }: {
   cards: CardView[];
   stages: StageView[];
+  onOpenCard: (id: string) => void;
 }) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "number", desc: false }]);
 
@@ -110,7 +112,11 @@ export function ListView({
         </thead>
         <tbody className="divide-y divide-neutral-100">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id} className="hover:bg-neutral-50">
+            <tr
+              key={row.id}
+              onClick={() => onOpenCard(row.original.id)}
+              className="cursor-pointer hover:bg-neutral-50"
+            >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="whitespace-nowrap px-3 py-2 text-neutral-700">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}

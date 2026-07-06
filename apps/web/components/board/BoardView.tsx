@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 
+import { CardDetail } from "./CardDetail";
 import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
@@ -13,9 +14,15 @@ type View = "kanban" | "list";
 export function BoardView({ board }: { board: BoardData }) {
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Sincroniza com o servidor após router.refresh() (ex.: card recém-criado).
   useEffect(() => setCards(board.cards), [board.cards]);
+
+  const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
+  const selectedStage = selectedCard
+    ? board.stages.find((s) => s.id === selectedCard.stageId)
+    : undefined;
 
   function move(cardId: string, toStageId: string) {
     setCards((prev) =>
@@ -48,11 +55,24 @@ export function BoardView({ board }: { board: BoardData }) {
 
       <div className="flex-1 overflow-auto p-6">
         {view === "kanban" ? (
-          <KanbanBoard stages={board.stages} cards={cards} onMove={move} />
+          <KanbanBoard
+            stages={board.stages}
+            cards={cards}
+            onMove={move}
+            onOpenCard={setSelectedCardId}
+          />
         ) : (
-          <ListView cards={cards} stages={board.stages} />
+          <ListView cards={cards} stages={board.stages} onOpenCard={setSelectedCardId} />
         )}
       </div>
+
+      {selectedCard && (
+        <CardDetail
+          card={selectedCard}
+          stage={selectedStage}
+          onClose={() => setSelectedCardId(null)}
+        />
+      )}
     </div>
   );
 }

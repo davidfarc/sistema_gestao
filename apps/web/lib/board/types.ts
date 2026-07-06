@@ -35,6 +35,10 @@ export interface CardView {
   materia: string;
   serie: string;
   bimestre: number;
+  // IDs da taxonomia (para o editor do detalhe pré-selecionar). Null enquanto a
+  // equipe não preencheu.
+  materiaId?: string | null;
+  serieId?: string | null;
 }
 
 export type StageCategory = "backlog" | "in_progress" | "review" | "done";

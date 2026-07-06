@@ -51,6 +51,8 @@ export async function loadBoard(): Promise<BoardData | null> {
     materia: c.materia_id ? (nameOfMateria.get(c.materia_id) ?? "") : "",
     serie: c.serie_id ? (nameOfSerie.get(c.serie_id) ?? "") : "",
     bimestre: c.bimestre == null ? 0 : Number(c.bimestre),
+    materiaId: c.materia_id ?? null,
+    serieId: c.serie_id ?? null,
   }));
 
   return { name: board.name, stages, cards, members: [] };

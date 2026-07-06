@@ -25,7 +25,7 @@ const CATEGORY_DOT: Record<StageCategory, string> = {
   done: "bg-emerald-500",
 };
 
-function DraggableCard({ card }: { card: CardView }) {
+function DraggableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: card.id,
   });
@@ -34,6 +34,7 @@ function DraggableCard({ card }: { card: CardView }) {
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={"cursor-grab touch-none active:cursor-grabbing " + (isDragging ? "opacity-40" : "")}
+      onClick={onOpen}
       {...listeners}
       {...attributes}
     >
@@ -42,7 +43,15 @@ function DraggableCard({ card }: { card: CardView }) {
   );
 }
 
-function Column({ stage, cards }: { stage: StageView; cards: CardView[] }) {
+function Column({
+  stage,
+  cards,
+  onOpenCard,
+}: {
+  stage: StageView;
+  cards: CardView[];
+  onOpenCard: (id: string) => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
     <div className="flex w-72 shrink-0 flex-col">
@@ -59,7 +68,7 @@ function Column({ stage, cards }: { stage: StageView; cards: CardView[] }) {
         }
       >
         {cards.map((c) => (
-          <DraggableCard key={c.id} card={c} />
+          <DraggableCard key={c.id} card={c} onOpen={() => onOpenCard(c.id)} />
         ))}
       </div>
     </div>
@@ -70,10 +79,12 @@ export function KanbanBoard({
   stages,
   cards,
   onMove,
+  onOpenCard,
 }: {
   stages: StageView[];
   cards: CardView[];
   onMove: (cardId: string, toStageId: string) => void;
+  onOpenCard: (id: string) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
@@ -108,6 +119,7 @@ export function KanbanBoard({
             key={stage.id}
             stage={stage}
             cards={cards.filter((c) => c.stageId === stage.id)}
+            onOpenCard={onOpenCard}
           />
         ))}
       </div>
