@@ -11,6 +11,9 @@ import type {
   AttachmentView,
   ChecklistItemView,
   ChecklistView,
+  MemberOption,
+  RoleOption,
+  UserRow,
 } from "@/lib/board/types";
 
 /** Registra uma atividade no card (feed estilo Trello). */
@@ -294,4 +297,90 @@ export async function deleteAttachment(id: string): Promise<void> {
   const db = createAdminClient();
   const { error } = await db.from("attachment").delete().eq("id", id);
   if (error) throw new Error(error.message);
+}
+
+// ── Responsável por etapa (assignment card↔user↔etapa) ───────────────────────
+
+export async function loadMembers(): Promise<MemberOption[]> {
+  const db = createAdminClient();
+  const { data } = await db.from("app_user").select("id, name, email").order("name");
+  return (data ?? []).map((u) => ({ id: u.id, name: u.name || u.email }));
+}
+
+export async function loadCardAssignments(
+  cardId: string,
+): Promise<{ stageId: string; userId: string }[]> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("assignment")
+    .select("stage_id, user_id")
+    .eq("card_id", cardId)
+    .not("stage_id", "is", null);
+  return (data ?? []).map((a) => ({ stageId: a.stage_id, userId: a.user_id }));
+}
+
+/** Define o responsável de (card, etapa). userId null = remove. Um por etapa. */
+export async function setStageResponsible(
+  cardId: string,
+  stageId: string,
+  userId: string | null,
+): Promise<void> {
+  const db = createAdminClient();
+  const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
+  if (!card) throw new Error("Card não encontrado.");
+
+  await db.from("assignment").delete().eq("card_id", cardId).eq("stage_id", stageId);
+  if (userId) {
+    const { error } = await db.from("assignment").insert({
+      organization_id: card.organization_id,
+      card_id: cardId,
+      stage_id: stageId,
+      user_id: userId,
+    });
+    if (error) throw new Error(error.message);
+    const actor = await provisionAndGetActor();
+    if (actor) await recordActivity(cardId, actor.userId, "assignment_changed", { stageId, userId });
+  }
+  revalidatePath("/board");
+}
+
+// ── Usuários (acessos) ───────────────────────────────────────────────────────
+
+export async function loadRoles(): Promise<RoleOption[]> {
+  const db = createAdminClient();
+  const { data } = await db.from("role").select("id, name").order("name");
+  return (data ?? []).map((r) => ({ id: r.id, name: r.name }));
+}
+
+export async function loadUsers(): Promise<UserRow[]> {
+  const db = createAdminClient();
+  const [usersRes, ursRes, rolesRes] = await Promise.all([
+    db.from("app_user").select("id, name, email, is_internal").order("name"),
+    db.from("user_role").select("user_id, role_id"),
+    db.from("role").select("id, name"),
+  ]);
+  const roleName = new Map((rolesRes.data ?? []).map((r) => [r.id, r.name]));
+  const roleOfUser = new Map<string, string>();
+  for (const ur of ursRes.data ?? []) roleOfUser.set(ur.user_id, ur.role_id);
+
+  return (usersRes.data ?? []).map((u) => {
+    const roleId = roleOfUser.get(u.id) ?? null;
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      internal: u.is_internal,
+      roleId,
+      roleName: roleId ? (roleName.get(roleId) ?? null) : null,
+    };
+  });
+}
+
+/** Troca o papel de um usuário (um papel por usuário). */
+export async function setUserRole(userId: string, roleId: string): Promise<void> {
+  const db = createAdminClient();
+  await db.from("user_role").delete().eq("user_id", userId);
+  const { error } = await db.from("user_role").insert({ user_id: userId, role_id: roleId });
+  if (error) throw new Error(error.message);
+  revalidatePath("/configuracoes/usuarios");
 }

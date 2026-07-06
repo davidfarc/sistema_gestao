@@ -74,3 +74,22 @@ export interface ActivityView {
   createdAt: string; // ISO
   payload: Record<string, unknown>;
 }
+
+export interface MemberOption {
+  id: string;
+  name: string;
+}
+
+export interface RoleOption {
+  id: string;
+  name: string;
+}
+
+export interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  internal: boolean;
+  roleId: string | null;
+  roleName: string | null;
+}

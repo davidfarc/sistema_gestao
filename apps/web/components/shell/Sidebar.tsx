@@ -9,7 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu as MenuIcon,
-  Settings,
+  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -29,7 +29,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: Settings, label: "Configurações", href: "#", disabled: true },
+  { Icon: Users, label: "Usuários", href: "/configuracoes/usuarios" },
 ];
 
 export function Sidebar({ user }: { user: { email: string; internal: boolean } | null }) {

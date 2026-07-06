@@ -7,6 +7,7 @@ import { updateCard } from "@/lib/board/actions";
 import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
+import { Responsavel } from "./Responsavel";
 import type { CardView, StageView } from "@/lib/board/types";
 
 export function CardDetail({
@@ -68,6 +69,22 @@ export function CardDetail({
           >
             ✕
           </button>
+        </div>
+
+        {/* Responsável (etapa atual) */}
+        <div className="border-b border-neutral-100 p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Responsável
+          </p>
+          <Responsavel
+            cardId={card.id}
+            stageId={card.stageId}
+            stageName={stage?.name}
+            onChange={() => {
+              router.refresh();
+              setActivityKey((k) => k + 1);
+            }}
+          />
         </div>
 
         {/* Checklists */}
