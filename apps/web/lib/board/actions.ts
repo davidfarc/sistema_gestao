@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { provisionAndGetActor } from "@/lib/actor";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type {
   ActivityView,
   AttachmentView,
@@ -116,7 +117,7 @@ export async function updateCard(input: { id: string; title: string }): Promise<
 // ── Checklists ───────────────────────────────────────────────────────────────
 
 export async function loadChecklists(cardId: string): Promise<ChecklistView[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS escopa por usuário
   const { data: lists } = await db
     .from("checklist")
     .select("id, name, position")
@@ -218,7 +219,7 @@ export async function setChecklistItemDone(itemId: string, done: boolean): Promi
 }
 
 export async function loadActivity(cardId: string): Promise<ActivityView[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS
   const { data } = await db
     .from("activity")
     .select("id, kind, payload, created_at, actor_id")
@@ -266,7 +267,7 @@ function normalizeUrl(url: string): string {
 }
 
 export async function loadAttachments(cardId: string): Promise<AttachmentView[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS
   const { data } = await db
     .from("attachment")
     .select("id, label, url")
@@ -303,7 +304,7 @@ export async function deleteAttachment(id: string): Promise<void> {
 // ── Responsável por etapa (assignment card↔user↔etapa) ───────────────────────
 
 export async function loadMembers(): Promise<MemberOption[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS
   const { data } = await db.from("app_user").select("id, name, email").order("name");
   return (data ?? []).map((u) => ({ id: u.id, name: u.name || u.email }));
 }
@@ -311,7 +312,7 @@ export async function loadMembers(): Promise<MemberOption[]> {
 export async function loadCardAssignments(
   cardId: string,
 ): Promise<{ stageId: string; userId: string }[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS
   const { data } = await db
     .from("assignment")
     .select("stage_id, user_id")
@@ -389,7 +390,7 @@ export async function setUserRole(userId: string, roleId: string): Promise<void>
 // ── Comentários ──────────────────────────────────────────────────────────────
 
 export async function loadComments(cardId: string): Promise<CommentView[]> {
-  const db = createAdminClient();
+  const db = await createClient(); // sessão → RLS
   const actor = await provisionAndGetActor();
   const { data } = await db
     .from("comment")

@@ -1,13 +1,14 @@
 import { memberView } from "@/lib/board/avatar";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { BoardData, CardView, StageView } from "./types";
 
 /**
- * Carrega o (único) board com etapas e cards. Usa o client admin (dev, sem auth).
- * O `assignee` de cada card = responsável atribuído à ETAPA ATUAL do card.
+ * Carrega o board com etapas e cards, LENDO COM O CLIENT DE SESSÃO — o RLS
+ * escopa por usuário: interno vê o quadro; externo só vê os cards atribuídos a
+ * ele. O `assignee` de cada card = responsável da etapa ATUAL.
  */
 export async function loadBoard(): Promise<BoardData | null> {
-  const db = createAdminClient();
+  const db = await createClient();
 
   const { data: board } = await db
     .from("board")
