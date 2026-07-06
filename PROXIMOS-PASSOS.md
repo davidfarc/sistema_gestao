@@ -82,16 +82,23 @@ Gate de decisão no meio do fluxo: **"Necessita de ajuste?"** (Sim → volta par
 ## Decisões novas (retomada 2026-07-06)
 
 **Ambiente desta máquina:** Node 24 ✅, pnpm 11.10 (via npm global) ✅, git ✅.
-Repo inicializado na pasta do Drive; **GitHub = fonte de verdade**:
-`https://github.com/dafarc/sistema_gestao.git`.
+**GitHub = fonte de verdade:** `https://github.com/dafarc/sistema_gestao.git`.
 
-⚠️ **CRÍTICO — o filesystem do Google Drive (`G:`) não suporta symlinks/hardlinks e
-TRAVA o pnpm se o sync estiver ativo.** Por isso:
-- `pnpm-workspace.yaml` usa `nodeLinker: hoisted` + `packageImportMethod: copy`.
-- **Pausar a sincronização do Drive Desktop antes de qualquer `pnpm install`/build.**
-  (Com sync ativo o install ficou pendurado; pausado, roda normal.)
+**Local do repo:** `C:\dev\ecco-sistema` (disco local). A árvore de trabalho **saiu
+do Google Drive** — o Drive travava/atrasava o pnpm (sem symlink/hardlink + sync
+disputando I/O; install de 12s no local vs 2+ min no `G:`). O `G:` pode guardar só
+os docs, se quiser. Trabalhar em **uma máquina por vez**, transferindo via `git`.
+
 - Toolchain sem `tsx`/`esbuild`: usa-se o **type-stripping nativo do Node 24**; por
-  isso os imports internos do `core` usam extensão **`.ts` explícita**.
+  isso os imports internos do `core` usam extensão **`.ts` explícita** (funciona no
+  `tsc` com `allowImportingTsExtensions` e no bundler do Next via `transpilePackages`).
+- `pnpm-workspace.yaml` usa os defaults do pnpm (hardlink) — as gambiarras do Drive
+  (`nodeLinker: hoisted` / `packageImportMethod: copy`) foram removidas.
+
+**Supabase:** projeto "Gestão Ecco" (org Eccoprime Corp.) criado.
+URL `https://njdocgzzuhhlaweqqnrq.supabase.co`; publishable key em `apps/web/.env.local`
+(gitignored). Falta revelar a **secret key** e a **senha do Postgres** para aplicar as
+migrations (`infra/`).
 
 **Propriedade ID (estilo Notion):** cada card tem `number` — ID sequencial legível
 **por quadro** (#1, #2…), atribuído por trigger no banco. Separado do `code` da taxonomia.

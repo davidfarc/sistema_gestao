@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Minimalista, modo diurno (decisão do PLANO.md). */
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased;
+}
