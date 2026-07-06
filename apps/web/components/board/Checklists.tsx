@@ -9,7 +9,7 @@ import {
   deleteChecklistItem,
   loadChecklists,
   setChecklistItemDone,
-} from "@/app/board/actions";
+} from "@/lib/board/actions";
 import type { ChecklistView } from "@/lib/board/types";
 
 export function Checklists({ cardId }: { cardId: string }) {

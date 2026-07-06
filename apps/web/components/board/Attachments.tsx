@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
-import { addAttachment, deleteAttachment, loadAttachments } from "@/app/board/actions";
+import { addAttachment, deleteAttachment, loadAttachments } from "@/lib/board/actions";
 import type { AttachmentView } from "@/lib/board/types";
 
 export function Attachments({ cardId }: { cardId: string }) {

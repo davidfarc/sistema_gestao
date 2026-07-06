@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 
-import { createCard } from "@/app/board/actions";
+import { createCard } from "@/lib/board/actions";
 
 export function NewCardDialog() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export function NewCardDialog() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-neutral-700"
+        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-primary-high"
       >
         + Novo card
       </button>
@@ -78,7 +78,7 @@ export function NewCardDialog() {
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+                className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-60"
               >
                 {pending ? "Criando…" : "Criar card"}
               </button>

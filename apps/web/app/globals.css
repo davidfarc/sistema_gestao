@@ -1,10 +1,98 @@
 @import "tailwindcss";
 
-/* Minimalista, modo diurno (decisão do PLANO.md). */
+/* ============================================================================
+   Design system Ecco Prime (portado do eccoprime-demandas). Tailwind v4 puro.
+   Tema claro (modo diurno, como no PLANO.md). Fontes via next/font no layout.
+   ============================================================================ */
+
 :root {
   color-scheme: light;
+
+  /* Marca */
+  --color-primary: #001e40;
+  --color-primary-high: #0d3a73;
+  --color-on-primary: #ffffff;
+  --color-secondary: #4c616c;
+
+  /* Acento */
+  --color-tertiary: #002504;
+  --color-tertiary-fixed: #a3f69c;
+  --color-on-tertiary: #ffffff;
+
+  /* Semânticas */
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #ba1a1a;
+  --color-info: #1d4ed8;
+
+  /* Superfícies (mais claro → mais escuro) */
+  --background: #f8f9fb;
+  --foreground: #191c1e;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f2f4f6;
+  --surface-container-medium: #e6e9ed;
+  --surface-container-high: #d8dde3;
+
+  /* Sombras */
+  --shadow-premium-soft: 0 1px 3px rgba(0, 30, 64, 0.04), 0 2px 8px rgba(0, 30, 64, 0.04);
+  --shadow-premium-hover: 0 2px 6px rgba(0, 30, 64, 0.06), 0 8px 20px rgba(0, 30, 64, 0.08);
+
+  /* Fontes (next/font sobrescreve as variáveis no <html>) */
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-primary-high: var(--color-primary-high);
+  --color-on-primary: var(--color-on-primary);
+  --color-secondary: var(--color-secondary);
+  --color-tertiary: var(--color-tertiary);
+  --color-tertiary-fixed: var(--color-tertiary-fixed);
+  --color-on-tertiary: var(--color-on-tertiary);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-error: var(--color-danger);
+  --color-info: var(--color-info);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface-lowest: var(--surface-container-lowest);
+  --color-surface-low: var(--surface-container-low);
+  --color-surface-medium: var(--surface-container-medium);
+  --color-surface-high: var(--surface-container-high);
+
+  --shadow-premium-soft: var(--shadow-premium-soft);
+  --shadow-premium-hover: var(--shadow-premium-hover);
+
+  --font-sans: var(--font-body);
+  --font-headline: var(--font-headline);
 }
 
 body {
-  @apply bg-white text-neutral-900 antialiased;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, .font-headline {
+  font-family: var(--font-headline);
+  color: var(--color-primary);
+}
+
+/* Scroll sem barra visual */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

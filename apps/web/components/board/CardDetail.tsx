@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { updateCard } from "@/app/board/actions";
+import { updateCard } from "@/lib/board/actions";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import type { CardView, StageView } from "@/lib/board/types";
