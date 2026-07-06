@@ -6,19 +6,11 @@ import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { moveCard } from "@/app/board/actions";
-import type { BoardData, TaxonomyOption } from "@/lib/board/types";
+import type { BoardData } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
-export function BoardView({
-  board,
-  materias,
-  series,
-}: {
-  board: BoardData;
-  materias: TaxonomyOption[];
-  series: TaxonomyOption[];
-}) {
+export function BoardView({ board }: { board: BoardData }) {
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
 
@@ -50,7 +42,7 @@ export function BoardView({
               Lista
             </ToggleButton>
           </div>
-          <NewCardDialog materias={materias} series={series} />
+          <NewCardDialog />
         </div>
       </header>
 

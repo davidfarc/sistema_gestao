@@ -169,14 +169,15 @@ create table card (
   organization_id uuid not null references organization(id),
   board_id        uuid not null references board(id) on delete cascade,
   number          bigint not null default 0, -- ID sequencial por quadro (trigger abaixo)
-  code            text not null,            -- TEX-7A-FUND2-1B-2027 (denormalizado)
+  -- code/taxonomia OPCIONAIS: o card nasce só com nome; a equipe preenche depois.
+  code            text,                     -- TEX-7A-FUND2-1B-2027 (gerado da taxonomia)
   title           text not null,
   -- taxonomia denormalizada (filtro/relatório indexado)
-  materia_id      uuid not null references materia(id),
-  serie_id        uuid not null references serie(id),
-  segmento_id     uuid not null references segmento(id),
-  bimestre        smallint not null check (bimestre between 0 and 4), -- 0 = anual
-  ano_letivo_id   uuid not null references ano_letivo(id),
+  materia_id      uuid references materia(id),
+  serie_id        uuid references serie(id),
+  segmento_id     uuid references segmento(id),
+  bimestre        smallint check (bimestre between 0 and 4), -- 0 = anual
+  ano_letivo_id   uuid references ano_letivo(id),
   -- pipeline
   stage_id        uuid not null references stage(id),
   stage_entered_at timestamptz not null default now(),  -- cycle-time

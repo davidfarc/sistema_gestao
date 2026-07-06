@@ -1,50 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 
 import { createCard } from "@/app/board/actions";
-import type { TaxonomyOption } from "@/lib/board/types";
 
-const BIMESTRES = [
-  { value: 1, label: "1º bimestre" },
-  { value: 2, label: "2º bimestre" },
-  { value: 3, label: "3º bimestre" },
-  { value: 4, label: "4º bimestre" },
-  { value: 0, label: "Anual (volume único)" },
-] as const;
-
-export function NewCardDialog({
-  materias,
-  series,
-}: {
-  materias: TaxonomyOption[];
-  series: TaxonomyOption[];
-}) {
+export function NewCardDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [materiaId, setMateriaId] = useState("");
-  const [serieId, setSerieId] = useState("");
-  const [bimestre, setBimestre] = useState<number>(1);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!materiaId || !serieId) {
-      setError("Escolha matéria e série.");
+    if (!title.trim()) {
+      setError("Dê um nome ao card.");
       return;
     }
     setError(null);
     startTransition(async () => {
       try {
-        await createCard({
-          materiaId,
-          serieId,
-          bimestre: bimestre as 0 | 1 | 2 | 3 | 4,
-          title,
-        });
+        await createCard(title);
         setTitle("");
         setOpen(false);
         router.refresh();
@@ -76,51 +53,16 @@ export function NewCardDialog({
           >
             <h2 className="text-base font-semibold text-neutral-800">Novo card</h2>
             <p className="mt-0.5 text-xs text-neutral-400">
-              Matéria × série × bimestre. O #ID e o código são gerados automaticamente.
+              Só o nome. O #ID é automático; a taxonomia a equipe preenche depois.
             </p>
 
-            <div className="mt-4 grid gap-3">
-              <Field label="Matéria">
-                <Select value={materiaId} onChange={setMateriaId}>
-                  <option value="">Selecione…</option>
-                  {materias.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.code})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              <Field label="Série">
-                <Select value={serieId} onChange={setSerieId}>
-                  <option value="">Selecione…</option>
-                  {series.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.code})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              <Field label="Bimestre">
-                <Select value={String(bimestre)} onChange={(v) => setBimestre(Number(v))}>
-                  {BIMESTRES.map((b) => (
-                    <option key={b.value} value={b.value}>
-                      {b.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              <Field label="Título (opcional)">
-                <input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Gerado da taxonomia se vazio"
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
-                />
-              </Field>
-            </div>
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Nome do card"
+              className="mt-4 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            />
 
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -145,34 +87,5 @@ export function NewCardDialog({
         </div>
       )}
     </>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-neutral-500">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
-    >
-      {children}
-    </select>
   );
 }

@@ -20,7 +20,7 @@ export function CardTile({ card }: { card: CardView }) {
     <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="flex items-center gap-2 text-[11px] text-neutral-400">
         <span className="font-medium text-neutral-500">#{card.number}</span>
-        <span className="truncate font-mono">{card.code}</span>
+        {card.code && <span className="truncate font-mono">{card.code}</span>}
       </div>
 
       <p className="mt-1 text-sm font-medium leading-snug text-neutral-800">
