@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Env / secrets (NUNCA commitar; service_role key só no servidor)
+.env
+.env.*
+!.env.example
+
+# Testing
+coverage/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.log
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code — config local por máquina (settings compartilhada pode ir versionada)
+.claude/settings.local.json
+.claude/projects/
+
+# Vercel
+.vercel
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/

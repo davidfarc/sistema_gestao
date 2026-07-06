@@ -1,0 +1,13 @@
+# Normaliza fim-de-linha: repositório guarda LF, checkout nativo por máquina.
+# Evita churn de CRLF/LF ao trabalhar em máquinas diferentes (Drive + GitHub).
+* text=auto eol=lf
+
+# Binários — nunca normalizar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
