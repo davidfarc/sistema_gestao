@@ -48,6 +48,7 @@ async function recordActivity(
 
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
 export async function createCard(title: string): Promise<void> {
+  await requireActor("card:create");
   const db = createAdminClient();
 
   const { data: board } = await db
@@ -108,6 +109,7 @@ export async function moveCard(
 
 /** Renomeia o card. */
 export async function updateCard(input: { id: string; title: string }): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { error } = await db
     .from("card")
@@ -169,6 +171,7 @@ async function nextPosition(
 }
 
 export async function addChecklist(cardId: string, name: string): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
   if (!card) throw new Error("Card não encontrado.");
@@ -183,6 +186,7 @@ export async function addChecklist(cardId: string, name: string): Promise<void> 
 }
 
 export async function addChecklistItem(checklistId: string, text: string): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const position = await nextPosition(db, "checklist_item", "checklist_id", checklistId);
   const { error } = await db
@@ -192,6 +196,7 @@ export async function addChecklistItem(checklistId: string, text: string): Promi
 }
 
 export async function setChecklistItemDone(itemId: string, done: boolean): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { data: item } = await db
     .from("checklist_item")
@@ -251,12 +256,14 @@ export async function loadActivity(cardId: string): Promise<ActivityView[]> {
 }
 
 export async function deleteChecklistItem(itemId: string): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { error } = await db.from("checklist_item").delete().eq("id", itemId);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteChecklist(checklistId: string): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { error } = await db.from("checklist").delete().eq("id", checklistId);
   if (error) throw new Error(error.message);
@@ -284,6 +291,7 @@ export async function addAttachment(
   url: string,
   label: string,
 ): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   if (!url.trim()) throw new Error("Informe um link.");
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
@@ -299,6 +307,7 @@ export async function addAttachment(
 }
 
 export async function deleteAttachment(id: string): Promise<void> {
+  await requireActor("card:update");
   const db = createAdminClient();
   const { error } = await db.from("attachment").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -330,6 +339,7 @@ export async function setStageResponsible(
   stageId: string,
   userId: string | null,
 ): Promise<void> {
+  await requireActor("card:assign");
   const db = createAdminClient();
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
   if (!card) throw new Error("Card não encontrado.");
@@ -383,6 +393,7 @@ export async function loadUsers(): Promise<UserRow[]> {
 
 /** Troca o papel de um usuário (um papel por usuário). */
 export async function setUserRole(userId: string, roleId: string): Promise<void> {
+  await requireActor("board:configure");
   const db = createAdminClient();
   await db.from("user_role").delete().eq("user_id", userId);
   const { error } = await db.from("user_role").insert({ user_id: userId, role_id: roleId });
@@ -422,8 +433,7 @@ export async function loadComments(cardId: string): Promise<CommentView[]> {
 export async function addComment(cardId: string, body: string): Promise<void> {
   const text = body.trim();
   if (!text) return;
-  const actor = await provisionAndGetActor();
-  if (!actor) throw new Error("Sessão expirada. Entre novamente.");
+  const actor = await requireActor("comment:create");
   const db = createAdminClient();
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
   if (!card) throw new Error("Card não encontrado.");
