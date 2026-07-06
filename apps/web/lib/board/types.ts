@@ -66,3 +66,11 @@ export interface AttachmentView {
   label: string;
   url: string;
 }
+
+export interface ActivityView {
+  id: string;
+  kind: string;
+  actorName: string;
+  createdAt: string; // ISO
+  payload: Record<string, unknown>;
+}

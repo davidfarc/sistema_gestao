@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { updateCard } from "@/lib/board/actions";
+import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import type { CardView, StageView } from "@/lib/board/types";
@@ -20,6 +21,7 @@ export function CardDetail({
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [title, setTitle] = useState(card.title);
+  const [activityKey, setActivityKey] = useState(0);
 
   function saveTitle() {
     const next = title.trim();
@@ -73,7 +75,7 @@ export function CardDetail({
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Checklists
           </p>
-          <Checklists cardId={card.id} />
+          <Checklists cardId={card.id} onActivity={() => setActivityKey((k) => k + 1)} />
         </div>
 
         {/* Anexos */}
@@ -82,6 +84,14 @@ export function CardDetail({
             Anexos
           </p>
           <Attachments cardId={card.id} />
+        </div>
+
+        {/* Atividade (feed estilo Trello) */}
+        <div className="border-b border-neutral-100 p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Atividade
+          </p>
+          <ActivityFeed cardId={card.id} refreshKey={activityKey} />
         </div>
 
         {/* Seções futuras */}

@@ -12,7 +12,13 @@ import {
 } from "@/lib/board/actions";
 import type { ChecklistView } from "@/lib/board/types";
 
-export function Checklists({ cardId }: { cardId: string }) {
+export function Checklists({
+  cardId,
+  onActivity,
+}: {
+  cardId: string;
+  onActivity?: () => void;
+}) {
   const [lists, setLists] = useState<ChecklistView[]>([]);
   const [loading, setLoading] = useState(true);
   const [newList, setNewList] = useState("");
@@ -40,6 +46,7 @@ export function Checklists({ cardId }: { cardId: string }) {
       })),
     );
     await setChecklistItemDone(itemId, done);
+    onActivity?.();
   }
 
   async function createList(e: FormEvent) {

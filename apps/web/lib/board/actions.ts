@@ -1,27 +1,40 @@
 "use server";
 
-import {
-  CardService,
-  GateBlockedError,
-  asId,
-  type Action,
-  type Actor,
-  type RuleViolation,
-} from "@ecco/core";
+import { CardService, ForbiddenError, GateBlockedError, type RuleViolation } from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
+import { provisionAndGetActor } from "@/lib/actor";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { AttachmentView, ChecklistItemView, ChecklistView } from "@/lib/board/types";
+import type {
+  ActivityView,
+  AttachmentView,
+  ChecklistItemView,
+  ChecklistView,
+} from "@/lib/board/types";
 
-/** Ator de sistema (dev, sem auth). Quando o login entrar, usar o ator real. */
-const SYSTEM_ACTOR: Actor = {
-  userId: asId("system"),
-  organizationId: asId("system"),
-  isInternal: true,
-  permissions: new Set<Action>(["card:move"]),
-  teamIds: [],
-};
+/** Registra uma atividade no card (feed estilo Trello). */
+async function recordActivity(
+  cardId: string,
+  actorId: string,
+  kind: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const db = createAdminClient();
+  const { data: card } = await db
+    .from("card")
+    .select("organization_id")
+    .eq("id", cardId)
+    .maybeSingle();
+  if (!card) return;
+  await db.from("activity").insert({
+    organization_id: card.organization_id,
+    card_id: cardId,
+    actor_id: actorId,
+    kind,
+    payload,
+  });
+}
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 
@@ -64,15 +77,22 @@ export async function moveCard(
   cardId: string,
   toStageId: string,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const actor = await provisionAndGetActor();
+  if (!actor) return { ok: false, reason: "Sessão expirada. Entre novamente." };
+
   const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
   try {
-    await service.move(SYSTEM_ACTOR, cardId, toStageId);
+    await service.move(actor, cardId, toStageId);
+    await recordActivity(cardId, actor.userId, "card_moved", { toStageId });
     revalidatePath("/board");
     return { ok: true };
   } catch (e) {
     if (e instanceof GateBlockedError) {
       const violations = (e.details ?? []) as RuleViolation[];
       return { ok: false, reason: violations[0]?.message ?? "Transição bloqueada." };
+    }
+    if (e instanceof ForbiddenError) {
+      return { ok: false, reason: "Você não tem permissão para mover cards." };
     }
     throw e;
   }
@@ -165,8 +185,61 @@ export async function addChecklistItem(checklistId: string, text: string): Promi
 
 export async function setChecklistItemDone(itemId: string, done: boolean): Promise<void> {
   const db = createAdminClient();
+  const { data: item } = await db
+    .from("checklist_item")
+    .select("text, checklist_id")
+    .eq("id", itemId)
+    .maybeSingle();
+
   const { error } = await db.from("checklist_item").update({ done }).eq("id", itemId);
   if (error) throw new Error(error.message);
+
+  // Log de atividade: quem marcou/desmarcou o quê (feed estilo Trello).
+  const actor = await provisionAndGetActor();
+  if (actor && item) {
+    const { data: cl } = await db
+      .from("checklist")
+      .select("card_id")
+      .eq("id", item.checklist_id)
+      .maybeSingle();
+    if (cl) {
+      await recordActivity(
+        cl.card_id,
+        actor.userId,
+        done ? "checklist_checked" : "checklist_unchecked",
+        { text: item.text },
+      );
+    }
+  }
+}
+
+export async function loadActivity(cardId: string): Promise<ActivityView[]> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("activity")
+    .select("id, kind, payload, created_at, actor_id")
+    .eq("card_id", cardId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const rows = data ?? [];
+
+  const actorIds = [...new Set(rows.map((r) => r.actor_id))];
+  const nameOf = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: users } = await db
+      .from("app_user")
+      .select("id, name, email")
+      .in("id", actorIds);
+    for (const u of users ?? []) nameOf.set(u.id, u.name || u.email);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    payload: (r.payload as Record<string, unknown>) ?? {},
+    createdAt: r.created_at,
+    actorName: nameOf.get(r.actor_id) ?? "Alguém",
+  }));
 }
 
 export async function deleteChecklistItem(itemId: string): Promise<void> {
