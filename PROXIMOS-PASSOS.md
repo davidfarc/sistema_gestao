@@ -78,3 +78,33 @@ Gate de decisão no meio do fluxo: **"Necessita de ajuste?"** (Sim → volta par
 - Regra exata de agregação de volumes por segmento.
 - Lista definitiva de matérias em **volume único** vs **divididas em 4**.
 - Significado de eventuais outros prefixos de código além de `TEX` (se houver).
+
+## Decisões novas (retomada 2026-07-06)
+
+**Ambiente desta máquina:** Node 24 ✅, pnpm 11.10 (via npm global) ✅, git ✅.
+Repo inicializado na pasta do Drive; **GitHub = fonte de verdade**:
+`https://github.com/dafarc/sistema_gestao.git`.
+
+⚠️ **CRÍTICO — o filesystem do Google Drive (`G:`) não suporta symlinks/hardlinks e
+TRAVA o pnpm se o sync estiver ativo.** Por isso:
+- `pnpm-workspace.yaml` usa `nodeLinker: hoisted` + `packageImportMethod: copy`.
+- **Pausar a sincronização do Drive Desktop antes de qualquer `pnpm install`/build.**
+  (Com sync ativo o install ficou pendurado; pausado, roda normal.)
+- Toolchain sem `tsx`/`esbuild`: usa-se o **type-stripping nativo do Node 24**; por
+  isso os imports internos do `core` usam extensão **`.ts` explícita**.
+
+**Propriedade ID (estilo Notion):** cada card tem `number` — ID sequencial legível
+**por quadro** (#1, #2…), atribuído por trigger no banco. Separado do `code` da taxonomia.
+
+**Paleta de tipos de propriedade (custom fields), ao criar coluna na tabela:**
+texto, número, status, **pessoa** (→ liga no usuário do sistema, `member`), seleção,
+seleção múltipla, checkbox/booleano, link. `field_definition.type` já cobre todos.
+`url`, `arquivos e mídia` e `data` existem no modelo mas por padrão ficam **no corpo do
+card**, não como coluna da tabela — decisão de exibição para o `apps/web`.
+
+**Visões:** tabela/**lista** (colunas configuráveis por campo) e **board por status** —
+ambas já no escopo do MVP (dnd-kit + TanStack Table).
+
+**Integração futura:** unir com o projeto iniciado antes em
+`C:\Users\Entrevista\.gemini\antigravity\scratch\eccoprime-demandas` (a mapear quando
+chegarmos na fase de integração; ver Fase 3 do PLANO.md).

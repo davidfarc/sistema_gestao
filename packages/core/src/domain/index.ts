@@ -24,7 +24,7 @@ import type {
   UserId,
   VolumeId,
   WorkflowRuleId,
-} from "../ids.js";
+} from "../ids.ts";
 
 /** Campos comuns a toda entidade persistida. */
 export interface Entity {
@@ -140,6 +140,8 @@ export type CardStatus = "active" | "blocked" | "done" | "archived";
 export interface Card extends Entity {
   id: CardId;
   boardId: BoardId;
+  /** ID sequencial legível por quadro (estilo Notion): #1, #2… Atribuído no banco. */
+  number: number;
   /** Código gerado da taxonomia: TEX-7A-FUND2-1B-2027 (denormalizado p/ busca). */
   code: string;
   title: string;

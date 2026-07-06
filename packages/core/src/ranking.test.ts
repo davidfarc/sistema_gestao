@@ -6,7 +6,7 @@ import {
   positionAfter,
   positionBefore,
   positionBetween,
-} from "./ranking.js";
+} from "./ranking.ts";
 
 test("firstPosition em coluna vazia", () => {
   assert.equal(firstPosition(), 1000);

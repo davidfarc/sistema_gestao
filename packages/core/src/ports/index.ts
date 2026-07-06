@@ -14,8 +14,8 @@ import type {
   FieldValue,
   Stage,
   WorkflowRule,
-} from "../domain/index.js";
-import type { BoardId, CardId, StageId, UserId } from "../ids.js";
+} from "../domain/index.ts";
+import type { BoardId, CardId, StageId, UserId } from "../ids.ts";
 
 // ── Infra ────────────────────────────────────────────────────────────────────
 

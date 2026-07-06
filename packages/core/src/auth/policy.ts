@@ -9,8 +9,8 @@
  *  - Recurso não visível em LEITURA → NotFound (404), nunca 403 (não vaza existência).
  */
 
-import type { Action, Actor } from "../domain/index.js";
-import { ForbiddenError, NotFoundError, UnauthorizedError } from "../errors.js";
+import type { Action, Actor } from "../domain/index.ts";
+import { ForbiddenError, NotFoundError, UnauthorizedError } from "../errors.ts";
 
 /** O ator tem a permissão de ação concedida por algum papel? */
 export function can(actor: Actor, action: Action): boolean {

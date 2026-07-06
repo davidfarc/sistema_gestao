@@ -2,3 +2,12 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/adapters/*"
+
+# O sistema de arquivos do Google Drive (G:) NÃO suporta symlinks/hardlinks.
+# Sem isto, `pnpm install` falha com ERR_PNPM_EISDIR ao montar o node_modules.
+# (No pnpm 10/11 estas configs ficam aqui, não mais no .npmrc.)
+nodeLinker: hoisted
+packageImportMethod: copy
+
+autoInstallPeers: true
+strictPeerDependencies: false
