@@ -101,6 +101,7 @@ export function BoardView({
           card={selectedCard}
           stage={selectedStage}
           onClose={() => setSelectedCardId(null)}
+          canConfigure={canConfigure}
         />
       )}
     </div>

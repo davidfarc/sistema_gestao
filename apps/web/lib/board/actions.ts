@@ -13,6 +13,9 @@ import type {
   ChecklistItemView,
   ChecklistView,
   CommentView,
+  FieldDef,
+  FieldType,
+  FieldValueRaw,
   MemberOption,
   RoleOption,
   UserRow,
@@ -432,6 +435,156 @@ export async function addComment(cardId: string, body: string): Promise<void> {
     mentions: [],
   });
   if (error) throw new Error(error.message);
+}
+
+// ── Propriedades customizadas (campos) ───────────────────────────────────────
+
+export async function loadFields(): Promise<FieldDef[]> {
+  const db = await createClient();
+  const { data: board } = await db.from("board").select("id").order("created_at").limit(1).maybeSingle();
+  if (!board) return [];
+  const { data } = await db
+    .from("field_definition")
+    .select("id, name, type, config, show_on_card_face, position")
+    .eq("board_id", board.id)
+    .order("position");
+  return (data ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    type: f.type,
+    options: (f.config?.options ?? []) as FieldDef["options"],
+    showOnCardFace: f.show_on_card_face,
+    position: Number(f.position),
+  }));
+}
+
+export async function loadCardFieldValues(cardId: string): Promise<FieldValueRaw[]> {
+  const db = await createClient();
+  const { data } = await db
+    .from("field_value")
+    .select("field_definition_id, value_text, value_number, value_date, value_bool, value_member_id")
+    .eq("card_id", cardId);
+  return (data ?? []).map((v) => ({
+    fieldId: v.field_definition_id,
+    text: v.value_text,
+    number: v.value_number,
+    date: v.value_date,
+    bool: v.value_bool,
+    memberId: v.value_member_id,
+  }));
+}
+
+export async function addField(
+  name: string,
+  type: FieldType,
+  options?: { label: string; color: string }[],
+): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { data: board } = await db
+    .from("board")
+    .select("id, organization_id")
+    .order("created_at")
+    .limit(1)
+    .single();
+  if (!board) throw new Error("Nenhum board.");
+  const { data: last } = await db
+    .from("field_definition")
+    .select("position")
+    .eq("board_id", board.id)
+    .order("position", { ascending: false })
+    .limit(1);
+  const position = last?.[0] ? Number(last[0].position) + 1 : 0;
+
+  const config =
+    (type === "select" || type === "status") && options?.length
+      ? { options: options.map((o, i) => ({ id: `opt${i}`, label: o.label, color: o.color })) }
+      : {};
+
+  const { error } = await db.from("field_definition").insert({
+    organization_id: board.organization_id,
+    board_id: board.id,
+    name: name.trim() || "Propriedade",
+    type,
+    config,
+    show_on_card_face: false,
+    is_filterable: true,
+    position,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function deleteField(fieldId: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db.from("field_definition").delete().eq("id", fieldId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("field_definition")
+    .update({ show_on_card_face: show })
+    .eq("id", fieldId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function setFieldValue(
+  cardId: string,
+  fieldId: string,
+  value: string | number | boolean | null,
+): Promise<void> {
+  await requireActor("card:update");
+  const db = createAdminClient();
+  const { data: field } = await db
+    .from("field_definition")
+    .select("type, organization_id")
+    .eq("id", fieldId)
+    .single();
+  if (!field) throw new Error("Campo não encontrado.");
+
+  const patch: Record<string, unknown> = {
+    field_definition_id: fieldId,
+    card_id: cardId,
+    organization_id: field.organization_id,
+    value_text: null,
+    value_number: null,
+    value_date: null,
+    value_bool: null,
+    value_member_id: null,
+    value_json: null,
+  };
+  switch (field.type) {
+    case "text":
+    case "link":
+    case "select":
+    case "status":
+      patch.value_text = value || null;
+      break;
+    case "number":
+      patch.value_number = value === "" || value == null ? null : Number(value);
+      break;
+    case "date":
+      patch.value_date = value || null;
+      break;
+    case "checkbox":
+      patch.value_bool = Boolean(value);
+      break;
+    case "member":
+      patch.value_member_id = value || null;
+      break;
+  }
+
+  const { error } = await db
+    .from("field_value")
+    .upsert(patch, { onConflict: "field_definition_id,card_id" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
 }
 
 // ── Configuração de etapas (colunas) — só Gestor (board:configure) ───────────

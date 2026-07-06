@@ -8,6 +8,7 @@ import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import { Comments } from "./Comments";
+import { FieldsSection } from "./FieldsSection";
 import { Responsavel } from "./Responsavel";
 import type { CardView, StageView } from "@/lib/board/types";
 
@@ -15,10 +16,12 @@ export function CardDetail({
   card,
   stage,
   onClose,
+  canConfigure = false,
 }: {
   card: CardView;
   stage: StageView | undefined;
   onClose: () => void;
+  canConfigure?: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -86,6 +89,14 @@ export function CardDetail({
               setActivityKey((k) => k + 1);
             }}
           />
+        </div>
+
+        {/* Propriedades customizadas */}
+        <div className="border-b border-neutral-100 p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Propriedades
+          </p>
+          <FieldsSection cardId={card.id} canConfigure={canConfigure} />
         </div>
 
         {/* Checklists */}

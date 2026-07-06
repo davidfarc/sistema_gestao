@@ -37,6 +37,24 @@ export function CardTile({ card }: { card: CardView }) {
         </div>
       )}
 
+      {card.fields.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {card.fields.map((f) => (
+            <span
+              key={f.fieldId}
+              title={f.name}
+              className={
+                "rounded px-1.5 py-0.5 text-[10px] font-medium " +
+                (f.color ? "" : "bg-neutral-100 text-neutral-600")
+              }
+              style={f.color ? { backgroundColor: `${f.color}22`, color: f.color } : undefined}
+            >
+              {f.display}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {card.status && (

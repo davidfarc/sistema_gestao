@@ -30,6 +30,53 @@ export interface CardView {
   labels: Label[];
   dueDate: string | null; // ISO
   status: StatusValue | null;
+  fields: FieldChip[]; // campos customizados marcados "mostrar no card"
+}
+
+// ── Propriedades customizadas (campos) ──────────────────────────────────────
+
+export type FieldType =
+  | "text"
+  | "number"
+  | "date"
+  | "select"
+  | "checkbox"
+  | "member"
+  | "link"
+  | "status";
+
+export interface FieldOption {
+  id: string;
+  label: string;
+  color: string;
+}
+
+export interface FieldDef {
+  id: string;
+  name: string;
+  type: FieldType;
+  options: FieldOption[];
+  showOnCardFace: boolean;
+  position: number;
+}
+
+/** Valor bruto de um campo num card (colunas tipadas). */
+export interface FieldValueRaw {
+  fieldId: string;
+  text: string | null;
+  number: number | null;
+  date: string | null;
+  bool: boolean | null;
+  memberId: string | null;
+}
+
+/** Valor resolvido para exibir na face do card / lista. */
+export interface FieldChip {
+  fieldId: string;
+  name: string;
+  type: FieldType;
+  display: string;
+  color: string | null;
 }
 
 export type StageCategory = "backlog" | "in_progress" | "review" | "done";
