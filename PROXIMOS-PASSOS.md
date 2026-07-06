@@ -82,7 +82,7 @@ Gate de decisão no meio do fluxo: **"Necessita de ajuste?"** (Sim → volta par
 ## Decisões novas (retomada 2026-07-06)
 
 **Ambiente desta máquina:** Node 24 ✅, pnpm 11.10 (via npm global) ✅, git ✅.
-**GitHub = fonte de verdade:** `https://github.com/dafarc/sistema_gestao.git`.
+**GitHub = fonte de verdade:** `https://github.com/davidfarc/sistema_gestao.git`.
 
 **Local do repo:** `C:\dev\ecco-sistema` (disco local). A árvore de trabalho **saiu
 do Google Drive** — o Drive travava/atrasava o pnpm (sem symlink/hardlink + sync
