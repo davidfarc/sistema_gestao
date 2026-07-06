@@ -75,6 +75,14 @@ export interface ActivityView {
   payload: Record<string, unknown>;
 }
 
+export interface CommentView {
+  id: string;
+  authorName: string;
+  body: string;
+  createdAt: string; // ISO
+  isOwn: boolean;
+}
+
 export interface MemberOption {
   id: string;
   name: string;

@@ -7,6 +7,7 @@ import { updateCard } from "@/lib/board/actions";
 import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
+import { Comments } from "./Comments";
 import { Responsavel } from "./Responsavel";
 import type { CardView, StageView } from "@/lib/board/types";
 
@@ -111,9 +112,12 @@ export function CardDetail({
           <ActivityFeed cardId={card.id} refreshKey={activityKey} />
         </div>
 
-        {/* Seções futuras */}
-        <div className="grid gap-2 p-5">
-          <SoonSection title="Comentários" />
+        {/* Comentários */}
+        <div className="p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Comentários
+          </p>
+          <Comments cardId={card.id} />
         </div>
 
         {/* Footer */}
@@ -121,21 +125,12 @@ export function CardDetail({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-700"
+            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-high"
           >
             Fechar
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SoonSection({ title }: { title: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-2">
-      <span className="text-sm font-medium text-neutral-600">{title}</span>
-      <span className="text-[11px] text-neutral-400">em breve</span>
     </div>
   );
 }

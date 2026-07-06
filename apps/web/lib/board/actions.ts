@@ -11,6 +11,7 @@ import type {
   AttachmentView,
   ChecklistItemView,
   ChecklistView,
+  CommentView,
   MemberOption,
   RoleOption,
   UserRow,
@@ -383,4 +384,63 @@ export async function setUserRole(userId: string, roleId: string): Promise<void>
   const { error } = await db.from("user_role").insert({ user_id: userId, role_id: roleId });
   if (error) throw new Error(error.message);
   revalidatePath("/configuracoes/usuarios");
+}
+
+// ── Comentários ──────────────────────────────────────────────────────────────
+
+export async function loadComments(cardId: string): Promise<CommentView[]> {
+  const db = createAdminClient();
+  const actor = await provisionAndGetActor();
+  const { data } = await db
+    .from("comment")
+    .select("id, body, author_id, created_at")
+    .eq("card_id", cardId)
+    .is("archived_at", null)
+    .order("created_at", { ascending: true });
+  const rows = data ?? [];
+
+  const authorIds = [...new Set(rows.map((r) => r.author_id))];
+  const nameOf = new Map<string, string>();
+  if (authorIds.length > 0) {
+    const { data: users } = await db.from("app_user").select("id, name, email").in("id", authorIds);
+    for (const u of users ?? []) nameOf.set(u.id, u.name || u.email);
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    authorName: nameOf.get(r.author_id) ?? "Alguém",
+    createdAt: r.created_at,
+    isOwn: actor?.userId === r.author_id,
+  }));
+}
+
+export async function addComment(cardId: string, body: string): Promise<void> {
+  const text = body.trim();
+  if (!text) return;
+  const actor = await provisionAndGetActor();
+  if (!actor) throw new Error("Sessão expirada. Entre novamente.");
+  const db = createAdminClient();
+  const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
+  if (!card) throw new Error("Card não encontrado.");
+  const { error } = await db.from("comment").insert({
+    organization_id: card.organization_id,
+    card_id: cardId,
+    author_id: actor.userId,
+    body: text,
+    mentions: [],
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Remove o comentário — só o autor pode. */
+export async function deleteComment(id: string): Promise<void> {
+  const actor = await provisionAndGetActor();
+  if (!actor) throw new Error("Sessão expirada.");
+  const db = createAdminClient();
+  const { data: c } = await db.from("comment").select("author_id").eq("id", id).maybeSingle();
+  if (!c || c.author_id !== actor.userId) {
+    throw new Error("Só o autor pode remover o comentário.");
+  }
+  await db.from("comment").delete().eq("id", id);
 }
