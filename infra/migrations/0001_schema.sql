@@ -309,9 +309,9 @@ create table attachment (
   id              uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organization(id),
   card_id         uuid not null references card(id) on delete cascade,
-  kind            text not null check (kind in ('drive_link','emenda')),
+  kind            text not null default 'link', -- link de qualquer origem
   label           text not null default '',
-  url             text not null,                -- link do Google Drive
+  url             text not null,                -- URL clicável (Drive ou não)
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   archived_at     timestamptz

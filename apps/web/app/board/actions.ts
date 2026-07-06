@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ChecklistItemView, ChecklistView } from "@/lib/board/types";
+import type { AttachmentView, ChecklistItemView, ChecklistView } from "@/lib/board/types";
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 
@@ -149,5 +149,47 @@ export async function deleteChecklistItem(itemId: string): Promise<void> {
 export async function deleteChecklist(checklistId: string): Promise<void> {
   const db = createAdminClient();
   const { error } = await db.from("checklist").delete().eq("id", checklistId);
+  if (error) throw new Error(error.message);
+}
+
+// ── Anexos (qualquer link clicável) ──────────────────────────────────────────
+
+function normalizeUrl(url: string): string {
+  const t = url.trim();
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+}
+
+export async function loadAttachments(cardId: string): Promise<AttachmentView[]> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from("attachment")
+    .select("id, label, url")
+    .eq("card_id", cardId)
+    .order("created_at");
+  return (data ?? []).map((a) => ({ id: a.id, label: a.label, url: a.url }));
+}
+
+export async function addAttachment(
+  cardId: string,
+  url: string,
+  label: string,
+): Promise<void> {
+  const db = createAdminClient();
+  if (!url.trim()) throw new Error("Informe um link.");
+  const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
+  if (!card) throw new Error("Card não encontrado.");
+  const { error } = await db.from("attachment").insert({
+    organization_id: card.organization_id,
+    card_id: cardId,
+    kind: "link",
+    url: normalizeUrl(url),
+    label: label.trim(),
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteAttachment(id: string): Promise<void> {
+  const db = createAdminClient();
+  const { error } = await db.from("attachment").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }

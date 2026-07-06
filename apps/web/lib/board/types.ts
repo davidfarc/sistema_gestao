@@ -60,3 +60,9 @@ export interface ChecklistView {
   position: number;
   items: ChecklistItemView[];
 }
+
+export interface AttachmentView {
+  id: string;
+  label: string;
+  url: string;
+}

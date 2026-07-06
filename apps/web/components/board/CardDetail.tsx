@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { updateCard } from "@/app/board/actions";
+import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import type { CardView, StageView } from "@/lib/board/types";
 
@@ -75,9 +76,16 @@ export function CardDetail({
           <Checklists cardId={card.id} />
         </div>
 
+        {/* Anexos */}
+        <div className="border-b border-neutral-100 p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Anexos
+          </p>
+          <Attachments cardId={card.id} />
+        </div>
+
         {/* Seções futuras */}
         <div className="grid gap-2 p-5">
-          <SoonSection title="Anexos (links do Drive)" />
           <SoonSection title="Comentários" />
         </div>
 
