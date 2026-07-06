@@ -1,8 +1,19 @@
 import { BoardView } from "@/components/board/BoardView";
-import { MOCK_BOARD } from "@/lib/board/mock";
+import { loadBoardPage } from "@/lib/board/queries";
 
-// Quadro com dados de demonstração. Quando plugarmos o banco, este page vira um
-// Server Component que carrega o board real (atrás de auth) e mapeia p/ CardView.
-export default function BoardPage() {
-  return <BoardView board={MOCK_BOARD} />;
+// Sempre lê o estado atual do banco (e reflete revalidatePath após mutações).
+export const dynamic = "force-dynamic";
+
+export default async function BoardPage() {
+  const data = await loadBoardPage();
+  if (!data) {
+    return (
+      <div className="p-8 text-neutral-500">
+        Nenhum quadro encontrado — aplique o seed (<code>infra/apply.mjs</code>).
+      </div>
+    );
+  }
+  return (
+    <BoardView board={data.board} materias={data.materias} series={data.series} />
+  );
 }

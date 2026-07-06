@@ -51,3 +51,11 @@ export interface BoardData {
   cards: CardView[];
   members: Member[];
 }
+
+/** Opção de taxonomia para o formulário de novo card. */
+export interface TaxonomyOption {
+  id: string;
+  name: string;
+  code: string;
+}
+

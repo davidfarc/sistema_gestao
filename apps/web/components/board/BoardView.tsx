@@ -1,22 +1,36 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
-import type { BoardData } from "@/lib/board/types";
+import { NewCardDialog } from "./NewCardDialog";
+import { moveCard } from "@/app/board/actions";
+import type { BoardData, TaxonomyOption } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
-export function BoardView({ board }: { board: BoardData }) {
+export function BoardView({
+  board,
+  materias,
+  series,
+}: {
+  board: BoardData;
+  materias: TaxonomyOption[];
+  series: TaxonomyOption[];
+}) {
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
 
+  // Sincroniza com o servidor após router.refresh() (ex.: card recém-criado).
+  useEffect(() => setCards(board.cards), [board.cards]);
+
   function move(cardId: string, toStageId: string) {
-    // TODO: persistir via CardService.move (avalia gates no servidor).
     setCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, stageId: toStageId } : c)),
     );
+    // TODO: trocar por CardService.move (avalia gates). Por ora persiste direto.
+    void moveCard(cardId, toStageId);
   }
 
   return (
@@ -24,18 +38,19 @@ export function BoardView({ board }: { board: BoardData }) {
       <header className="flex items-center gap-4 border-b border-neutral-200 px-6 py-3">
         <div>
           <h1 className="text-lg font-semibold text-neutral-800">{board.name}</h1>
-          <p className="text-xs text-neutral-400">
-            {cards.length} cards · dados de demonstração
-          </p>
+          <p className="text-xs text-neutral-400">{cards.length} cards</p>
         </div>
 
-        <div className="ml-auto flex rounded-lg border border-neutral-200 p-0.5 text-sm">
-          <ToggleButton active={view === "kanban"} onClick={() => setView("kanban")}>
-            Kanban
-          </ToggleButton>
-          <ToggleButton active={view === "list"} onClick={() => setView("list")}>
-            Lista
-          </ToggleButton>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="flex rounded-lg border border-neutral-200 p-0.5 text-sm">
+            <ToggleButton active={view === "kanban"} onClick={() => setView("kanban")}>
+              Kanban
+            </ToggleButton>
+            <ToggleButton active={view === "list"} onClick={() => setView("list")}>
+              Lista
+            </ToggleButton>
+          </div>
+          <NewCardDialog materias={materias} series={series} />
         </div>
       </header>
 
