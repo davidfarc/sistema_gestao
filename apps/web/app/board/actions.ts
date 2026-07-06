@@ -1,9 +1,27 @@
 "use server";
 
+import {
+  CardService,
+  GateBlockedError,
+  asId,
+  type Action,
+  type Actor,
+  type RuleViolation,
+} from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
+import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AttachmentView, ChecklistItemView, ChecklistView } from "@/lib/board/types";
+
+/** Ator de sistema (dev, sem auth). Quando o login entrar, usar o ator real. */
+const SYSTEM_ACTOR: Actor = {
+  userId: asId("system"),
+  organizationId: asId("system"),
+  isInternal: true,
+  permissions: new Set<Action>(["card:move"]),
+  teamIds: [],
+};
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 
@@ -38,15 +56,26 @@ export async function createCard(title: string): Promise<void> {
   revalidatePath("/board");
 }
 
-/** Move um card de etapa (persiste). TODO: passar por CardService.move (gates). */
-export async function moveCard(cardId: string, toStageId: string): Promise<void> {
-  const db = createAdminClient();
-  const { error } = await db
-    .from("card")
-    .update({ stage_id: toStageId, stage_entered_at: new Date().toISOString() })
-    .eq("id", cardId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/board");
+/**
+ * Move um card de etapa PELO CardService — avalia os gates (workflow_rules) no
+ * servidor. Se um gate block barrar, retorna { ok:false, reason } (não move).
+ */
+export async function moveCard(
+  cardId: string,
+  toStageId: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
+  try {
+    await service.move(SYSTEM_ACTOR, cardId, toStageId);
+    revalidatePath("/board");
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof GateBlockedError) {
+      const violations = (e.details ?? []) as RuleViolation[];
+      return { ok: false, reason: violations[0]?.message ?? "Transição bloqueada." };
+    }
+    throw e;
+  }
 }
 
 /** Renomeia o card. */

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { CardDetail } from "./CardDetail";
@@ -12,9 +13,11 @@ import type { BoardData } from "@/lib/board/types";
 type View = "kanban" | "list";
 
 export function BoardView({ board }: { board: BoardData }) {
+  const router = useRouter();
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   // Sincroniza com o servidor após router.refresh() (ex.: card recém-criado).
   useEffect(() => setCards(board.cards), [board.cards]);
@@ -25,11 +28,17 @@ export function BoardView({ board }: { board: BoardData }) {
     : undefined;
 
   function move(cardId: string, toStageId: string) {
+    setMoveError(null);
+    // Otimista: move na hora; se um gate barrar no servidor, reverte.
     setCards((prev) =>
       prev.map((c) => (c.id === cardId ? { ...c, stageId: toStageId } : c)),
     );
-    // TODO: trocar por CardService.move (avalia gates). Por ora persiste direto.
-    void moveCard(cardId, toStageId);
+    moveCard(cardId, toStageId).then((res) => {
+      if (!res.ok) {
+        setMoveError(res.reason);
+        router.refresh(); // reverte para o estado real do servidor
+      }
+    });
   }
 
   return (
@@ -52,6 +61,20 @@ export function BoardView({ board }: { board: BoardData }) {
           <NewCardDialog />
         </div>
       </header>
+
+      {moveError && (
+        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-800">
+          <span>🚫 {moveError}</span>
+          <button
+            type="button"
+            onClick={() => setMoveError(null)}
+            className="ml-auto text-amber-600 hover:text-amber-900"
+            aria-label="Fechar aviso"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto p-6">
         {view === "kanban" ? (
