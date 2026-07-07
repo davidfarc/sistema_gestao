@@ -58,6 +58,7 @@ export interface FieldDef {
   options: FieldOption[];
   showOnCardFace: boolean;
   position: number;
+  global: boolean; // true = aparece em todos os pipelines (board_id nulo)
 }
 
 /** Valor bruto de um campo num card (colunas tipadas). */

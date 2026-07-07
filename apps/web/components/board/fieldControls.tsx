@@ -118,6 +118,7 @@ export function FieldEditor({
 }
 
 export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => void }) {
+  const boardId = useBoardId();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -168,11 +169,12 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               type: field.type,
               optionsText: field.options.map((o) => o.label).join(", "),
               colors: field.options.map((o) => o.color),
+              global: field.global,
             }}
             submitLabel="Salvar"
             onClose={close}
-            onSubmit={async (name, type, options) => {
-              await updateField(field.id, name, type, options);
+            onSubmit={async (name, type, options, global) => {
+              await updateField(field.id, name, type, options, { global, boardId });
               close();
               onChanged();
             }}
@@ -222,18 +224,20 @@ function PropertyForm({
   onClose,
   onSubmit,
 }: {
-  initial?: { name: string; type: FieldType; optionsText: string; colors?: string[] };
+  initial?: { name: string; type: FieldType; optionsText: string; colors?: string[]; global?: boolean };
   submitLabel: string;
   onClose: () => void;
   onSubmit: (
     name: string,
     type: FieldType,
-    options?: { label: string; color: string }[],
+    options: { label: string; color: string }[] | undefined,
+    global: boolean,
   ) => Promise<void>;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<FieldType>(initial?.type ?? "text");
   const [optionsText, setOptionsText] = useState(initial?.optionsText ?? "");
+  const [global, setGlobal] = useState(initial?.global ?? false);
   const [pending, setPending] = useState(false);
 
   const needsOptions = type === "select" || type === "status";
@@ -253,7 +257,7 @@ function PropertyForm({
           }))
       : undefined;
     try {
-      await onSubmit(name, type, options);
+      await onSubmit(name, type, options, global);
     } finally {
       setPending(false);
     }
@@ -294,6 +298,17 @@ function PropertyForm({
           className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500"
         />
       )}
+      <label className="mt-2 flex items-start gap-2 text-xs text-neutral-600">
+        <input
+          type="checkbox"
+          checked={global}
+          onChange={(e) => setGlobal(e.target.checked)}
+          className="mt-0.5 h-3.5 w-3.5 rounded border-neutral-300"
+        />
+        <span>
+          <span className="font-medium">Global</span> — aparece em todos os pipelines
+        </span>
+      </label>
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="text-sm text-neutral-500 hover:text-neutral-800">
           Cancelar
@@ -316,8 +331,8 @@ export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded
     <PropertyForm
       submitLabel="Criar"
       onClose={onClose}
-      onSubmit={async (name, type, options) => {
-        await addField(boardId, name, type, options);
+      onSubmit={async (name, type, options, global) => {
+        await addField(boardId, name, type, options, global);
         onAdded();
       }}
     />

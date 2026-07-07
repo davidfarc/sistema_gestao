@@ -78,7 +78,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     db
       .from("field_definition")
       .select("id, name, type, config, position")
-      .eq("board_id", board.id)
+      .or(`board_id.eq.${board.id},board_id.is.null`)
       .eq("show_on_card_face", true)
       .order("position"),
   ]);

@@ -759,10 +759,11 @@ export async function addComment(
 
 export async function loadFields(boardId: string): Promise<FieldDef[]> {
   const db = await createClient();
+  // Campos deste pipeline + os GLOBAIS (board_id nulo). RLS escopa.
   const { data } = await db
     .from("field_definition")
-    .select("id, name, type, config, show_on_card_face, position")
-    .eq("board_id", boardId)
+    .select("id, name, type, config, show_on_card_face, position, board_id")
+    .or(`board_id.eq.${boardId},board_id.is.null`)
     .order("position");
   return (data ?? []).map((f) => ({
     id: f.id,
@@ -771,6 +772,7 @@ export async function loadFields(boardId: string): Promise<FieldDef[]> {
     options: (f.config?.options ?? []) as FieldDef["options"],
     showOnCardFace: f.show_on_card_face,
     position: Number(f.position),
+    global: f.board_id === null,
   }));
 }
 
@@ -816,6 +818,7 @@ export async function addField(
   name: string,
   type: FieldType,
   options?: { label: string; color: string }[],
+  global = false,
 ): Promise<void> {
   await requireActor("field:manage");
   const db = createAdminClient();
@@ -825,12 +828,15 @@ export async function addField(
     .eq("id", boardId)
     .single();
   if (!board) throw new Error("Pipeline não encontrado.");
-  const { data: last } = await db
+  // Próxima posição dentro do escopo (global = board_id nulo da org; senão o board).
+  const posQ = db
     .from("field_definition")
     .select("position")
-    .eq("board_id", board.id)
     .order("position", { ascending: false })
     .limit(1);
+  const { data: last } = global
+    ? await posQ.is("board_id", null).eq("organization_id", board.organization_id)
+    : await posQ.eq("board_id", board.id);
   const position = last?.[0] ? Number(last[0].position) + 1 : 0;
 
   const config =
@@ -840,7 +846,7 @@ export async function addField(
 
   const { error } = await db.from("field_definition").insert({
     organization_id: board.organization_id,
-    board_id: board.id,
+    board_id: global ? null : board.id,
     name: name.trim() || "Propriedade",
     type,
     config,
@@ -862,7 +868,8 @@ export async function updateField(
   fieldId: string,
   name: string,
   type: FieldType,
-  options?: { label: string; color: string }[],
+  options: { label: string; color: string }[] | undefined,
+  scope: { global: boolean; boardId: string },
 ): Promise<void> {
   await requireActor("field:manage");
   const db = createAdminClient();
@@ -880,7 +887,12 @@ export async function updateField(
 
   const { error } = await db
     .from("field_definition")
-    .update({ name: name.trim() || "Propriedade", type, config })
+    .update({
+      name: name.trim() || "Propriedade",
+      type,
+      config,
+      board_id: scope.global ? null : scope.boardId,
+    })
     .eq("id", fieldId);
   if (error) throw new Error(error.message);
 
