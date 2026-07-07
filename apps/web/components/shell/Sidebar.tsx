@@ -19,6 +19,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useSidebar } from "./SidebarContext";
+import { UnreadBadge } from "./UnreadBadge";
 
 interface MenuItem {
   Icon: LucideIcon;
@@ -30,7 +31,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: MessagesSquare, label: "Canais", href: "/canais" },
+  { Icon: MessagesSquare, label: "Conversas", href: "/canais" },
   { Icon: Users, label: "Usuários", href: "/configuracoes/usuarios" },
 ];
 
@@ -106,7 +107,7 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
                   title={!showLabels ? item.label : undefined}
                   aria-disabled={item.disabled}
                   className={clsx(
-                    "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                    "relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
                     active
                       ? "bg-white/10 font-semibold text-white"
                       : "text-white/70 hover:bg-white/5 hover:text-white",
@@ -119,6 +120,7 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
                     aria-hidden="true"
                   />
                   {showLabels && <span className="flex-1 truncate whitespace-nowrap">{item.label}</span>}
+                  {item.href === "/canais" && <UnreadBadge collapsed={!showLabels} />}
                 </Link>
               );
             })}

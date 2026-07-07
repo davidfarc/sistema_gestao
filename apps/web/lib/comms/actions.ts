@@ -4,22 +4,64 @@ import { revalidatePath } from "next/cache";
 
 import { requireActor } from "@/lib/actor";
 import { getSessionUser } from "@/lib/auth";
-import type { ChannelView, MessageView } from "@/lib/board/types";
+import type {
+  ConversationView,
+  MessageView,
+  UserSearchResult,
+} from "@/lib/board/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-/** Canais que o usuário pode ver (RLS: só onde é membro). */
-export async function loadChannels(): Promise<ChannelView[]> {
-  const db = await createClient();
-  const { data } = await db
-    .from("channel")
-    .select("id, name")
-    .is("archived_at", null)
-    .order("created_at");
-  return (data ?? []).map((c) => ({ id: c.id, name: c.name }));
+function initialsOf(text: string): string {
+  const t = text.trim();
+  if (!t) return "?";
+  const parts = t.split(/\s+/);
+  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+  return t.slice(0, 2).toUpperCase();
 }
 
-/** Cria um canal e adiciona todos os usuários internos como membros. */
+/**
+ * Lista de conversas (canais de grupo + DMs) do usuário, estilo WhatsApp:
+ * última mensagem + horário + não-lidas, ordenada por atividade recente.
+ */
+export async function loadConversations(): Promise<ConversationView[]> {
+  const su = await getSessionUser();
+  if (!su) return [];
+  const db = createAdminClient();
+  const { data, error } = await db.rpc("conversation_list", { p_user: su.id });
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((r: {
+    channel_id: string;
+    kind: "group" | "dm";
+    name: string;
+    other_name: string | null;
+    other_email: string | null;
+    last_body: string | null;
+    last_at: string | null;
+    unread: number;
+  }) => {
+    const displayName =
+      r.kind === "dm" ? r.other_name || r.other_email || "Conversa" : r.name;
+    return {
+      id: r.channel_id,
+      kind: r.kind,
+      name: displayName,
+      initials: initialsOf(displayName),
+      lastMessage: r.last_body,
+      lastMessageAt: r.last_at,
+      unread: Number(r.unread ?? 0),
+    };
+  });
+}
+
+/** Soma de não-lidas em todas as conversas (badge da sidebar). */
+export async function loadUnreadTotal(): Promise<number> {
+  const convos = await loadConversations();
+  return convos.reduce((sum, c) => sum + c.unread, 0);
+}
+
+/** Cria um canal de grupo e adiciona todos os usuários internos como membros. */
 export async function createChannel(name: string): Promise<void> {
   await requireActor("channel:post");
   const db = createAdminClient();
@@ -33,7 +75,7 @@ export async function createChannel(name: string): Promise<void> {
 
   const { data: channel, error } = await db
     .from("channel")
-    .insert({ organization_id: org.id, name: name.trim() || "Canal" })
+    .insert({ organization_id: org.id, name: name.trim() || "Canal", kind: "group" })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -47,6 +89,84 @@ export async function createChannel(name: string): Promise<void> {
   if (members.length > 0) await db.from("channel_member").insert(members);
 
   revalidatePath("/canais");
+}
+
+/** Busca usuários internos (exceto eu) para iniciar uma conversa. */
+export async function searchUsers(query: string): Promise<UserSearchResult[]> {
+  const actor = await requireActor("channel:post");
+  const db = createAdminClient();
+  let q = db
+    .from("app_user")
+    .select("id, name, email")
+    .eq("organization_id", actor.organizationId)
+    .eq("is_internal", true)
+    .is("archived_at", null)
+    .neq("id", actor.userId)
+    .order("name")
+    .limit(20);
+  const term = query.trim();
+  if (term) q = q.or(`name.ilike.%${term}%,email.ilike.%${term}%`);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((u) => ({ id: u.id, name: u.name || u.email, email: u.email }));
+}
+
+/** Abre (ou cria) a DM 1:1 com outra pessoa. Retorna o id do canal. */
+export async function openOrCreateDm(otherUserId: string): Promise<string> {
+  const actor = await requireActor("channel:post");
+  const db = createAdminClient();
+  const me = actor.userId as string;
+
+  // Chave estável do par (menor:maior) → 1 DM por par, find-or-create.
+  const [a, b] = [me, otherUserId].sort();
+  const dmKey = `${a}:${b}`;
+
+  const { data: existing } = await db
+    .from("channel")
+    .select("id")
+    .eq("organization_id", actor.organizationId)
+    .eq("dm_key", dmKey)
+    .maybeSingle();
+  if (existing) return existing.id;
+
+  // A outra pessoa precisa existir e ser da org.
+  const { data: other } = await db
+    .from("app_user")
+    .select("id, name, email")
+    .eq("id", otherUserId)
+    .eq("organization_id", actor.organizationId)
+    .maybeSingle();
+  if (!other) throw new Error("Usuário não encontrado.");
+
+  const { data: channel, error } = await db
+    .from("channel")
+    .insert({
+      organization_id: actor.organizationId,
+      name: other.name || other.email,
+      kind: "dm",
+      dm_key: dmKey,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    // Corrida: outro request criou a mesma DM entre o SELECT e o INSERT.
+    const { data: raced } = await db
+      .from("channel")
+      .select("id")
+      .eq("organization_id", actor.organizationId)
+      .eq("dm_key", dmKey)
+      .maybeSingle();
+    if (raced) return raced.id;
+    throw new Error(error.message);
+  }
+
+  await db.from("channel_member").insert([
+    { channel_id: channel.id, user_id: me },
+    { channel_id: channel.id, user_id: otherUserId },
+  ]);
+
+  revalidatePath("/canais");
+  return channel.id;
 }
 
 export async function loadMessages(channelId: string): Promise<MessageView[]> {
@@ -95,4 +215,16 @@ export async function postMessage(channelId: string, body: string): Promise<void
     mentions: [],
   });
   if (error) throw new Error(error.message);
+}
+
+/** Marca a conversa como lida (last_read_at = agora) para o usuário atual. */
+export async function markRead(channelId: string): Promise<void> {
+  const su = await getSessionUser();
+  if (!su) return;
+  const db = createAdminClient();
+  await db
+    .from("channel_member")
+    .update({ last_read_at: new Date().toISOString() })
+    .eq("channel_id", channelId)
+    .eq("user_id", su.id);
 }

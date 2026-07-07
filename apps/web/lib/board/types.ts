@@ -140,6 +140,26 @@ export interface ChannelView {
   name: string;
 }
 
+/** Item da lista de conversas (estilo WhatsApp): canal de grupo ou DM 1:1. */
+export interface ConversationView {
+  id: string;
+  kind: "group" | "dm";
+  /** Nome do grupo, ou o nome da outra pessoa (DM). */
+  name: string;
+  /** Iniciais p/ o avatar (DM usa a outra pessoa; grupo usa o nome do canal). */
+  initials: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null; // ISO
+  unread: number;
+}
+
+/** Pessoa retornada na busca para iniciar uma conversa. */
+export interface UserSearchResult {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface MessageView {
   id: string;
   authorName: string;
