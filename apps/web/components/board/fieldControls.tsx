@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
-import { addField, deleteField, toggleFieldOnCard } from "@/lib/board/actions";
+import { addField, deleteField, toggleFieldOnCard, updateField } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
 
@@ -118,6 +118,13 @@ export function FieldEditor({
 
 export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  function close() {
+    setOpen(false);
+    setEditing(false);
+  }
+
   return (
     <span className="relative inline-block">
       <button
@@ -128,10 +135,17 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
       >
         ⋯
       </button>
-      {open && (
+      {open && !editing && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-10" onClick={close} />
           <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
+            >
+              Editar propriedade
+            </button>
             <button
               type="button"
               onClick={async () => {
@@ -157,15 +171,51 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
           </div>
         </>
       )}
+      {editing && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={close} />
+          <div className="absolute right-0 z-20 mt-1">
+            <PropertyForm
+              initial={{
+                name: field.name,
+                type: field.type,
+                optionsText: field.options.map((o) => o.label).join(", "),
+                colors: field.options.map((o) => o.color),
+              }}
+              submitLabel="Salvar"
+              onClose={close}
+              onSubmit={async (name, type, options) => {
+                await updateField(field.id, name, type, options);
+                close();
+                onChanged();
+              }}
+            />
+          </div>
+        </>
+      )}
     </span>
   );
 }
 
-export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const boardId = useBoardId();
-  const [name, setName] = useState("");
-  const [type, setType] = useState<FieldType>("text");
-  const [optionsText, setOptionsText] = useState("");
+/** Formulário compartilhado por AddProperty e EditProperty (nome, tipo, opções). */
+function PropertyForm({
+  initial,
+  submitLabel,
+  onClose,
+  onSubmit,
+}: {
+  initial?: { name: string; type: FieldType; optionsText: string; colors?: string[] };
+  submitLabel: string;
+  onClose: () => void;
+  onSubmit: (
+    name: string,
+    type: FieldType,
+    options?: { label: string; color: string }[],
+  ) => Promise<void>;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [type, setType] = useState<FieldType>(initial?.type ?? "text");
+  const [optionsText, setOptionsText] = useState(initial?.optionsText ?? "");
   const [pending, setPending] = useState(false);
 
   const needsOptions = type === "select" || type === "status";
@@ -179,11 +229,16 @@ export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean)
-          .map((label, i) => ({ label, color: OPTION_COLORS[i % OPTION_COLORS.length]! }))
+          .map((label, i) => ({
+            label,
+            color: initial?.colors?.[i] ?? OPTION_COLORS[i % OPTION_COLORS.length]!,
+          }))
       : undefined;
-    await addField(boardId, name, type, options);
-    setPending(false);
-    onAdded();
+    try {
+      await onSubmit(name, type, options);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -230,9 +285,23 @@ export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded
           disabled={pending}
           className="rounded-lg bg-primary px-3 py-1 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-60"
         >
-          Criar
+          {submitLabel}
         </button>
       </div>
     </form>
+  );
+}
+
+export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const boardId = useBoardId();
+  return (
+    <PropertyForm
+      submitLabel="Criar"
+      onClose={onClose}
+      onSubmit={async (name, type, options) => {
+        await addField(boardId, name, type, options);
+        onAdded();
+      }}
+    />
   );
 }

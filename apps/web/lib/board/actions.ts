@@ -763,6 +763,44 @@ export async function addField(
   revalidatePath("/board");
 }
 
+/**
+ * Edita uma propriedade: nome, tipo e (para select/status) as opções. Se o TIPO
+ * mudar, limpa os valores antigos — as colunas tipadas divergem e mostrariam
+ * lixo. Opções mantêm o id posicional (opt0, opt1…) para não quebrar valores já
+ * setados quando só os rótulos mudam.
+ */
+export async function updateField(
+  fieldId: string,
+  name: string,
+  type: FieldType,
+  options?: { label: string; color: string }[],
+): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { data: existing } = await db
+    .from("field_definition")
+    .select("type")
+    .eq("id", fieldId)
+    .maybeSingle();
+  if (!existing) throw new Error("Propriedade não encontrada.");
+
+  const config =
+    (type === "select" || type === "status") && options?.length
+      ? { options: options.map((o, i) => ({ id: `opt${i}`, label: o.label, color: o.color })) }
+      : {};
+
+  const { error } = await db
+    .from("field_definition")
+    .update({ name: name.trim() || "Propriedade", type, config })
+    .eq("id", fieldId);
+  if (error) throw new Error(error.message);
+
+  if (existing.type !== type) {
+    await db.from("field_value").delete().eq("field_definition_id", fieldId);
+  }
+  revalidatePath("/board");
+}
+
 export async function deleteField(fieldId: string): Promise<void> {
   await requireActor("board:configure");
   const db = createAdminClient();
