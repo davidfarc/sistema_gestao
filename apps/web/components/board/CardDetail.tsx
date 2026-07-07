@@ -14,6 +14,7 @@ import { Comments } from "./Comments";
 import { Responsavel } from "./Responsavel";
 
 const EMPTY: CardDetailData = {
+  description: null,
   checklists: [],
   attachments: [],
   activity: [],
@@ -34,6 +35,7 @@ export function CardDetail({
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [title, setTitle] = useState(card.title);
+  const [description, setDescription] = useState<string | null>(null);
   const [data, setData] = useState<CardDetailData | null>(null);
 
   const reload = useCallback(() => {
@@ -43,7 +45,10 @@ export function CardDetail({
   useEffect(() => {
     let active = true;
     loadCardDetail(card.id).then((d) => {
-      if (active) setData(d);
+      if (active) {
+        setData(d);
+        setDescription(d.description ?? "");
+      }
     });
     return () => {
       active = false;
@@ -55,6 +60,14 @@ export function CardDetail({
     if (!next || next === card.title) return;
     startTransition(async () => {
       await updateCard({ id: card.id, title: next });
+      router.refresh();
+    });
+  }
+
+  function saveDescription() {
+    if (description == null || description === (data?.description ?? "")) return;
+    startTransition(async () => {
+      await updateCard({ id: card.id, description });
       router.refresh();
     });
   }
@@ -112,6 +125,17 @@ export function CardDetail({
             </button>
           </div>
         </div>
+
+        <Section title="Descrição">
+          <textarea
+            value={description ?? ""}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={saveDescription}
+            rows={3}
+            placeholder="Adicione uma descrição…"
+            className="w-full resize-y rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400"
+          />
+        </Section>
 
         <Section title="Responsável">
           <Responsavel

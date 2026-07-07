@@ -188,6 +188,7 @@ export interface MessageView {
 
 /** Tudo do detalhe do card, numa chamada só (evita ~6 round trips ao abrir). */
 export interface CardDetailData {
+  description: string | null;
   checklists: ChecklistView[];
   attachments: AttachmentView[];
   activity: ActivityView[];

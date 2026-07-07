@@ -221,15 +221,26 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
 
 /** Detalhe do card numa chamada só — os 6 leitores em paralelo (1 round trip). */
 export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
-  const [checklists, attachments, activity, comments, assignments, members] = await Promise.all([
-    loadChecklists(cardId),
-    loadAttachments(cardId),
-    loadActivity(cardId),
-    loadComments(cardId),
-    loadCardAssignments(cardId),
-    loadMembers(),
-  ]);
-  return { checklists, attachments, activity, comments, assignments, members };
+  const db = await createClient(); // sessão → RLS
+  const [checklists, attachments, activity, comments, assignments, members, cardRes] =
+    await Promise.all([
+      loadChecklists(cardId),
+      loadAttachments(cardId),
+      loadActivity(cardId),
+      loadComments(cardId),
+      loadCardAssignments(cardId),
+      loadMembers(),
+      db.from("card").select("description").eq("id", cardId).maybeSingle(),
+    ]);
+  return {
+    description: cardRes.data?.description ?? null,
+    checklists,
+    attachments,
+    activity,
+    comments,
+    assignments,
+    members,
+  };
 }
 
 // ── Checklists ───────────────────────────────────────────────────────────────
