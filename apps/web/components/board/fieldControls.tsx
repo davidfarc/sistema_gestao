@@ -15,6 +15,7 @@ import { useState, type FormEvent } from "react";
 
 import { addField, deleteField, toggleFieldOnCard } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
+import { useBoardId } from "./BoardContext";
 
 const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
   { type: "text", label: "Texto", Icon: Type },
@@ -161,6 +162,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
 }
 
 export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const boardId = useBoardId();
   const [name, setName] = useState("");
   const [type, setType] = useState<FieldType>("text");
   const [optionsText, setOptionsText] = useState("");
@@ -179,7 +181,7 @@ export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded
           .filter(Boolean)
           .map((label, i) => ({ label, color: OPTION_COLORS[i % OPTION_COLORS.length]! }))
       : undefined;
-    await addField(name, type, options);
+    await addField(boardId, name, type, options);
     setPending(false);
     onAdded();
   }

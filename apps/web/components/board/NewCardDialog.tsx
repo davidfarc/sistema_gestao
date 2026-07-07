@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 
+import { useBoardId } from "./BoardContext";
 import { createCard } from "@/lib/board/actions";
 
 export function NewCardDialog() {
   const router = useRouter();
+  const boardId = useBoardId();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
@@ -21,7 +23,7 @@ export function NewCardDialog() {
     setError(null);
     startTransition(async () => {
       try {
-        await createCard(title);
+        await createCard(boardId, title);
         setTitle("");
         setOpen(false);
         router.refresh();

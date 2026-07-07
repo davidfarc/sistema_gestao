@@ -1,6 +1,6 @@
 import { memberView } from "@/lib/board/avatar";
 import { createClient } from "@/lib/supabase/server";
-import type { BoardData, CardView, FieldChip, FieldType, StageView } from "./types";
+import type { BoardData, BoardSummary, CardView, FieldChip, FieldType, StageView } from "./types";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -42,15 +42,30 @@ function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip |
  * Carrega o board com o CLIENT DE SESSÃO (RLS escopa por usuário). Resolve o
  * responsável da etapa atual e os campos customizados marcados "mostrar no card".
  */
-export async function loadBoard(): Promise<BoardData | null> {
+export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const db = await createClient();
 
-  const { data: board } = await db
-    .from("board")
-    .select("id, name")
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
+  // Pipeline pedido (se visível) ou o primeiro não-arquivado. RLS escopa.
+  let board: { id: string; name: string } | null = null;
+  if (boardId) {
+    const { data } = await db
+      .from("board")
+      .select("id, name")
+      .eq("id", boardId)
+      .is("archived_at", null)
+      .maybeSingle();
+    board = data;
+  }
+  if (!board) {
+    const { data } = await db
+      .from("board")
+      .select("id, name")
+      .is("archived_at", null)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    board = data;
+  }
   if (!board) return null;
 
   const [stagesRes, cardsRes, fieldsRes] = await Promise.all([
@@ -134,5 +149,15 @@ export async function loadBoard(): Promise<BoardData | null> {
     };
   });
 
-  return { name: board.name, stages, cards, members: [] };
+  return { id: board.id, name: board.name, stages, cards, members: [] };
+}
+
+/** Lista os pipelines visíveis (RLS: interno vê todos; externo os atribuídos). */
+export async function loadBoards(): Promise<BoardSummary[]> {
+  const db = await createClient();
+  const { data } = await db
+    .from("board")
+    .select("id, name, archived_at")
+    .order("created_at");
+  return (data ?? []).map((b) => ({ id: b.id, name: b.name, archived: b.archived_at != null }));
 }

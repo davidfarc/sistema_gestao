@@ -3,20 +3,24 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { BoardProvider } from "./BoardContext";
 import { CardDetail } from "./CardDetail";
 import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
+import { PipelineSelector } from "./PipelineSelector";
 import { moveCard } from "@/lib/board/actions";
-import type { BoardData } from "@/lib/board/types";
+import type { BoardData, BoardSummary } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
 export function BoardView({
   board,
+  boards,
   canConfigure = false,
 }: {
   board: BoardData;
+  boards: BoardSummary[];
   canConfigure?: boolean;
 }) {
   const router = useRouter();
@@ -48,11 +52,12 @@ export function BoardView({
   }
 
   return (
+    <BoardProvider boardId={board.id}>
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-4 border-b border-neutral-200 px-6 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-800">{board.name}</h1>
-          <p className="text-xs text-neutral-400">{cards.length} cards</p>
+          <PipelineSelector boards={boards} currentId={board.id} canConfigure={canConfigure} />
+          <p className="px-1.5 text-xs text-neutral-400">{cards.length} cards</p>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
@@ -109,6 +114,7 @@ export function BoardView({
         />
       )}
     </div>
+    </BoardProvider>
   );
 }
 

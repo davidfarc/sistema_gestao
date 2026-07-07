@@ -19,6 +19,7 @@ import type {
   MemberOption,
   StageView,
 } from "@/lib/board/types";
+import { useBoardId } from "./BoardContext";
 import { AddProperty, FieldEditor, FieldMenu } from "./fieldControls";
 
 export function ListView({
@@ -33,6 +34,7 @@ export function ListView({
   canConfigure: boolean;
 }) {
   const router = useRouter();
+  const boardId = useBoardId();
   const [fields, setFields] = useState<FieldDef[]>([]);
   const [values, setValues] = useState<Record<string, FieldValueRaw>>({});
   const [members, setMembers] = useState<MemberOption[]>([]);
@@ -44,7 +46,7 @@ export function ListView({
   }, [stages]);
 
   async function reload() {
-    const [fs, vs, ms] = await Promise.all([loadFields(), loadAllFieldValues(), loadMembers()]);
+    const [fs, vs, ms] = await Promise.all([loadFields(boardId), loadAllFieldValues(), loadMembers()]);
     setFields(fs);
     setMembers(ms);
     setValues(Object.fromEntries(vs.map((v) => [`${v.cardId}|${v.value.fieldId}`, v.value])));

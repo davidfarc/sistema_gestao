@@ -50,17 +50,16 @@ async function recordActivity(
 // ── Cards ────────────────────────────────────────────────────────────────────
 
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(title: string): Promise<void> {
+export async function createCard(boardId: string, title: string): Promise<void> {
   await requireActor("card:create");
   const db = createAdminClient();
 
   const { data: board } = await db
     .from("board")
     .select("id, organization_id")
-    .order("created_at")
-    .limit(1)
+    .eq("id", boardId)
     .maybeSingle();
-  if (!board) throw new Error("Nenhum board encontrado.");
+  if (!board) throw new Error("Pipeline não encontrado.");
 
   const { data: firstStage } = await db
     .from("stage")
@@ -68,8 +67,8 @@ export async function createCard(title: string): Promise<void> {
     .eq("board_id", board.id)
     .order("position")
     .limit(1)
-    .single();
-  if (!firstStage) throw new Error("Board sem etapas.");
+    .maybeSingle();
+  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
 
   const { error } = await db.from("card").insert({
     organization_id: board.organization_id,
@@ -77,6 +76,62 @@ export async function createCard(title: string): Promise<void> {
     stage_id: firstStage.id,
     title: title.trim() || "Novo card",
   });
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+// ── Pipelines (boards) — criar / renomear / arquivar (só Gestor) ─────────────
+
+/** Cria um pipeline com 3 colunas padrão (A fazer / Fazendo / Feito). */
+export async function createBoard(name: string): Promise<string> {
+  const actor = await requireActor("board:configure");
+  const db = createAdminClient();
+  const orgId = actor.organizationId as string;
+
+  const { data: board, error } = await db
+    .from("board")
+    .insert({ organization_id: orgId, name: name.trim() || "Novo pipeline" })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+
+  const defaults: { name: string; category: string }[] = [
+    { name: "A fazer", category: "backlog" },
+    { name: "Fazendo", category: "in_progress" },
+    { name: "Feito", category: "done" },
+  ];
+  await db.from("stage").insert(
+    defaults.map((s, i) => ({
+      organization_id: orgId,
+      board_id: board.id,
+      name: s.name,
+      category: s.category,
+      position: i,
+    })),
+  );
+
+  revalidatePath("/board");
+  return board.id;
+}
+
+export async function renameBoard(boardId: string, name: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("board")
+    .update({ name: name.trim() || "Pipeline" })
+    .eq("id", boardId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+export async function setBoardArchived(boardId: string, archived: boolean): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("board")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", boardId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
 }
@@ -542,7 +597,7 @@ export async function addComment(
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
-    .select("organization_id, number, title")
+    .select("organization_id, number, title, board_id")
     .eq("id", cardId)
     .single();
   if (!card) throw new Error("Card não encontrado.");
@@ -570,12 +625,12 @@ export async function addComment(
 
   if (validIds.length === 0) return;
 
-  const { data: me } = await db
-    .from("app_user")
-    .select("name, email")
-    .eq("id", actor.userId as string)
-    .maybeSingle();
+  const [{ data: me }, { data: board }] = await Promise.all([
+    db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
+    db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
+  ]);
   const actorName = me?.name || me?.email || "Alguém";
+  const boardName = board?.name ?? "";
 
   // Cada mencionado recebe uma DM (autor → pessoa) com o comentário + card.
   for (const uid of validIds) {
@@ -589,7 +644,7 @@ export async function addComment(
       organization_id: card.organization_id,
       channel_id: channelId,
       author_id: actor.userId,
-      body: `💬 mencionou você no card #${card.number} «${card.title}»:\n${text}`,
+      body: `💬 mencionou você no card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}:\n${text}`,
       mentions: [],
     });
   }
@@ -604,6 +659,7 @@ export async function addComment(
         actorName,
         cardNumber: card.number,
         cardTitle: card.title,
+        boardName,
         snippet: text.slice(0, 120),
       },
     })),
@@ -612,14 +668,12 @@ export async function addComment(
 
 // ── Propriedades customizadas (campos) ───────────────────────────────────────
 
-export async function loadFields(): Promise<FieldDef[]> {
+export async function loadFields(boardId: string): Promise<FieldDef[]> {
   const db = await createClient();
-  const { data: board } = await db.from("board").select("id").order("created_at").limit(1).maybeSingle();
-  if (!board) return [];
   const { data } = await db
     .from("field_definition")
     .select("id, name, type, config, show_on_card_face, position")
-    .eq("board_id", board.id)
+    .eq("board_id", boardId)
     .order("position");
   return (data ?? []).map((f) => ({
     id: f.id,
@@ -669,6 +723,7 @@ export async function loadCardFieldValues(cardId: string): Promise<FieldValueRaw
 }
 
 export async function addField(
+  boardId: string,
   name: string,
   type: FieldType,
   options?: { label: string; color: string }[],
@@ -678,10 +733,9 @@ export async function addField(
   const { data: board } = await db
     .from("board")
     .select("id, organization_id")
-    .order("created_at")
-    .limit(1)
+    .eq("id", boardId)
     .single();
-  if (!board) throw new Error("Nenhum board.");
+  if (!board) throw new Error("Pipeline não encontrado.");
   const { data: last } = await db
     .from("field_definition")
     .select("position")
@@ -783,16 +837,15 @@ export async function setFieldValue(
 
 // ── Configuração de etapas (colunas) — só Gestor (board:configure) ───────────
 
-export async function addStage(name: string): Promise<void> {
+export async function addStage(boardId: string, name: string): Promise<void> {
   await requireActor("board:configure");
   const db = createAdminClient();
   const { data: board } = await db
     .from("board")
     .select("id, organization_id")
-    .order("created_at")
-    .limit(1)
+    .eq("id", boardId)
     .single();
-  if (!board) throw new Error("Nenhum board.");
+  if (!board) throw new Error("Pipeline não encontrado.");
   const { data: last } = await db
     .from("stage")
     .select("position")

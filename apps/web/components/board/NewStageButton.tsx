@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import { useBoardId } from "./BoardContext";
 import { addStage } from "@/lib/board/actions";
 
 export function NewStageButton() {
   const router = useRouter();
+  const boardId = useBoardId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
@@ -15,7 +17,7 @@ export function NewStageButton() {
     e.preventDefault();
     if (!name.trim()) return;
     setPending(true);
-    await addStage(name);
+    await addStage(boardId, name);
     setName("");
     setOpen(false);
     setPending(false);

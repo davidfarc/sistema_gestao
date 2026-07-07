@@ -10,8 +10,12 @@ function render(kind: string, payload: Record<string, unknown>): { title: string
   const actor = (payload.actorName as string) || "Alguém";
   const num = payload.cardNumber != null ? `#${payload.cardNumber}` : "";
   const card = payload.cardTitle ? `«${payload.cardTitle}»` : "";
+  const boardName = (payload.boardName as string) || "";
   if (kind === "mention") {
-    return { title: `${actor} mencionou você`, subtitle: `${num} ${card}`.trim() };
+    return {
+      title: `${actor} mencionou você`,
+      subtitle: [`${num} ${card}`.trim(), boardName].filter(Boolean).join(" · "),
+    };
   }
   if (kind === "assignment") {
     const stage = (payload.stageName as string) || "";

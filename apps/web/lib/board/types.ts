@@ -88,10 +88,18 @@ export interface StageView {
 }
 
 export interface BoardData {
+  id: string;
   name: string;
   stages: StageView[];
   cards: CardView[];
   members: Member[];
+}
+
+/** Item do seletor de pipelines. */
+export interface BoardSummary {
+  id: string;
+  name: string;
+  archived: boolean;
 }
 
 export interface ChecklistItemView {
