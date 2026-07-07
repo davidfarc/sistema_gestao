@@ -7,7 +7,10 @@ import {
   loadAllFieldValues,
   loadFields,
   loadMembers,
+  moveCard,
   setFieldValue,
+  setStageResponsible,
+  updateCard,
 } from "@/lib/board/actions";
 import type {
   CardView,
@@ -66,7 +69,24 @@ export function ListView({
     router.refresh(); // reflete chips na face do card (visão Kanban)
   }
 
-  const openCls = "cursor-pointer whitespace-nowrap px-3 py-2";
+  async function saveTitle(cardId: string, title: string, current: string) {
+    if (title.trim() && title.trim() !== current) {
+      await updateCard({ id: cardId, title });
+      router.refresh();
+    }
+  }
+  async function changeStage(cardId: string, stageId: string) {
+    const res = await moveCard(cardId, stageId);
+    if (!res.ok) alert(res.reason);
+    router.refresh();
+  }
+  async function changeResponsible(cardId: string, stageId: string, userId: string) {
+    await setStageResponsible(cardId, stageId, userId || null);
+    router.refresh();
+  }
+
+  const cellInput =
+    "w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400";
 
   return (
     <div>
@@ -114,17 +134,46 @@ export function ListView({
           <tbody className="divide-y divide-neutral-100">
             {cards.map((card) => (
               <tr key={card.id} className="hover:bg-neutral-50">
-                <td className={openCls + " font-medium text-neutral-500"} onClick={() => onOpenCard(card.id)}>
+                <td
+                  className="cursor-pointer whitespace-nowrap px-3 py-2 font-medium text-neutral-500"
+                  onClick={() => onOpenCard(card.id)}
+                  title="Abrir card"
+                >
                   #{card.number}
                 </td>
-                <td className={openCls + " text-neutral-800"} onClick={() => onOpenCard(card.id)}>
-                  {card.title}
+                <td className="min-w-40 px-3 py-1.5">
+                  <input
+                    defaultValue={card.title}
+                    onBlur={(e) => saveTitle(card.id, e.target.value, card.title)}
+                    className={cellInput + " text-neutral-800"}
+                  />
                 </td>
-                <td className={openCls + " text-neutral-600"} onClick={() => onOpenCard(card.id)}>
-                  {stageName(card.stageId)}
+                <td className="px-3 py-1.5">
+                  <select
+                    value={card.stageId}
+                    onChange={(e) => changeStage(card.id, e.target.value)}
+                    className={cellInput + " text-neutral-600"}
+                  >
+                    {stages.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
                 </td>
-                <td className={openCls + " text-neutral-600"} onClick={() => onOpenCard(card.id)}>
-                  {card.assignee?.name ?? <span className="text-neutral-300">—</span>}
+                <td className="px-3 py-1.5">
+                  <select
+                    value={card.assignee?.id ?? ""}
+                    onChange={(e) => changeResponsible(card.id, card.stageId, e.target.value)}
+                    className={cellInput + " text-neutral-600"}
+                  >
+                    <option value="">—</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 {fields.map((f) => (
                   <td key={f.id} className="px-3 py-1.5">
