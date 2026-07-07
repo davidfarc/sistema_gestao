@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu as MenuIcon,
+  MessagesSquare,
   Users,
   X,
   type LucideIcon,
@@ -29,6 +30,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
+  { Icon: MessagesSquare, label: "Canais", href: "/canais" },
   { Icon: Users, label: "Usuários", href: "/configuracoes/usuarios" },
 ];
 

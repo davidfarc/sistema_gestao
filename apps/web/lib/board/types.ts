@@ -135,6 +135,19 @@ export interface MemberOption {
   name: string;
 }
 
+export interface ChannelView {
+  id: string;
+  name: string;
+}
+
+export interface MessageView {
+  id: string;
+  authorName: string;
+  body: string;
+  createdAt: string; // ISO
+  isOwn: boolean;
+}
+
 /** Tudo do detalhe do card, numa chamada só (evita ~6 round trips ao abrir). */
 export interface CardDetailData {
   checklists: ChecklistView[];
