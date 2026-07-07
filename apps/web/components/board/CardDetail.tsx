@@ -128,7 +128,7 @@ export function CardDetail({
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Comentários
           </p>
-          <Comments cardId={card.id} comments={d.comments} onChanged={reload} />
+          <Comments cardId={card.id} comments={d.comments} members={d.members} onChanged={reload} />
         </div>
 
         <div className="flex justify-end border-t border-neutral-200 p-4">

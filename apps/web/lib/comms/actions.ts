@@ -9,6 +9,7 @@ import type {
   MessageView,
   UserSearchResult,
 } from "@/lib/board/types";
+import { ensureDmChannel } from "@/lib/comms/dm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -115,58 +116,14 @@ export async function searchUsers(query: string): Promise<UserSearchResult[]> {
 export async function openOrCreateDm(otherUserId: string): Promise<string> {
   const actor = await requireActor("channel:post");
   const db = createAdminClient();
-  const me = actor.userId as string;
-
-  // Chave estável do par (menor:maior) → 1 DM por par, find-or-create.
-  const [a, b] = [me, otherUserId].sort();
-  const dmKey = `${a}:${b}`;
-
-  const { data: existing } = await db
-    .from("channel")
-    .select("id")
-    .eq("organization_id", actor.organizationId)
-    .eq("dm_key", dmKey)
-    .maybeSingle();
-  if (existing) return existing.id;
-
-  // A outra pessoa precisa existir e ser da org.
-  const { data: other } = await db
-    .from("app_user")
-    .select("id, name, email")
-    .eq("id", otherUserId)
-    .eq("organization_id", actor.organizationId)
-    .maybeSingle();
-  if (!other) throw new Error("Usuário não encontrado.");
-
-  const { data: channel, error } = await db
-    .from("channel")
-    .insert({
-      organization_id: actor.organizationId,
-      name: other.name || other.email,
-      kind: "dm",
-      dm_key: dmKey,
-    })
-    .select("id")
-    .single();
-  if (error) {
-    // Corrida: outro request criou a mesma DM entre o SELECT e o INSERT.
-    const { data: raced } = await db
-      .from("channel")
-      .select("id")
-      .eq("organization_id", actor.organizationId)
-      .eq("dm_key", dmKey)
-      .maybeSingle();
-    if (raced) return raced.id;
-    throw new Error(error.message);
-  }
-
-  await db.from("channel_member").insert([
-    { channel_id: channel.id, user_id: me },
-    { channel_id: channel.id, user_id: otherUserId },
-  ]);
-
+  const channelId = await ensureDmChannel(
+    db,
+    actor.organizationId as string,
+    actor.userId as string,
+    otherUserId,
+  );
   revalidatePath("/canais");
-  return channel.id;
+  return channelId;
 }
 
 export async function loadMessages(channelId: string): Promise<MessageView[]> {

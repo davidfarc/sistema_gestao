@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { provisionAndGetActor, requireActor } from "@/lib/actor";
 import { getSessionUser } from "@/lib/auth";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
+import { ensureDmChannel } from "@/lib/comms/dm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -508,21 +509,59 @@ export async function loadComments(cardId: string): Promise<CommentView[]> {
   }));
 }
 
-export async function addComment(cardId: string, body: string): Promise<void> {
+export async function addComment(
+  cardId: string,
+  body: string,
+  mentions: string[] = [],
+): Promise<void> {
   const text = body.trim();
   if (!text) return;
   const actor = await requireActor("comment:create");
   const db = createAdminClient();
-  const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
+  const { data: card } = await db
+    .from("card")
+    .select("organization_id, number, title")
+    .eq("id", cardId)
+    .single();
   if (!card) throw new Error("Card não encontrado.");
+
+  // Menções válidas: usuários da org, distintos, exceto o próprio autor.
+  const wanted = [...new Set(mentions)].filter((id) => id && id !== (actor.userId as string));
+  let validIds: string[] = [];
+  if (wanted.length > 0) {
+    const { data: mentioned } = await db
+      .from("app_user")
+      .select("id")
+      .eq("organization_id", card.organization_id)
+      .in("id", wanted);
+    validIds = (mentioned ?? []).map((u) => u.id);
+  }
+
   const { error } = await db.from("comment").insert({
     organization_id: card.organization_id,
     card_id: cardId,
     author_id: actor.userId,
     body: text,
-    mentions: [],
+    mentions: validIds,
   });
   if (error) throw new Error(error.message);
+
+  // Cada mencionado recebe uma DM (autor → pessoa) com o comentário + card.
+  for (const uid of validIds) {
+    const channelId = await ensureDmChannel(
+      db,
+      card.organization_id,
+      actor.userId as string,
+      uid,
+    );
+    await db.from("message").insert({
+      organization_id: card.organization_id,
+      channel_id: channelId,
+      author_id: actor.userId,
+      body: `💬 mencionou você no card #${card.number} «${card.title}»:\n${text}`,
+      mentions: [],
+    });
+  }
 }
 
 // ── Propriedades customizadas (campos) ───────────────────────────────────────
