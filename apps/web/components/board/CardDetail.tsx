@@ -1,31 +1,52 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition, type ReactNode } from "react";
 
-import { updateCard } from "@/lib/board/actions";
+import { loadCardDetail, updateCard } from "@/lib/board/actions";
+import type { CardDetailData, CardView, StageView } from "@/lib/board/types";
 import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import { Comments } from "./Comments";
 import { Responsavel } from "./Responsavel";
-import type { CardView, StageView } from "@/lib/board/types";
+
+const EMPTY: CardDetailData = {
+  checklists: [],
+  attachments: [],
+  activity: [],
+  comments: [],
+  assignments: [],
+  members: [],
+};
 
 export function CardDetail({
   card,
   stage,
   onClose,
-  canConfigure = false,
 }: {
   card: CardView;
   stage: StageView | undefined;
   onClose: () => void;
-  canConfigure?: boolean;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [title, setTitle] = useState(card.title);
-  const [activityKey, setActivityKey] = useState(0);
+  const [data, setData] = useState<CardDetailData | null>(null);
+
+  const reload = useCallback(() => {
+    loadCardDetail(card.id).then(setData);
+  }, [card.id]);
+
+  useEffect(() => {
+    let active = true;
+    loadCardDetail(card.id).then((d) => {
+      if (active) setData(d);
+    });
+    return () => {
+      active = false;
+    };
+  }, [card.id]);
 
   function saveTitle() {
     const next = title.trim();
@@ -36,6 +57,12 @@ export function CardDetail({
     });
   }
 
+  const d = data ?? EMPTY;
+  const reloadAndRefresh = () => {
+    reload();
+    router.refresh();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-4 sm:p-8"
@@ -45,7 +72,6 @@ export function CardDetail({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg rounded-xl bg-white shadow-xl"
       >
-        {/* Header */}
         <div className="flex items-start justify-between border-b border-neutral-200 p-5">
           <div className="flex-1">
             <div className="flex items-center gap-2 text-xs text-neutral-400">
@@ -55,6 +81,7 @@ export function CardDetail({
                   {stage.name}
                 </span>
               )}
+              {!data && <span className="italic">carregando…</span>}
             </div>
             <input
               value={title}
@@ -74,55 +101,36 @@ export function CardDetail({
           </button>
         </div>
 
-        {/* Responsável (etapa atual) */}
-        <div className="border-b border-neutral-100 p-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Responsável
-          </p>
+        <Section title="Responsável">
           <Responsavel
             cardId={card.id}
             stageId={card.stageId}
             stageName={stage?.name}
-            onChange={() => {
-              router.refresh();
-              setActivityKey((k) => k + 1);
-            }}
+            assignments={d.assignments}
+            members={d.members}
+            onChanged={reloadAndRefresh}
           />
-        </div>
+        </Section>
 
-        {/* Checklists */}
-        <div className="border-b border-neutral-100 p-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Checklists
-          </p>
-          <Checklists cardId={card.id} onActivity={() => setActivityKey((k) => k + 1)} />
-        </div>
+        <Section title="Checklists">
+          <Checklists cardId={card.id} checklists={d.checklists} onChanged={reload} />
+        </Section>
 
-        {/* Anexos */}
-        <div className="border-b border-neutral-100 p-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Anexos
-          </p>
-          <Attachments cardId={card.id} />
-        </div>
+        <Section title="Anexos">
+          <Attachments cardId={card.id} attachments={d.attachments} onChanged={reload} />
+        </Section>
 
-        {/* Atividade (feed estilo Trello) */}
-        <div className="border-b border-neutral-100 p-5">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Atividade
-          </p>
-          <ActivityFeed cardId={card.id} refreshKey={activityKey} />
-        </div>
+        <Section title="Atividade">
+          <ActivityFeed activity={d.activity} />
+        </Section>
 
-        {/* Comentários */}
         <div className="p-5">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
             Comentários
           </p>
-          <Comments cardId={card.id} />
+          <Comments cardId={card.id} comments={d.comments} onChanged={reload} />
         </div>
 
-        {/* Footer */}
         <div className="flex justify-end border-t border-neutral-200 p-4">
           <button
             type="button"
@@ -133,6 +141,15 @@ export function CardDetail({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="border-b border-neutral-100 p-5">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">{title}</p>
+      {children}
     </div>
   );
 }

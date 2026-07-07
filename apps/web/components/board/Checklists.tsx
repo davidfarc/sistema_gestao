@@ -7,46 +7,30 @@ import {
   addChecklistItem,
   deleteChecklist,
   deleteChecklistItem,
-  loadChecklists,
   setChecklistItemDone,
 } from "@/lib/board/actions";
 import type { ChecklistView } from "@/lib/board/types";
 
 export function Checklists({
   cardId,
-  onActivity,
+  checklists,
+  onChanged,
 }: {
   cardId: string;
-  onActivity?: () => void;
+  checklists: ChecklistView[];
+  onChanged: () => void;
 }) {
-  const [lists, setLists] = useState<ChecklistView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lists, setLists] = useState(checklists);
   const [newList, setNewList] = useState("");
 
-  const reload = () => loadChecklists(cardId).then(setLists);
-
-  useEffect(() => {
-    let active = true;
-    loadChecklists(cardId).then((l) => {
-      if (active) {
-        setLists(l);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId]);
+  useEffect(() => setLists(checklists), [checklists]); // sincroniza com o reload do pai
 
   async function toggle(itemId: string, done: boolean) {
     setLists((prev) =>
-      prev.map((l) => ({
-        ...l,
-        items: l.items.map((i) => (i.id === itemId ? { ...i, done } : i)),
-      })),
+      prev.map((l) => ({ ...l, items: l.items.map((i) => (i.id === itemId ? { ...i, done } : i)) })),
     );
     await setChecklistItemDone(itemId, done);
-    onActivity?.();
+    onChanged();
   }
 
   async function createList(e: FormEvent) {
@@ -54,10 +38,8 @@ export function Checklists({
     if (!newList.trim()) return;
     await addChecklist(cardId, newList);
     setNewList("");
-    await reload();
+    onChanged();
   }
-
-  if (loading) return <p className="text-sm text-neutral-400">Carregando checklists…</p>;
 
   return (
     <div className="grid gap-4">
@@ -76,7 +58,7 @@ export function Checklists({
                 type="button"
                 onClick={async () => {
                   await deleteChecklist(list.id);
-                  await reload();
+                  onChanged();
                 }}
                 className="ml-auto text-xs text-neutral-400 hover:text-red-600"
               >
@@ -109,7 +91,7 @@ export function Checklists({
                     type="button"
                     onClick={async () => {
                       await deleteChecklistItem(item.id);
-                      await reload();
+                      onChanged();
                     }}
                     className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
                     aria-label="Remover item"
@@ -120,7 +102,7 @@ export function Checklists({
               ))}
             </ul>
 
-            <AddItem checklistId={list.id} onAdded={reload} />
+            <AddItem checklistId={list.id} onAdded={onChanged} />
           </div>
         );
       })}

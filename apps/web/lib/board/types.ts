@@ -135,6 +135,16 @@ export interface MemberOption {
   name: string;
 }
 
+/** Tudo do detalhe do card, numa chamada só (evita ~6 round trips ao abrir). */
+export interface CardDetailData {
+  checklists: ChecklistView[];
+  attachments: AttachmentView[];
+  activity: ActivityView[];
+  comments: CommentView[];
+  assignments: { stageId: string; userId: string }[];
+  members: MemberOption[];
+}
+
 export interface RoleOption {
   id: string;
   name: string;

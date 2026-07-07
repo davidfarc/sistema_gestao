@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ActivityView,
   AttachmentView,
+  CardDetailData,
   ChecklistItemView,
   ChecklistView,
   CommentView,
@@ -118,6 +119,19 @@ export async function updateCard(input: { id: string; title: string }): Promise<
     .eq("id", input.id);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+/** Detalhe do card numa chamada só — os 6 leitores em paralelo (1 round trip). */
+export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
+  const [checklists, attachments, activity, comments, assignments, members] = await Promise.all([
+    loadChecklists(cardId),
+    loadAttachments(cardId),
+    loadActivity(cardId),
+    loadComments(cardId),
+    loadCardAssignments(cardId),
+    loadMembers(),
+  ]);
+  return { checklists, attachments, activity, comments, assignments, members };
 }
 
 // ── Checklists ───────────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
-import { addComment, deleteComment, loadComments } from "@/lib/board/actions";
+import { addComment, deleteComment } from "@/lib/board/actions";
 import type { CommentView } from "@/lib/board/types";
 
 function timeAgo(iso: string): string {
@@ -15,26 +15,17 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)} d`;
 }
 
-export function Comments({ cardId }: { cardId: string }) {
-  const [items, setItems] = useState<CommentView[]>([]);
-  const [loading, setLoading] = useState(true);
+export function Comments({
+  cardId,
+  comments,
+  onChanged,
+}: {
+  cardId: string;
+  comments: CommentView[];
+  onChanged: () => void;
+}) {
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
-
-  const reload = () => loadComments(cardId).then(setItems);
-
-  useEffect(() => {
-    let active = true;
-    loadComments(cardId).then((x) => {
-      if (active) {
-        setItems(x);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -42,15 +33,15 @@ export function Comments({ cardId }: { cardId: string }) {
     setPending(true);
     await addComment(cardId, body);
     setBody("");
-    await reload();
+    onChanged();
     setPending(false);
   }
 
   return (
     <div className="grid gap-3">
-      {!loading && items.length > 0 && (
+      {comments.length > 0 && (
         <ul className="grid gap-3">
-          {items.map((c) => (
+          {comments.map((c) => (
             <li key={c.id} className="group flex items-start gap-2">
               <span
                 className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white"
@@ -70,7 +61,7 @@ export function Comments({ cardId }: { cardId: string }) {
                   type="button"
                   onClick={async () => {
                     await deleteComment(c.id);
-                    await reload();
+                    onChanged();
                   }}
                   className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
                   aria-label="Remover comentário"

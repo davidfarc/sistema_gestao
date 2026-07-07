@@ -1,30 +1,21 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
-import { addAttachment, deleteAttachment, loadAttachments } from "@/lib/board/actions";
+import { addAttachment, deleteAttachment } from "@/lib/board/actions";
 import type { AttachmentView } from "@/lib/board/types";
 
-export function Attachments({ cardId }: { cardId: string }) {
-  const [items, setItems] = useState<AttachmentView[]>([]);
-  const [loading, setLoading] = useState(true);
+export function Attachments({
+  cardId,
+  attachments,
+  onChanged,
+}: {
+  cardId: string;
+  attachments: AttachmentView[];
+  onChanged: () => void;
+}) {
   const [url, setUrl] = useState("");
   const [label, setLabel] = useState("");
-
-  const reload = () => loadAttachments(cardId).then(setItems);
-
-  useEffect(() => {
-    let active = true;
-    loadAttachments(cardId).then((x) => {
-      if (active) {
-        setItems(x);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId]);
 
   async function add(e: FormEvent) {
     e.preventDefault();
@@ -32,16 +23,14 @@ export function Attachments({ cardId }: { cardId: string }) {
     await addAttachment(cardId, url, label);
     setUrl("");
     setLabel("");
-    await reload();
+    onChanged();
   }
-
-  if (loading) return <p className="text-sm text-neutral-400">Carregando anexos…</p>;
 
   return (
     <div className="grid gap-2">
-      {items.length > 0 && (
+      {attachments.length > 0 && (
         <ul className="grid gap-1">
-          {items.map((a) => (
+          {attachments.map((a) => (
             <li key={a.id} className="group flex items-center gap-2">
               <span className="text-neutral-400">🔗</span>
               <a
@@ -57,7 +46,7 @@ export function Attachments({ cardId }: { cardId: string }) {
                 type="button"
                 onClick={async () => {
                   await deleteAttachment(a.id);
-                  await reload();
+                  onChanged();
                 }}
                 className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
                 aria-label="Remover anexo"

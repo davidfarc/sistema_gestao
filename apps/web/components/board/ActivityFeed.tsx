@@ -1,8 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { loadActivity } from "@/lib/board/actions";
 import type { ActivityView } from "@/lib/board/types";
 
 function describe(a: ActivityView): string {
@@ -16,6 +13,8 @@ function describe(a: ActivityView): string {
       return "moveu o card de etapa";
     case "card_created":
       return "criou o card";
+    case "assignment_changed":
+      return "mudou o responsável";
     default:
       return a.kind;
   }
@@ -31,30 +30,13 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)} d`;
 }
 
-export function ActivityFeed({ cardId, refreshKey }: { cardId: string; refreshKey: number }) {
-  const [items, setItems] = useState<ActivityView[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    loadActivity(cardId).then((x) => {
-      if (active) {
-        setItems(x);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId, refreshKey]);
-
-  if (loading) return <p className="text-sm text-secondary">Carregando atividade…</p>;
-  if (items.length === 0)
+export function ActivityFeed({ activity }: { activity: ActivityView[] }) {
+  if (activity.length === 0)
     return <p className="text-sm text-secondary">Nenhuma atividade ainda.</p>;
 
   return (
     <ul className="grid gap-2">
-      {items.map((a) => (
+      {activity.map((a) => (
         <li key={a.id} className="flex items-start gap-2 text-sm">
           <span
             className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white"

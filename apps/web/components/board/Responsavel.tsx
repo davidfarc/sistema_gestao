@@ -1,43 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { loadCardAssignments, loadMembers, setStageResponsible } from "@/lib/board/actions";
+import { setStageResponsible } from "@/lib/board/actions";
 import type { MemberOption } from "@/lib/board/types";
 
 export function Responsavel({
   cardId,
   stageId,
   stageName,
-  onChange,
+  assignments,
+  members,
+  onChanged,
 }: {
   cardId: string;
   stageId: string;
   stageName?: string;
-  onChange?: () => void;
+  assignments: { stageId: string; userId: string }[];
+  members: MemberOption[];
+  onChanged: () => void;
 }) {
-  const [members, setMembers] = useState<MemberOption[]>([]);
-  const [current, setCurrent] = useState<string>("");
+  const current = assignments.find((a) => a.stageId === stageId)?.userId ?? "";
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    Promise.all([loadMembers(), loadCardAssignments(cardId)]).then(([m, a]) => {
-      if (!active) return;
-      setMembers(m);
-      setCurrent(a.find((x) => x.stageId === stageId)?.userId ?? "");
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId, stageId]);
-
   async function change(userId: string) {
-    setCurrent(userId);
     setSaving(true);
     await setStageResponsible(cardId, stageId, userId || null);
     setSaving(false);
-    onChange?.();
+    onChanged();
   }
 
   return (
