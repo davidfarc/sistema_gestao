@@ -18,6 +18,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { NotificationBell } from "./NotificationBell";
 import { useSidebar } from "./SidebarContext";
 import { UnreadBadge } from "./UnreadBadge";
 
@@ -129,14 +130,19 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
           {/* Usuário */}
           <div className="border-t border-white/10 px-2 pt-2">
             {user ? (
-              <div className={clsx("flex items-center gap-2 rounded-md p-1.5", !showLabels && "justify-center")}>
+              <div
+                className={clsx(
+                  "flex gap-2 rounded-md p-1.5",
+                  showLabels ? "items-center" : "flex-col items-center",
+                )}
+              >
                 <div
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-tertiary-fixed text-[10px] font-black text-primary"
                   title={user.email}
                 >
                   {initials}
                 </div>
-                {showLabels && (
+                {showLabels ? (
                   <>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold" title={user.email}>
@@ -144,6 +150,7 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
                       </p>
                       <p className="text-[10px] opacity-70">{user.internal ? "interno" : "externo"}</p>
                     </div>
+                    <NotificationBell />
                     <form action="/auth/signout" method="post">
                       <button
                         type="submit"
@@ -155,6 +162,8 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
                       </button>
                     </form>
                   </>
+                ) : (
+                  <NotificationBell />
                 )}
               </div>
             ) : (

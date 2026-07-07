@@ -70,23 +70,24 @@ export function NotificationBell() {
   }
 
   return (
-    <div ref={rootRef} className="fixed right-3 top-3 z-[90]">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={toggle}
         aria-label="Notificações"
-        className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:bg-neutral-50"
+        title="Notificações"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/10 hover:text-white"
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-tertiary-fixed px-1 text-[10px] font-bold text-primary">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+        <div className="absolute bottom-0 left-full z-[120] ml-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white text-neutral-800 shadow-xl">
           <div className="border-b border-neutral-100 px-4 py-2.5">
             <h3 className="text-sm font-semibold text-neutral-800">Notificações</h3>
           </div>
