@@ -110,9 +110,7 @@ export function CardPageView({ data }: { data: CardPageData }) {
           <Section title="Responsável">
             <Responsavel
               cardId={data.id}
-              stageId={data.stageId}
-              stageName={data.stageName}
-              assignments={d.assignments}
+              responsibleId={d.responsibleId}
               members={d.members}
               onChanged={refresh}
             />

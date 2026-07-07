@@ -19,7 +19,7 @@ const EMPTY: CardDetailData = {
   attachments: [],
   activity: [],
   comments: [],
-  assignments: [],
+  responsibleId: null,
   members: [],
 };
 
@@ -140,9 +140,7 @@ export function CardDetail({
         <Section title="Responsável">
           <Responsavel
             cardId={card.id}
-            stageId={card.stageId}
-            stageName={stage?.name}
-            assignments={d.assignments}
+            responsibleId={d.responsibleId}
             members={d.members}
             onChanged={reloadAndRefresh}
           />

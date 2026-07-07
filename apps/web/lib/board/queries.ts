@@ -92,12 +92,14 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const memberIds = new Set<string>();
 
   if (cardIds.length > 0) {
+    // Responsável por card = assignment com stage_id nulo (independe da etapa).
     const { data: assigns } = await db
       .from("assignment")
-      .select("card_id, stage_id, user_id")
+      .select("card_id, user_id")
+      .is("stage_id", null)
       .in("card_id", cardIds);
     for (const a of assigns ?? []) {
-      if (a.stage_id) assigneeOf.set(`${a.card_id}|${a.stage_id}`, a.user_id);
+      assigneeOf.set(a.card_id, a.user_id);
       memberIds.add(a.user_id);
     }
   }
@@ -130,7 +132,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   }));
 
   const cards: CardView[] = cardsRaw.map((c) => {
-    const uid = assigneeOf.get(`${c.id}|${c.stage_id}`);
+    const uid = assigneeOf.get(c.id);
     const fields: FieldChip[] = [];
     for (const f of showFields) {
       const chip = resolveChip(f, valueOf.get(`${c.id}|${f.id}`), nameOf);

@@ -8,8 +8,8 @@ import {
   loadFields,
   loadMembers,
   moveCard,
+  setCardResponsible,
   setFieldValue,
-  setStageResponsible,
   updateCard,
 } from "@/lib/board/actions";
 import type {
@@ -82,8 +82,8 @@ export function ListView({
     if (!res.ok) alert(res.reason);
     router.refresh();
   }
-  async function changeResponsible(cardId: string, stageId: string, userId: string) {
-    await setStageResponsible(cardId, stageId, userId || null);
+  async function changeResponsible(cardId: string, userId: string) {
+    await setCardResponsible(cardId, userId || null);
     router.refresh();
   }
 
@@ -166,7 +166,7 @@ export function ListView({
                 <td className="px-3 py-1.5">
                   <select
                     value={card.assignee?.id ?? ""}
-                    onChange={(e) => changeResponsible(card.id, card.stageId, e.target.value)}
+                    onChange={(e) => changeResponsible(card.id, e.target.value)}
                     className={cellInput + " text-neutral-600"}
                   >
                     <option value="">—</option>

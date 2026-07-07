@@ -194,7 +194,7 @@ export interface CardDetailData {
   attachments: AttachmentView[];
   activity: ActivityView[];
   comments: CommentView[];
-  assignments: { stageId: string; userId: string }[];
+  responsibleId: string | null; // responsável do card (único, independe de etapa)
   members: MemberOption[];
 }
 

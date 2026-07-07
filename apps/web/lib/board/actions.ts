@@ -222,13 +222,13 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
 /** Detalhe do card numa chamada só — os 6 leitores em paralelo (1 round trip). */
 export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
   const db = await createClient(); // sessão → RLS
-  const [checklists, attachments, activity, comments, assignments, members, cardRes] =
+  const [checklists, attachments, activity, comments, responsibleId, members, cardRes] =
     await Promise.all([
       loadChecklists(cardId),
       loadAttachments(cardId),
       loadActivity(cardId),
       loadComments(cardId),
-      loadCardAssignments(cardId),
+      loadCardResponsible(cardId),
       loadMembers(),
       db.from("card").select("description").eq("id", cardId).maybeSingle(),
     ]);
@@ -238,7 +238,7 @@ export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
     attachments,
     activity,
     comments,
-    assignments,
+    responsibleId,
     members,
   };
 }
@@ -445,22 +445,24 @@ export async function loadMembers(): Promise<MemberOption[]> {
   return (data ?? []).map((u) => ({ id: u.id, name: u.name || u.email }));
 }
 
-export async function loadCardAssignments(
-  cardId: string,
-): Promise<{ stageId: string; userId: string }[]> {
+/** Responsável do card (assignment com stage_id nulo). null = sem responsável. */
+export async function loadCardResponsible(cardId: string): Promise<string | null> {
   const db = await createClient(); // sessão → RLS
   const { data } = await db
     .from("assignment")
-    .select("stage_id, user_id")
+    .select("user_id")
     .eq("card_id", cardId)
-    .not("stage_id", "is", null);
-  return (data ?? []).map((a) => ({ stageId: a.stage_id, userId: a.user_id }));
+    .is("stage_id", null)
+    .maybeSingle();
+  return data?.user_id ?? null;
 }
 
-/** Define o responsável de (card, etapa). userId null = remove. Um por etapa. */
-export async function setStageResponsible(
+/**
+ * Define o responsável do CARD (único, independente de etapa). userId null =
+ * remove. Trocado manualmente; mover o card de etapa não altera.
+ */
+export async function setCardResponsible(
   cardId: string,
-  stageId: string,
   userId: string | null,
 ): Promise<void> {
   const actor = await requireActor("card:assign");
@@ -472,23 +474,25 @@ export async function setStageResponsible(
     .single();
   if (!card) throw new Error("Card não encontrado.");
 
-  await db.from("assignment").delete().eq("card_id", cardId).eq("stage_id", stageId);
+  // Um responsável por card: limpa qualquer assignment e recria se houver.
+  await db.from("assignment").delete().eq("card_id", cardId);
   if (userId) {
     const { error } = await db.from("assignment").insert({
       organization_id: card.organization_id,
       card_id: cardId,
-      stage_id: stageId,
+      stage_id: null,
       user_id: userId,
     });
     if (error) throw new Error(error.message);
-    await recordActivity(cardId, actor.userId, "assignment_changed", { stageId, userId });
+    await recordActivity(cardId, actor.userId, "assignment_changed", { userId });
 
     // Notifica quem foi atribuído (exceto se atribuiu a si mesmo).
     if (userId !== (actor.userId as string)) {
-      const [{ data: meU }, { data: stage }] = await Promise.all([
-        db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
-        db.from("stage").select("name").eq("id", stageId).maybeSingle(),
-      ]);
+      const { data: meU } = await db
+        .from("app_user")
+        .select("name, email")
+        .eq("id", actor.userId as string)
+        .maybeSingle();
       await db.from("notification").insert({
         organization_id: card.organization_id,
         user_id: userId,
@@ -497,7 +501,6 @@ export async function setStageResponsible(
           actorName: meU?.name || meU?.email || "Alguém",
           cardNumber: card.number,
           cardTitle: card.title,
-          stageName: stage?.name ?? "",
         },
       });
     }
