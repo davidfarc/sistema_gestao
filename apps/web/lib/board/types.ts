@@ -196,6 +196,21 @@ export interface CardDetailData {
   members: MemberOption[];
 }
 
+/** Visão expandida do card (página /card/[id]): tudo + descrição + propriedades. */
+export interface CardPageData {
+  id: string;
+  number: number;
+  title: string;
+  description: string | null;
+  boardId: string;
+  boardName: string;
+  stageId: string;
+  stageName: string;
+  fields: FieldDef[];
+  values: Record<string, FieldValueRaw>; // por fieldId
+  detail: CardDetailData;
+}
+
 export interface RoleOption {
   id: string;
   name: string;

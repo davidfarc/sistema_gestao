@@ -1,5 +1,7 @@
 "use client";
 
+import { Maximize2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition, type ReactNode } from "react";
 
@@ -91,14 +93,24 @@ export function CardDetail({
               className="mt-1 w-full text-lg font-semibold text-neutral-800 outline-none"
             />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-2 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
-            aria-label="Fechar"
-          >
-            ✕
-          </button>
+          <div className="ml-2 flex items-center gap-1">
+            <Link
+              href={`/card/${card.id}`}
+              title="Abrir visão expandida"
+              aria-label="Expandir"
+              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Link>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+              aria-label="Fechar"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <Section title="Responsável">

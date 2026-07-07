@@ -13,6 +13,7 @@ import type {
   ActivityView,
   AttachmentView,
   CardDetailData,
+  CardPageData,
   ChecklistItemView,
   ChecklistView,
   CommentView,
@@ -165,16 +166,57 @@ export async function moveCard(
   }
 }
 
-/** Renomeia o card. */
-export async function updateCard(input: { id: string; title: string }): Promise<void> {
+/** Atualiza o card: título e/ou descrição (só os campos informados). */
+export async function updateCard(input: {
+  id: string;
+  title?: string;
+  description?: string;
+}): Promise<void> {
   await requireActor("card:update");
   const db = createAdminClient();
-  const { error } = await db
-    .from("card")
-    .update({ title: input.title.trim() || "Novo card" })
-    .eq("id", input.id);
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) patch.title = input.title.trim() || "Novo card";
+  if (input.description !== undefined) patch.description = input.description;
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await db.from("card").update(patch).eq("id", input.id);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+/** Carrega a visão expandida do card (página): cabeçalho + propriedades + detalhe. */
+export async function loadCardPage(cardId: string): Promise<CardPageData | null> {
+  const db = await createClient(); // sessão → RLS
+  const { data: card } = await db
+    .from("card")
+    .select("id, number, title, description, board_id, stage_id")
+    .eq("id", cardId)
+    .maybeSingle();
+  if (!card) return null;
+
+  const [boardRes, stageRes, detail, fields, valuesRaw] = await Promise.all([
+    db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
+    db.from("stage").select("name").eq("id", card.stage_id).maybeSingle(),
+    loadCardDetail(cardId),
+    loadFields(card.board_id),
+    loadCardFieldValues(cardId),
+  ]);
+
+  const values: Record<string, FieldValueRaw> = {};
+  for (const v of valuesRaw) values[v.fieldId] = v;
+
+  return {
+    id: card.id,
+    number: Number(card.number),
+    title: card.title,
+    description: card.description ?? null,
+    boardId: card.board_id,
+    boardName: boardRes.data?.name ?? "",
+    stageId: card.stage_id,
+    stageName: stageRes.data?.name ?? "",
+    fields,
+    values,
+    detail,
+  };
 }
 
 /** Detalhe do card numa chamada só — os 6 leitores em paralelo (1 round trip). */
