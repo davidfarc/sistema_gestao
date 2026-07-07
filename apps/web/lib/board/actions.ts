@@ -406,6 +406,69 @@ export async function loadUsers(): Promise<UserRow[]> {
   });
 }
 
+/**
+ * Pré-cadastra um usuário por e-mail (só Gestor). Cria o usuário de auth (FK
+ * obrigatória do app_user → auth.users) já confirmado, sem enviar e-mail, e o
+ * app_user correspondente. No 1º login com Google (mesmo e-mail) a conta é
+ * vinculada. Interno/externo é escolhido no formulário. Papel opcional.
+ */
+export async function createUser(input: {
+  email: string;
+  name: string;
+  internal: boolean;
+  roleId?: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireActor("board:configure");
+  const email = input.email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { ok: false, error: "E-mail inválido." };
+  }
+  const db = createAdminClient();
+
+  const { data: existing } = await db
+    .from("app_user")
+    .select("id")
+    .eq("organization_id", actor.organizationId as string)
+    .eq("email", email)
+    .maybeSingle();
+  if (existing) return { ok: false, error: "Já existe um usuário com esse e-mail." };
+
+  // Cria o auth user (ou reaproveita, se já existir no auth mas não no app_user).
+  let userId: string;
+  const { data: created, error: createErr } = await db.auth.admin.createUser({
+    email,
+    email_confirm: true,
+  });
+  if (createErr || !created?.user) {
+    const { data: list } = await db.auth.admin.listUsers();
+    const found = list?.users.find((u) => u.email?.toLowerCase() === email);
+    if (!found) return { ok: false, error: createErr?.message ?? "Falha ao criar o usuário." };
+    userId = found.id;
+  } else {
+    userId = created.user.id;
+  }
+
+  const { error: upErr } = await db.from("app_user").upsert(
+    {
+      id: userId,
+      organization_id: actor.organizationId as string,
+      email,
+      name: input.name.trim() || (email.split("@")[0] ?? email),
+      is_internal: input.internal,
+    },
+    { onConflict: "id" },
+  );
+  if (upErr) return { ok: false, error: upErr.message };
+
+  if (input.roleId) {
+    await db.from("user_role").delete().eq("user_id", userId);
+    await db.from("user_role").insert({ user_id: userId, role_id: input.roleId });
+  }
+
+  revalidatePath("/configuracoes/usuarios");
+  return { ok: true };
+}
+
 /** Troca o papel de um usuário (um papel por usuário). */
 export async function setUserRole(userId: string, roleId: string): Promise<void> {
   await requireActor("board:configure");
