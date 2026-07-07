@@ -41,7 +41,7 @@ export interface Entity {
 /** Ações do sistema. Papéis (role) concedem um conjunto delas (data-driven). */
 export type Action =
   | "board:read"
-  | "board:configure" // etapas, campos, workflow-rules, papéis
+  | "board:configure" // criar/renomear/arquivar pipelines + membership (só Gestor)
   | "card:read"
   | "card:create"
   | "card:update"
@@ -50,7 +50,10 @@ export type Action =
   | "comment:create"
   | "channel:read"
   | "channel:post"
-  | "field:manage"
+  | "channel:manage" // criar/editar grupos de conversa (Gestor + Gestor de área)
+  | "field:manage" // editar propriedades/campos (só Gestor)
+  | "stage:manage" // configurar etapas do pipeline (Gestor + Gestor de área)
+  | "user:manage" // criar usuários / trocar papéis (só Gestor)
   | "workflow:manage";
 
 export interface Actor {

@@ -6,5 +6,6 @@ export const dynamic = "force-dynamic";
 export default async function CanaisPage() {
   const actor = await provisionAndGetActor();
   const canPost = actor?.permissions.has("channel:post") ?? false;
-  return <ChannelsView canPost={canPost} myId={actor?.userId ?? ""} />;
+  const canManageGroups = actor?.permissions.has("channel:manage") ?? false;
+  return <ChannelsView canPost={canPost} canManageGroups={canManageGroups} myId={actor?.userId ?? ""} />;
 }

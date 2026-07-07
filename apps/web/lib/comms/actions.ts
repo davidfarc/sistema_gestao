@@ -64,7 +64,7 @@ export async function loadUnreadTotal(): Promise<number> {
 
 /** Cria um canal de grupo e adiciona todos os usuários internos como membros. */
 export async function createChannel(name: string): Promise<void> {
-  await requireActor("channel:post");
+  await requireActor("channel:manage");
   const db = createAdminClient();
   const { data: org } = await db
     .from("organization")

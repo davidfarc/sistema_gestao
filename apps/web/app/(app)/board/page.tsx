@@ -23,6 +23,10 @@ export default async function BoardPage({
       </div>
     );
   }
-  const canConfigure = actor?.permissions.has("board:configure") ?? false;
-  return <BoardView board={board} boards={boards} canConfigure={canConfigure} />;
+  const caps = {
+    fields: actor?.permissions.has("field:manage") ?? false,
+    stages: actor?.permissions.has("stage:manage") ?? false,
+    boards: actor?.permissions.has("board:configure") ?? false,
+  };
+  return <BoardView board={board} boards={boards} caps={caps} />;
 }

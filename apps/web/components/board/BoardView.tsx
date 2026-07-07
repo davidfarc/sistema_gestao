@@ -14,14 +14,20 @@ import type { BoardData, BoardSummary } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
+export interface BoardCaps {
+  fields: boolean; // editar propriedades (field:manage)
+  stages: boolean; // configurar etapas (stage:manage)
+  boards: boolean; // criar/renomear/arquivar pipelines (board:configure)
+}
+
 export function BoardView({
   board,
   boards,
-  canConfigure = false,
+  caps,
 }: {
   board: BoardData;
   boards: BoardSummary[];
-  canConfigure?: boolean;
+  caps: BoardCaps;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
@@ -56,7 +62,7 @@ export function BoardView({
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-4 border-b border-neutral-200 px-6 py-3">
         <div>
-          <PipelineSelector boards={boards} currentId={board.id} canConfigure={canConfigure} />
+          <PipelineSelector boards={boards} currentId={board.id} canConfigure={caps.boards} />
           <p className="px-1.5 text-xs text-neutral-400">{cards.length} cards</p>
         </div>
 
@@ -94,14 +100,14 @@ export function BoardView({
             cards={cards}
             onMove={move}
             onOpenCard={setSelectedCardId}
-            canConfigure={canConfigure}
+            canConfigure={caps.stages}
           />
         ) : (
           <ListView
             cards={cards}
             stages={board.stages}
             onOpenCard={setSelectedCardId}
-            canConfigure={canConfigure}
+            canConfigure={caps.fields}
           />
         )}
       </div>

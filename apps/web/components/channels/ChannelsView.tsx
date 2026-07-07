@@ -30,7 +30,15 @@ function listLabel(iso: string | null): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-export function ChannelsView({ canPost, myId }: { canPost: boolean; myId: string }) {
+export function ChannelsView({
+  canPost,
+  canManageGroups,
+  myId,
+}: {
+  canPost: boolean;
+  canManageGroups: boolean;
+  myId: string;
+}) {
   const [conversations, setConversations] = useState<ConversationView[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageView[]>([]);
@@ -287,6 +295,7 @@ export function ChannelsView({ canPost, myId }: { canPost: boolean; myId: string
 
       {composing && (
         <NewConversation
+          canManageGroups={canManageGroups}
           onClose={() => setComposing(false)}
           onOpened={async (channelId) => {
             setComposing(false);
@@ -308,9 +317,11 @@ function byRecency(a: ConversationView, b: ConversationView): number {
 // ── Painel "Nova conversa": DM por busca de pessoa, ou criar grupo ────────────
 
 function NewConversation({
+  canManageGroups,
   onClose,
   onOpened,
 }: {
+  canManageGroups: boolean;
   onClose: () => void;
   onOpened: (channelId: string) => void;
 }) {
@@ -383,16 +394,18 @@ function NewConversation({
           >
             <Search className="h-3.5 w-3.5" /> Pessoa
           </button>
-          <button
-            type="button"
-            onClick={() => setMode("group")}
-            className={clsx(
-              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
-              mode === "group" ? "bg-primary/10 text-primary" : "text-neutral-500 hover:bg-neutral-100",
-            )}
-          >
-            <Users className="h-3.5 w-3.5" /> Grupo
-          </button>
+          {canManageGroups && (
+            <button
+              type="button"
+              onClick={() => setMode("group")}
+              className={clsx(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium",
+                mode === "group" ? "bg-primary/10 text-primary" : "text-neutral-500 hover:bg-neutral-100",
+              )}
+            >
+              <Users className="h-3.5 w-3.5" /> Grupo
+            </button>
+          )}
         </div>
 
         {mode === "dm" ? (

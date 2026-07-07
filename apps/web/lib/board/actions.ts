@@ -549,7 +549,7 @@ export async function createUser(input: {
   internal: boolean;
   roleId?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const actor = await requireActor("board:configure");
+  const actor = await requireActor("user:manage");
   const email = input.email.trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { ok: false, error: "E-mail inválido." };
@@ -602,7 +602,7 @@ export async function createUser(input: {
 
 /** Troca o papel de um usuário (um papel por usuário). */
 export async function setUserRole(userId: string, roleId: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("user:manage");
   const db = createAdminClient();
   await db.from("user_role").delete().eq("user_id", userId);
   const { error } = await db.from("user_role").insert({ user_id: userId, role_id: roleId });
@@ -781,7 +781,7 @@ export async function addField(
   type: FieldType,
   options?: { label: string; color: string }[],
 ): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("field:manage");
   const db = createAdminClient();
   const { data: board } = await db
     .from("board")
@@ -828,7 +828,7 @@ export async function updateField(
   type: FieldType,
   options?: { label: string; color: string }[],
 ): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("field:manage");
   const db = createAdminClient();
   const { data: existing } = await db
     .from("field_definition")
@@ -855,7 +855,7 @@ export async function updateField(
 }
 
 export async function deleteField(fieldId: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("field:manage");
   const db = createAdminClient();
   const { error } = await db.from("field_definition").delete().eq("id", fieldId);
   if (error) throw new Error(error.message);
@@ -863,7 +863,7 @@ export async function deleteField(fieldId: string): Promise<void> {
 }
 
 export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("field:manage");
   const db = createAdminClient();
   const { error } = await db
     .from("field_definition")
@@ -929,7 +929,7 @@ export async function setFieldValue(
 // ── Configuração de etapas (colunas) — só Gestor (board:configure) ───────────
 
 export async function addStage(boardId: string, name: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("stage:manage");
   const db = createAdminClient();
   const { data: board } = await db
     .from("board")
@@ -956,7 +956,7 @@ export async function addStage(boardId: string, name: string): Promise<void> {
 }
 
 export async function renameStage(stageId: string, name: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("stage:manage");
   const db = createAdminClient();
   const { error } = await db
     .from("stage")
@@ -967,7 +967,7 @@ export async function renameStage(stageId: string, name: string): Promise<void> 
 }
 
 export async function setStageCategory(stageId: string, category: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("stage:manage");
   const db = createAdminClient();
   const { error } = await db.from("stage").update({ category }).eq("id", stageId);
   if (error) throw new Error(error.message);
@@ -975,7 +975,7 @@ export async function setStageCategory(stageId: string, category: string): Promi
 }
 
 export async function deleteStage(stageId: string): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("stage:manage");
   const db = createAdminClient();
   const { count } = await db
     .from("card")
@@ -991,7 +991,7 @@ export async function deleteStage(stageId: string): Promise<void> {
 
 /** Troca a etapa de lugar com a vizinha (reordena as colunas). */
 export async function reorderStage(stageId: string, direction: "left" | "right"): Promise<void> {
-  await requireActor("board:configure");
+  await requireActor("stage:manage");
   const db = createAdminClient();
   const { data: st } = await db.from("stage").select("board_id").eq("id", stageId).single();
   if (!st) throw new Error("Etapa não encontrada.");
