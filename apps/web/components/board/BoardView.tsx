@@ -92,7 +92,12 @@ export function BoardView({
             canConfigure={canConfigure}
           />
         ) : (
-          <ListView cards={cards} stages={board.stages} onOpenCard={setSelectedCardId} />
+          <ListView
+            cards={cards}
+            stages={board.stages}
+            onOpenCard={setSelectedCardId}
+            canConfigure={canConfigure}
+          />
         )}
       </div>
 

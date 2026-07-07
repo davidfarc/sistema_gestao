@@ -1,15 +1,20 @@
 import type { User } from "@supabase/supabase-js";
+import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
 
-/** Usuário autenticado (validado no servidor) ou null. */
-export async function getSessionUser(): Promise<User | null> {
+/**
+ * Usuário autenticado (validado no servidor) ou null. Deduplicado por request
+ * com `cache()` — o `auth.getUser()` é uma chamada de rede; sem isso ele roda
+ * várias vezes por carregamento (layout + página + sidebar).
+ */
+export const getSessionUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return user;
-}
+});
 
 /**
  * Classificação interno/externo pelo domínio do e-mail (PLANO.md): interno =

@@ -1,107 +1,146 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
-} from "@tanstack/react-table";
-import { useMemo, useState } from "react";
-
-import type { CardView, StageView } from "@/lib/board/types";
-
-const col = createColumnHelper<CardView>();
+  loadAllFieldValues,
+  loadFields,
+  loadMembers,
+  setFieldValue,
+} from "@/lib/board/actions";
+import type {
+  CardView,
+  FieldDef,
+  FieldValueRaw,
+  MemberOption,
+  StageView,
+} from "@/lib/board/types";
+import { AddProperty, FieldEditor, FieldMenu } from "./fieldControls";
 
 export function ListView({
   cards,
   stages,
   onOpenCard,
+  canConfigure,
 }: {
   cards: CardView[];
   stages: StageView[];
   onOpenCard: (id: string) => void;
+  canConfigure: boolean;
 }) {
-  const [sorting, setSorting] = useState<SortingState>([{ id: "number", desc: false }]);
+  const router = useRouter();
+  const [fields, setFields] = useState<FieldDef[]>([]);
+  const [values, setValues] = useState<Record<string, FieldValueRaw>>({});
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [adding, setAdding] = useState(false);
 
   const stageName = useMemo(() => {
     const m = new Map(stages.map((s) => [s.id, s.name]));
     return (id: string) => m.get(id) ?? "—";
   }, [stages]);
 
-  const columns = useMemo(
-    () => [
-      col.accessor("number", {
-        header: "#",
-        cell: (c) => <span className="font-medium text-neutral-500">#{c.getValue()}</span>,
-      }),
-      col.accessor("title", { header: "Título" }),
-      col.accessor((r) => stageName(r.stageId), {
-        id: "stage",
-        header: "Etapa",
-      }),
-      col.accessor((r) => r.assignee?.name ?? "", {
-        id: "assignee",
-        header: "Responsável",
-        cell: (c) => c.getValue() || <span className="text-neutral-300">—</span>,
-      }),
-    ],
-    [stageName],
-  );
+  async function reload() {
+    const [fs, vs, ms] = await Promise.all([loadFields(), loadAllFieldValues(), loadMembers()]);
+    setFields(fs);
+    setMembers(ms);
+    setValues(Object.fromEntries(vs.map((v) => [`${v.cardId}|${v.value.fieldId}`, v.value])));
+  }
 
-  const table = useReactTable({
-    data: cards,
-    columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  useEffect(() => {
+    reload();
+  }, []);
+
+  async function saveVal(
+    cardId: string,
+    fieldId: string,
+    value: string | number | boolean | null,
+    patch: Partial<FieldValueRaw>,
+  ) {
+    const key = `${cardId}|${fieldId}`;
+    setValues((prev) => ({
+      ...prev,
+      [key]: { fieldId, text: null, number: null, date: null, bool: null, memberId: null, ...prev[key], ...patch },
+    }));
+    await setFieldValue(cardId, fieldId, value);
+    router.refresh(); // reflete chips na face do card (visão Kanban)
+  }
+
+  const openCls = "cursor-pointer whitespace-nowrap px-3 py-2";
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-neutral-200">
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
-          {table.getHeaderGroups().map((hg) => (
-            <tr key={hg.id}>
-              {hg.headers.map((h) => (
-                <th key={h.id} className="whitespace-nowrap px-3 py-2 font-medium">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 hover:text-neutral-800"
-                    onClick={h.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    <span className="text-neutral-400">
-                      {h.column.getIsSorted() === "asc"
-                        ? "▲"
-                        : h.column.getIsSorted() === "desc"
-                          ? "▼"
-                          : ""}
-                    </span>
-                  </button>
+    <div>
+      {canConfigure && (
+        <div className="mb-3">
+          {adding ? (
+            <AddProperty
+              onClose={() => setAdding(false)}
+              onAdded={async () => {
+                setAdding(false);
+                await reload();
+                router.refresh();
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              + Propriedade
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-neutral-200">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+            <tr>
+              <th className="px-3 py-2 font-medium">#</th>
+              <th className="px-3 py-2 font-medium">Título</th>
+              <th className="px-3 py-2 font-medium">Etapa</th>
+              <th className="px-3 py-2 font-medium">Responsável</th>
+              {fields.map((f) => (
+                <th key={f.id} className="whitespace-nowrap px-3 py-2 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    {f.name}
+                    {canConfigure && <FieldMenu field={f} onChanged={reload} />}
+                  </span>
                 </th>
               ))}
             </tr>
-          ))}
-        </thead>
-        <tbody className="divide-y divide-neutral-100">
-          {table.getRowModel().rows.map((row) => (
-            <tr
-              key={row.id}
-              onClick={() => onOpenCard(row.original.id)}
-              className="cursor-pointer hover:bg-neutral-50"
-            >
-              {row.getVisibleCells().map((cell) => (
-                <td key={cell.id} className="whitespace-nowrap px-3 py-2 text-neutral-700">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
+            {cards.map((card) => (
+              <tr key={card.id} className="hover:bg-neutral-50">
+                <td className={openCls + " font-medium text-neutral-500"} onClick={() => onOpenCard(card.id)}>
+                  #{card.number}
                 </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                <td className={openCls + " text-neutral-800"} onClick={() => onOpenCard(card.id)}>
+                  {card.title}
+                </td>
+                <td className={openCls + " text-neutral-600"} onClick={() => onOpenCard(card.id)}>
+                  {stageName(card.stageId)}
+                </td>
+                <td className={openCls + " text-neutral-600"} onClick={() => onOpenCard(card.id)}>
+                  {card.assignee?.name ?? <span className="text-neutral-300">—</span>}
+                </td>
+                {fields.map((f) => (
+                  <td key={f.id} className="px-3 py-1.5">
+                    <FieldEditor
+                      field={f}
+                      value={values[`${card.id}|${f.id}`]}
+                      members={members}
+                      onSave={(v, p) => saveVal(card.id, f.id, v, p)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

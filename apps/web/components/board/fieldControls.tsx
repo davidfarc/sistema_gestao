@@ -11,18 +11,9 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
-import {
-  addField,
-  deleteField,
-  loadCardFieldValues,
-  loadFields,
-  loadMembers,
-  setFieldValue,
-  toggleFieldOnCard,
-} from "@/lib/board/actions";
+import { addField, deleteField, toggleFieldOnCard } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 
 const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
@@ -38,87 +29,7 @@ const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
 
 const OPTION_COLORS = ["#1d4ed8", "#047857", "#b45309", "#ba1a1a", "#7c3aed", "#0891b2"];
 
-export function FieldsSection({ cardId, canConfigure }: { cardId: string; canConfigure: boolean }) {
-  const router = useRouter();
-  const [fields, setFields] = useState<FieldDef[]>([]);
-  const [values, setValues] = useState<Record<string, FieldValueRaw>>({});
-  const [members, setMembers] = useState<MemberOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-
-  async function reload() {
-    const [fs, vs, ms] = await Promise.all([loadFields(), loadCardFieldValues(cardId), loadMembers()]);
-    setFields(fs);
-    setValues(Object.fromEntries(vs.map((v) => [v.fieldId, v])));
-    setMembers(ms);
-  }
-
-  useEffect(() => {
-    let active = true;
-    Promise.all([loadFields(), loadCardFieldValues(cardId), loadMembers()]).then(([fs, vs, ms]) => {
-      if (!active) return;
-      setFields(fs);
-      setValues(Object.fromEntries(vs.map((v) => [v.fieldId, v])));
-      setMembers(ms);
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, [cardId]);
-
-  async function save(fieldId: string, value: string | number | boolean | null, patch: Partial<FieldValueRaw>) {
-    setValues((prev) => ({ ...prev, [fieldId]: { fieldId, text: null, number: null, date: null, bool: null, memberId: null, ...prev[fieldId], ...patch } }));
-    await setFieldValue(cardId, fieldId, value);
-    router.refresh(); // atualiza a face do card se "mostrar no card"
-  }
-
-  if (loading) return <p className="text-sm text-secondary">Carregando propriedades…</p>;
-
-  return (
-    <div className="grid gap-2">
-      {fields.map((f) => (
-        <div key={f.id} className="flex items-center gap-2">
-          <span className="w-28 shrink-0 truncate text-xs text-neutral-500" title={f.name}>
-            {f.name}
-          </span>
-          <div className="min-w-0 flex-1">
-            <FieldEditor field={f} value={values[f.id]} members={members} onSave={save} />
-          </div>
-          {canConfigure && (
-            <FieldMenu field={f} onChanged={reload} />
-          )}
-        </div>
-      ))}
-
-      {fields.length === 0 && !canConfigure && (
-        <p className="text-sm text-secondary">Nenhuma propriedade.</p>
-      )}
-
-      {canConfigure &&
-        (adding ? (
-          <AddProperty
-            onClose={() => setAdding(false)}
-            onAdded={async () => {
-              setAdding(false);
-              await reload();
-              router.refresh();
-            }}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            className="mt-1 w-fit text-sm font-medium text-primary hover:underline"
-          >
-            + Adicionar propriedade
-          </button>
-        ))}
-    </div>
-  );
-}
-
-function FieldEditor({
+export function FieldEditor({
   field,
   value,
   members,
@@ -127,10 +38,10 @@ function FieldEditor({
   field: FieldDef;
   value: FieldValueRaw | undefined;
   members: MemberOption[];
-  onSave: (fieldId: string, value: string | number | boolean | null, patch: Partial<FieldValueRaw>) => void;
+  onSave: (value: string | number | boolean | null, patch: Partial<FieldValueRaw>) => void;
 }) {
   const cls =
-    "w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500";
+    "w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400";
 
   switch (field.type) {
     case "checkbox":
@@ -138,7 +49,7 @@ function FieldEditor({
         <input
           type="checkbox"
           checked={value?.bool ?? false}
-          onChange={(e) => onSave(field.id, e.target.checked, { bool: e.target.checked })}
+          onChange={(e) => onSave(e.target.checked, { bool: e.target.checked })}
           className="h-4 w-4 rounded border-neutral-300"
         />
       );
@@ -147,7 +58,7 @@ function FieldEditor({
         <input
           type="number"
           defaultValue={value?.number ?? ""}
-          onBlur={(e) => onSave(field.id, e.target.value, { number: e.target.value === "" ? null : Number(e.target.value) })}
+          onBlur={(e) => onSave(e.target.value, { number: e.target.value === "" ? null : Number(e.target.value) })}
           className={cls}
         />
       );
@@ -156,7 +67,7 @@ function FieldEditor({
         <input
           type="date"
           value={value?.date ?? ""}
-          onChange={(e) => onSave(field.id, e.target.value, { date: e.target.value || null })}
+          onChange={(e) => onSave(e.target.value, { date: e.target.value || null })}
           className={cls}
         />
       );
@@ -165,7 +76,7 @@ function FieldEditor({
       return (
         <select
           value={value?.text ?? ""}
-          onChange={(e) => onSave(field.id, e.target.value, { text: e.target.value || null })}
+          onChange={(e) => onSave(e.target.value, { text: e.target.value || null })}
           className={cls}
         >
           <option value="">—</option>
@@ -180,7 +91,7 @@ function FieldEditor({
       return (
         <select
           value={value?.memberId ?? ""}
-          onChange={(e) => onSave(field.id, e.target.value, { memberId: e.target.value || null })}
+          onChange={(e) => onSave(e.target.value, { memberId: e.target.value || null })}
           className={cls}
         >
           <option value="">—</option>
@@ -191,12 +102,12 @@ function FieldEditor({
           ))}
         </select>
       );
-    default: // text, link
+    default:
       return (
         <input
           type="text"
           defaultValue={value?.text ?? ""}
-          onBlur={(e) => onSave(field.id, e.target.value, { text: e.target.value || null })}
+          onBlur={(e) => onSave(e.target.value, { text: e.target.value || null })}
           placeholder={field.type === "link" ? "https://…" : ""}
           className={cls}
         />
@@ -204,14 +115,14 @@ function FieldEditor({
   }
 }
 
-function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => void }) {
+export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative shrink-0">
+    <span className="relative inline-block">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="rounded px-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+        className="rounded px-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
         aria-label="Opções da propriedade"
       >
         ⋯
@@ -245,11 +156,11 @@ function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => voi
           </div>
         </>
       )}
-    </div>
+    </span>
   );
 }
 
-function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+export function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
   const [name, setName] = useState("");
   const [type, setType] = useState<FieldType>("text");
   const [optionsText, setOptionsText] = useState("");
@@ -274,7 +185,7 @@ function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
   }
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+    <form onSubmit={submit} className="w-72 rounded-xl border border-neutral-200 bg-white p-3 shadow-lg">
       <input
         autoFocus
         value={name}
@@ -282,7 +193,6 @@ function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
         placeholder="Nome da propriedade"
         className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500"
       />
-
       <div className="mt-2 grid grid-cols-4 gap-1">
         {TYPES.map(({ type: t, label, Icon }) => (
           <button
@@ -301,16 +211,14 @@ function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
           </button>
         ))}
       </div>
-
       {needsOptions && (
         <input
           value={optionsText}
           onChange={(e) => setOptionsText(e.target.value)}
-          placeholder="Opções separadas por vírgula (ex.: Baixa, Média, Alta)"
+          placeholder="Opções separadas por vírgula"
           className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500"
         />
       )}
-
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={onClose} className="text-sm text-neutral-500 hover:text-neutral-800">
           Cancelar
@@ -320,7 +228,7 @@ function AddProperty({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
           disabled={pending}
           className="rounded-lg bg-primary px-3 py-1 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-60"
         >
-          Criar propriedade
+          Criar
         </button>
       </div>
     </form>

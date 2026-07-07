@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { asId, assertCan, UnauthorizedError, type Action, type Actor } from "@ecco/core";
 
 import { getSessionUser, isInternalEmail } from "@/lib/auth";
@@ -60,7 +62,7 @@ async function ensureDefaultRole(db: Db, userId: string, orgId: string, internal
  * Actor do core (com permissões resolvidas dos papéis). Null se não autenticado.
  * Idempotente — pode ser chamado a cada request.
  */
-export async function provisionAndGetActor(): Promise<Actor | null> {
+export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   const su = await getSessionUser();
   if (!su?.email) return null;
 
@@ -92,7 +94,7 @@ export async function provisionAndGetActor(): Promise<Actor | null> {
     permissions,
     teamIds: [],
   };
-}
+});
 
 /**
  * Garante um ator autenticado e (opcional) uma permissão — lança

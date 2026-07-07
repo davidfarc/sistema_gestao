@@ -4,6 +4,7 @@ import { CardService, ForbiddenError, GateBlockedError, type RuleViolation } fro
 import { revalidatePath } from "next/cache";
 
 import { provisionAndGetActor, requireActor } from "@/lib/actor";
+import { getSessionUser } from "@/lib/auth";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -405,7 +406,7 @@ export async function setUserRole(userId: string, roleId: string): Promise<void>
 
 export async function loadComments(cardId: string): Promise<CommentView[]> {
   const db = await createClient(); // sessão → RLS
-  const actor = await provisionAndGetActor();
+  const su = await getSessionUser();
   const { data } = await db
     .from("comment")
     .select("id, body, author_id, created_at")
@@ -426,7 +427,7 @@ export async function loadComments(cardId: string): Promise<CommentView[]> {
     body: r.body,
     authorName: nameOf.get(r.author_id) ?? "Alguém",
     createdAt: r.created_at,
-    isOwn: actor?.userId === r.author_id,
+    isOwn: su?.id === r.author_id,
   }));
 }
 
@@ -465,6 +466,27 @@ export async function loadFields(): Promise<FieldDef[]> {
     options: (f.config?.options ?? []) as FieldDef["options"],
     showOnCardFace: f.show_on_card_face,
     position: Number(f.position),
+  }));
+}
+
+/** Todos os valores de campo do board (para a lista). RLS escopa por usuário. */
+export async function loadAllFieldValues(): Promise<
+  { cardId: string; value: FieldValueRaw }[]
+> {
+  const db = await createClient();
+  const { data } = await db
+    .from("field_value")
+    .select("card_id, field_definition_id, value_text, value_number, value_date, value_bool, value_member_id");
+  return (data ?? []).map((v) => ({
+    cardId: v.card_id,
+    value: {
+      fieldId: v.field_definition_id,
+      text: v.value_text,
+      number: v.value_number,
+      date: v.value_date,
+      bool: v.value_bool,
+      memberId: v.value_member_id,
+    },
   }));
 }
 
