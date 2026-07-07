@@ -160,6 +160,16 @@ export interface UserSearchResult {
   email: string;
 }
 
+/** Item do sino de notificações in-app. */
+export interface NotificationView {
+  id: string;
+  kind: string;
+  title: string;
+  subtitle: string;
+  createdAt: string; // ISO
+  read: boolean;
+}
+
 export interface MessageView {
   id: string;
   authorName: string;

@@ -355,9 +355,13 @@ export async function setStageResponsible(
   stageId: string,
   userId: string | null,
 ): Promise<void> {
-  await requireActor("card:assign");
+  const actor = await requireActor("card:assign");
   const db = createAdminClient();
-  const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
+  const { data: card } = await db
+    .from("card")
+    .select("organization_id, number, title")
+    .eq("id", cardId)
+    .single();
   if (!card) throw new Error("Card não encontrado.");
 
   await db.from("assignment").delete().eq("card_id", cardId).eq("stage_id", stageId);
@@ -369,8 +373,26 @@ export async function setStageResponsible(
       user_id: userId,
     });
     if (error) throw new Error(error.message);
-    const actor = await provisionAndGetActor();
-    if (actor) await recordActivity(cardId, actor.userId, "assignment_changed", { stageId, userId });
+    await recordActivity(cardId, actor.userId, "assignment_changed", { stageId, userId });
+
+    // Notifica quem foi atribuído (exceto se atribuiu a si mesmo).
+    if (userId !== (actor.userId as string)) {
+      const [{ data: meU }, { data: stage }] = await Promise.all([
+        db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
+        db.from("stage").select("name").eq("id", stageId).maybeSingle(),
+      ]);
+      await db.from("notification").insert({
+        organization_id: card.organization_id,
+        user_id: userId,
+        kind: "assignment",
+        payload: {
+          actorName: meU?.name || meU?.email || "Alguém",
+          cardNumber: card.number,
+          cardTitle: card.title,
+          stageName: stage?.name ?? "",
+        },
+      });
+    }
   }
   revalidatePath("/board");
 }
@@ -546,6 +568,15 @@ export async function addComment(
   });
   if (error) throw new Error(error.message);
 
+  if (validIds.length === 0) return;
+
+  const { data: me } = await db
+    .from("app_user")
+    .select("name, email")
+    .eq("id", actor.userId as string)
+    .maybeSingle();
+  const actorName = me?.name || me?.email || "Alguém";
+
   // Cada mencionado recebe uma DM (autor → pessoa) com o comentário + card.
   for (const uid of validIds) {
     const channelId = await ensureDmChannel(
@@ -562,6 +593,21 @@ export async function addComment(
       mentions: [],
     });
   }
+
+  // …e uma notificação in-app (sininho).
+  await db.from("notification").insert(
+    validIds.map((uid) => ({
+      organization_id: card.organization_id,
+      user_id: uid,
+      kind: "mention",
+      payload: {
+        actorName,
+        cardNumber: card.number,
+        cardTitle: card.title,
+        snippet: text.slice(0, 120),
+      },
+    })),
+  );
 }
 
 // ── Propriedades customizadas (campos) ───────────────────────────────────────

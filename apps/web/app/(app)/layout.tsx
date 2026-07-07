@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MainContainer } from "@/components/shell/MainContainer";
+import { NotificationBell } from "@/components/shell/NotificationBell";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { SidebarProvider } from "@/components/shell/SidebarContext";
 import { provisionAndGetActor } from "@/lib/actor";
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <Sidebar user={user} />
+      {user && <NotificationBell />}
       <MainContainer>{children}</MainContainer>
     </SidebarProvider>
   );
