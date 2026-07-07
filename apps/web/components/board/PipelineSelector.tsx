@@ -1,12 +1,19 @@
 "use client";
 
 import clsx from "clsx";
-import { Archive, Check, ChevronDown, Pencil, Plus, RotateCcw, X } from "lucide-react";
+import { Archive, Check, ChevronDown, Pencil, Plus, RotateCcw, Users, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createBoard, renameBoard, setBoardArchived } from "@/lib/board/actions";
+import {
+  createBoard,
+  loadBoardMembers,
+  renameBoard,
+  setBoardArchived,
+  setBoardMember,
+} from "@/lib/board/actions";
 import type { BoardSummary } from "@/lib/board/types";
+import { MemberManagerDialog } from "@/components/common/MemberManagerDialog";
 
 export function PipelineSelector({
   boards,
@@ -24,6 +31,7 @@ export function PipelineSelector({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [membersFor, setMembersFor] = useState<BoardSummary | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const active = boards.filter((b) => !b.archived);
@@ -43,6 +51,12 @@ export function PipelineSelector({
     setOpen(false);
     router.push(`/board?board=${boardId}`);
   }
+
+  const loadMembers = useCallback(() => loadBoardMembers(membersFor?.id ?? ""), [membersFor]);
+  const toggleMember = useCallback(
+    (uid: string, m: boolean) => setBoardMember(membersFor?.id ?? "", uid, m),
+    [membersFor],
+  );
 
   async function submitNew() {
     if (!newName.trim() || busy) return;
@@ -130,6 +144,18 @@ export function PipelineSelector({
                         <button
                           type="button"
                           onClick={() => {
+                            setMembersFor(b);
+                            setOpen(false);
+                          }}
+                          className="p-1 text-neutral-400 hover:text-neutral-700"
+                          title="Membros / acesso"
+                          aria-label="Membros"
+                        >
+                          <Users className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
                             setEditingId(b.id);
                             setEditName(b.name);
                           }}
@@ -209,6 +235,15 @@ export function PipelineSelector({
             </div>
           )}
         </div>
+      )}
+
+      {membersFor && (
+        <MemberManagerDialog
+          title={`Acesso: ${membersFor.name}`}
+          load={loadMembers}
+          onToggle={toggleMember}
+          onClose={() => setMembersFor(null)}
+        />
       )}
     </div>
   );

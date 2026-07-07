@@ -1,18 +1,22 @@
 "use client";
 
 import clsx from "clsx";
-import { Hash, Pencil, Search, Users, X } from "lucide-react";
+import { Hash, Pencil, Search, Settings, Users, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
+import { MemberManagerDialog } from "@/components/common/MemberManagerDialog";
 import type { ConversationView, MessageView, UserSearchResult } from "@/lib/board/types";
 import {
   createChannel,
+  loadChannelMembers,
   loadConversations,
   loadMessages,
   markRead,
   openOrCreateDm,
   postMessage,
+  renameChannel,
   searchUsers,
+  setChannelMember,
 } from "@/lib/comms/actions";
 import { createClient } from "@/lib/supabase/client";
 
@@ -44,6 +48,7 @@ export function ChannelsView({
   const [messages, setMessages] = useState<MessageView[]>([]);
   const [body, setBody] = useState("");
   const [composing, setComposing] = useState(false);
+  const [managingGroup, setManagingGroup] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selected;
@@ -53,6 +58,12 @@ export function ChannelsView({
     setConversations(cs);
     return cs;
   }, []);
+
+  const loadGroupMembers = useCallback(() => loadChannelMembers(selected ?? ""), [selected]);
+  const toggleGroupMember = useCallback(
+    (uid: string, m: boolean) => setChannelMember(selected ?? "", uid, m),
+    [selected],
+  );
 
   useEffect(() => {
     refreshConversations().then((cs) => {
@@ -240,6 +251,17 @@ export function ChannelsView({
                 {active.kind === "group" ? <Hash className="h-4 w-4" /> : active.initials}
               </span>
               <h1 className="text-base font-semibold text-neutral-800">{active.name}</h1>
+              {active.kind === "group" && canManageGroups && (
+                <button
+                  type="button"
+                  onClick={() => setManagingGroup(true)}
+                  title="Gerenciar grupo"
+                  aria-label="Gerenciar grupo"
+                  className="ml-auto rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
             </header>
 
             <div className="flex-1 space-y-3 overflow-y-auto p-5">
@@ -302,6 +324,31 @@ export function ChannelsView({
             await refreshConversations();
             if (channelId) setSelected(channelId);
           }}
+        />
+      )}
+
+      {managingGroup && active?.kind === "group" && (
+        <MemberManagerDialog
+          title="Gerenciar grupo"
+          topSlot={
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-neutral-500">Nome do grupo</span>
+              <input
+                defaultValue={active.name}
+                onBlur={async (e) => {
+                  const name = e.target.value.trim();
+                  if (name && name !== active.name) {
+                    await renameChannel(active.id, name);
+                    await refreshConversations();
+                  }
+                }}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
+              />
+            </label>
+          }
+          load={loadGroupMembers}
+          onToggle={toggleGroupMember}
+          onClose={() => setManagingGroup(false)}
         />
       )}
     </div>

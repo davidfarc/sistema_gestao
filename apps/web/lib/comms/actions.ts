@@ -6,6 +6,7 @@ import { requireActor } from "@/lib/actor";
 import { getSessionUser } from "@/lib/auth";
 import type {
   ConversationView,
+  MemberOption,
   MessageView,
   UserSearchResult,
 } from "@/lib/board/types";
@@ -89,6 +90,53 @@ export async function createChannel(name: string): Promise<void> {
   const members = (users ?? []).map((u) => ({ channel_id: channel.id, user_id: u.id }));
   if (members.length > 0) await db.from("channel_member").insert(members);
 
+  revalidatePath("/canais");
+}
+
+/** Renomeia um grupo (só canais de grupo). */
+export async function renameChannel(channelId: string, name: string): Promise<void> {
+  await requireActor("channel:manage");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("channel")
+    .update({ name: name.trim() || "Grupo" })
+    .eq("id", channelId)
+    .eq("kind", "group");
+  if (error) throw new Error(error.message);
+  revalidatePath("/canais");
+}
+
+/** Membros de um grupo + lista de internos para gerenciar. */
+export async function loadChannelMembers(
+  channelId: string,
+): Promise<{ memberIds: string[]; users: MemberOption[] }> {
+  await requireActor("channel:manage");
+  const db = createAdminClient();
+  const [memRes, usersRes] = await Promise.all([
+    db.from("channel_member").select("user_id").eq("channel_id", channelId),
+    db.from("app_user").select("id, name, email").eq("is_internal", true).order("name"),
+  ]);
+  return {
+    memberIds: (memRes.data ?? []).map((m) => m.user_id),
+    users: (usersRes.data ?? []).map((u) => ({ id: u.id, name: u.name || u.email })),
+  };
+}
+
+/** Inclui/remove um membro do grupo. */
+export async function setChannelMember(
+  channelId: string,
+  userId: string,
+  member: boolean,
+): Promise<void> {
+  await requireActor("channel:manage");
+  const db = createAdminClient();
+  if (member) {
+    await db
+      .from("channel_member")
+      .upsert({ channel_id: channelId, user_id: userId }, { onConflict: "channel_id,user_id" });
+  } else {
+    await db.from("channel_member").delete().eq("channel_id", channelId).eq("user_id", userId);
+  }
   revalidatePath("/canais");
 }
 

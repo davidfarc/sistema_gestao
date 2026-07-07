@@ -610,6 +610,42 @@ export async function setUserRole(userId: string, roleId: string): Promise<void>
   revalidatePath("/configuracoes/usuarios");
 }
 
+// ── Acesso a pipelines (board_member) — só Gestor (board:configure) ──────────
+
+/** Usuários internos + quem já é membro do pipeline. Para a UI de acesso. */
+export async function loadBoardMembers(
+  boardId: string,
+): Promise<{ memberIds: string[]; users: MemberOption[] }> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const [memRes, usersRes] = await Promise.all([
+    db.from("board_member").select("user_id").eq("board_id", boardId),
+    db.from("app_user").select("id, name, email").eq("is_internal", true).order("name"),
+  ]);
+  return {
+    memberIds: (memRes.data ?? []).map((m) => m.user_id),
+    users: (usersRes.data ?? []).map((u) => ({ id: u.id, name: u.name || u.email })),
+  };
+}
+
+/** Inclui/remove um usuário do pipeline (define o que ele enxerga). */
+export async function setBoardMember(
+  boardId: string,
+  userId: string,
+  member: boolean,
+): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  if (member) {
+    await db
+      .from("board_member")
+      .upsert({ board_id: boardId, user_id: userId }, { onConflict: "board_id,user_id" });
+  } else {
+    await db.from("board_member").delete().eq("board_id", boardId).eq("user_id", userId);
+  }
+  revalidatePath("/board");
+}
+
 // ── Comentários ──────────────────────────────────────────────────────────────
 
 export async function loadComments(cardId: string): Promise<CommentView[]> {
