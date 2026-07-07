@@ -3,6 +3,26 @@
 > Hospedagem na **Vercel** (Next.js) + **Supabase** já hospedado (DB/Auth/Realtime).
 > GitHub = fonte de verdade: `github.com/davidfarc/sistema_gestao`.
 
+## ✅ Estado atual (no ar)
+
+- **Produção:** https://ecco-sistema.vercel.app
+- **Projeto Vercel:** `eccoprime/ecco-sistema` (time `eccoprime`), **Root Directory = `apps/web`**.
+- **Variáveis** (Production) já configuradas: as 4 abaixo.
+- **Supabase Auth** já apontado para a URL de produção (Site URL + Redirect URLs com wildcard,
+  mantendo `localhost`).
+- **Deploy feito via CLI** a partir da **raiz do repo** (sobe o monorepo pnpm inteiro).
+
+**Redeploy (após mudanças locais):** na raiz, com a Vercel CLI logada:
+```
+vercel deploy --prod --scope eccoprime --yes
+```
+Ou conectar o GitHub ao projeto (Settings → Git) para **deploy automático a cada push**.
+
+⚠️ Migrations **não** rodam no deploy — aplicar à parte (ver §Notas).
+
+---
+
+
 ## Visão geral
 
 - **Frontend/SSR:** Vercel builda o `apps/web` a partir do GitHub (monorepo pnpm).
