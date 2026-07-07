@@ -11,7 +11,8 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { addField, deleteField, toggleFieldOnCard, updateField } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
@@ -119,26 +120,65 @@ export function FieldEditor({
 export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
 
+  function openMenu() {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setAnchor({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    setEditing(false);
+    setOpen(true);
+  }
   function close() {
     setOpen(false);
     setEditing(false);
   }
 
+  // Popover num portal com posição fixed → escapa do overflow da tabela.
+  function Popover({ children }: { children: ReactNode }) {
+    if (!open || !anchor) return null;
+    return createPortal(
+      <>
+        <div className="fixed inset-0 z-[60]" onClick={close} />
+        <div className="fixed z-[61]" style={{ top: anchor.top, right: anchor.right }}>
+          {children}
+        </div>
+      </>,
+      document.body,
+    );
+  }
+
   return (
-    <span className="relative inline-block">
+    <span className="inline-block">
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? close() : openMenu())}
         className="rounded px-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
         aria-label="Opções da propriedade"
       >
         ⋯
       </button>
-      {open && !editing && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={close} />
-          <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
+
+      <Popover>
+        {editing ? (
+          <PropertyForm
+            initial={{
+              name: field.name,
+              type: field.type,
+              optionsText: field.options.map((o) => o.label).join(", "),
+              colors: field.options.map((o) => o.color),
+            }}
+            submitLabel="Salvar"
+            onClose={close}
+            onSubmit={async (name, type, options) => {
+              await updateField(field.id, name, type, options);
+              close();
+              onChanged();
+            }}
+          />
+        ) : (
+          <div className="w-44 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -149,7 +189,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
             <button
               type="button"
               onClick={async () => {
-                setOpen(false);
+                close();
                 await toggleFieldOnCard(field.id, !field.showOnCardFace);
                 onChanged();
               }}
@@ -160,7 +200,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
             <button
               type="button"
               onClick={async () => {
-                setOpen(false);
+                close();
                 await deleteField(field.id);
                 onChanged();
               }}
@@ -169,30 +209,8 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               Remover propriedade
             </button>
           </div>
-        </>
-      )}
-      {editing && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={close} />
-          <div className="absolute right-0 z-20 mt-1">
-            <PropertyForm
-              initial={{
-                name: field.name,
-                type: field.type,
-                optionsText: field.options.map((o) => o.label).join(", "),
-                colors: field.options.map((o) => o.color),
-              }}
-              submitLabel="Salvar"
-              onClose={close}
-              onSubmit={async (name, type, options) => {
-                await updateField(field.id, name, type, options);
-                close();
-                onChanged();
-              }}
-            />
-          </div>
-        </>
-      )}
+        )}
+      </Popover>
     </span>
   );
 }
