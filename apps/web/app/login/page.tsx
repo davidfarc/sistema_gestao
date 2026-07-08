@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mostra o motivo real vindo do /auth/callback (?error=...).
+  useEffect(() => {
+    const e = new URLSearchParams(window.location.search).get("error");
+    if (e) setError(decodeURIComponent(e));
+  }, []);
 
   async function signInWithGoogle() {
     setLoading(true);
