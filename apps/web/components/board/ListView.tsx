@@ -154,7 +154,7 @@ export function ListView({
                   <select
                     value={card.stageId}
                     onChange={(e) => changeStage(card.id, e.target.value)}
-                    className={cellInput + " text-neutral-600"}
+                    className={cellInput + " pr-6 text-neutral-600"}
                   >
                     {stages.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -167,7 +167,7 @@ export function ListView({
                   <select
                     value={card.assignee?.id ?? ""}
                     onChange={(e) => changeResponsible(card.id, e.target.value)}
-                    className={cellInput + " text-neutral-600"}
+                    className={cellInput + " pr-6 text-neutral-600"}
                   >
                     <option value="">—</option>
                     {members.map((m) => (

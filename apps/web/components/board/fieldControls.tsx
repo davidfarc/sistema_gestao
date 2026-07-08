@@ -79,7 +79,7 @@ export function FieldEditor({
         <select
           value={value?.text ?? ""}
           onChange={(e) => onSave(e.target.value, { text: e.target.value || null })}
-          className={cls}
+          className={cls + " pr-6"}
         >
           <option value="">—</option>
           {field.options.map((o) => (
@@ -94,7 +94,7 @@ export function FieldEditor({
         <select
           value={value?.memberId ?? ""}
           onChange={(e) => onSave(e.target.value, { memberId: e.target.value || null })}
-          className={cls}
+          className={cls + " pr-6"}
         >
           <option value="">—</option>
           {members.map((m) => (
