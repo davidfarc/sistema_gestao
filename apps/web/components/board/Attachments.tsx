@@ -63,17 +63,17 @@ export function Attachments({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Título (opcional)"
-          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
+          className="min-w-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
         />
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Colar link (qualquer URL)"
-          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
+          className="min-w-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-500"
         />
         <button
           type="submit"
-          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          className="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
         >
           Anexar
         </button>

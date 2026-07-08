@@ -124,7 +124,7 @@ export function ListView({
               <th className="px-3 py-2 font-medium">Etapa</th>
               <th className="px-3 py-2 font-medium">Responsável</th>
               {fields.map((f) => (
-                <th key={f.id} className="whitespace-nowrap px-3 py-2 font-medium">
+                <th key={f.id} className="min-w-36 whitespace-nowrap px-3 py-2 font-medium">
                   <span className="inline-flex items-center gap-1">
                     {f.name}
                     {canConfigure && <FieldMenu field={f} onChanged={reload} />}
@@ -150,7 +150,7 @@ export function ListView({
                     className={cellInput + " text-neutral-800"}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className="min-w-32 px-3 py-1.5">
                   <select
                     value={card.stageId}
                     onChange={(e) => changeStage(card.id, e.target.value)}
@@ -163,7 +163,7 @@ export function ListView({
                     ))}
                   </select>
                 </td>
-                <td className="px-3 py-1.5">
+                <td className="min-w-36 px-3 py-1.5">
                   <select
                     value={card.assignee?.id ?? ""}
                     onChange={(e) => changeResponsible(card.id, e.target.value)}
@@ -178,7 +178,7 @@ export function ListView({
                   </select>
                 </td>
                 {fields.map((f) => (
-                  <td key={f.id} className="px-3 py-1.5">
+                  <td key={f.id} className="min-w-36 px-3 py-1.5">
                     <FieldEditor
                       field={f}
                       value={values[`${card.id}|${f.id}`]}
