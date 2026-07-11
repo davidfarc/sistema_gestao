@@ -1,5 +1,6 @@
 "use client";
 
+import { Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -20,6 +21,7 @@ import type {
   StageView,
 } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
+import { CreateFormConfig } from "./CreateFormConfig";
 import { AddProperty, FieldEditor, FieldMenu } from "./fieldControls";
 
 export function ListView({
@@ -39,6 +41,7 @@ export function ListView({
   const [values, setValues] = useState<Record<string, FieldValueRaw>>({});
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [adding, setAdding] = useState(false);
+  const [configuring, setConfiguring] = useState(false);
 
   const stageName = useMemo(() => {
     const m = new Map(stages.map((s) => [s.id, s.name]));
@@ -104,15 +107,33 @@ export function ListView({
               }}
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              + Propriedade
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                + Propriedade
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfiguring(true)}
+                title="Configurar formulário de criação"
+                className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-800"
+              >
+                <Settings2 className="h-4 w-4" /> Formulário
+              </button>
+            </div>
           )}
         </div>
+      )}
+
+      {configuring && (
+        <CreateFormConfig
+          fields={fields}
+          onChanged={reload}
+          onClose={() => setConfiguring(false)}
+        />
       )}
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200">

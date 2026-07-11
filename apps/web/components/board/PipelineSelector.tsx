@@ -10,13 +10,10 @@ import {
   loadBoardMembers,
   renameBoard,
   setBoardArchived,
-  setBoardCreationForm,
   setBoardMember,
 } from "@/lib/board/actions";
 import type { BoardSummary } from "@/lib/board/types";
 import { MemberManagerDialog } from "@/components/common/MemberManagerDialog";
-import { useCreationForm } from "./BoardContext";
-import { CUSTOM_FORMS } from "./customForms";
 
 export function PipelineSelector({
   boards,
@@ -40,14 +37,6 @@ export function PipelineSelector({
   const active = boards.filter((b) => !b.archived);
   const archived = boards.filter((b) => b.archived);
   const current = boards.find((b) => b.id === currentId);
-  const creationForm = useCreationForm();
-
-  async function changeCreationForm(mode: string) {
-    setBusy(true);
-    await setBoardCreationForm(currentId, mode);
-    setBusy(false);
-    router.refresh();
-  }
 
   useEffect(() => {
     if (!open) return;
@@ -221,28 +210,6 @@ export function PipelineSelector({
                   <Plus className="h-4 w-4" /> Novo pipeline
                 </button>
               )}
-            </div>
-          )}
-
-          {canConfigure && (
-            <div className="border-t border-neutral-100 p-2">
-              <p className="px-1 pb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
-                Formulário de criação
-              </p>
-              <select
-                value={creationForm}
-                onChange={(e) => changeCreationForm(e.target.value)}
-                disabled={busy}
-                className="w-full rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-neutral-500"
-              >
-                <option value="simple">Simples (só título)</option>
-                <option value="generic">Genérico (campos marcados)</option>
-                {Object.entries(CUSTOM_FORMS).map(([key, f]) => (
-                  <option key={key} value={`custom:${key}`}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
             </div>
           )}
 

@@ -15,14 +15,7 @@ import {
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import {
-  addField,
-  deleteField,
-  toggleFieldOnCard,
-  toggleFieldOnCreate,
-  toggleFieldRequired,
-  updateField,
-} from "@/lib/board/actions";
+import { addField, deleteField, toggleFieldOnCard, updateField } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
 
@@ -222,28 +215,6 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
             >
               {field.showOnCardFace ? "Ocultar do card" : "Mostrar no card"}
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                close();
-                await toggleFieldOnCreate(field.id, !field.showOnCreate);
-                onChanged();
-              }}
-              className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
-            >
-              {field.showOnCreate ? "Não pedir na criação" : "Pedir na criação"}
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                close();
-                await toggleFieldRequired(field.id, !field.isRequired);
-                onChanged();
-              }}
-              className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
-            >
-              {field.isRequired ? "Tornar opcional" : "Tornar obrigatório"}
             </button>
             <button
               type="button"
