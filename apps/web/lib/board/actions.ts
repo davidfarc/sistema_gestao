@@ -81,6 +81,54 @@ export async function createCard(boardId: string, title: string): Promise<void> 
   revalidatePath("/board");
 }
 
+/**
+ * Cria um card e seta os valores das propriedades de uma vez (form de criação
+ * genérico/personalizado). Cria na 1ª etapa; ignora valores vazios. Retorna o id.
+ */
+export async function createCardWithFields(
+  boardId: string,
+  title: string,
+  values: { fieldId: string; value: string | number | boolean | null }[],
+): Promise<string> {
+  await requireActor("card:create");
+  const db = createAdminClient();
+
+  const { data: board } = await db
+    .from("board")
+    .select("id, organization_id")
+    .eq("id", boardId)
+    .maybeSingle();
+  if (!board) throw new Error("Pipeline não encontrado.");
+
+  const { data: firstStage } = await db
+    .from("stage")
+    .select("id")
+    .eq("board_id", board.id)
+    .order("position")
+    .limit(1)
+    .maybeSingle();
+  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
+
+  const { data: card, error } = await db
+    .from("card")
+    .insert({
+      organization_id: board.organization_id,
+      board_id: board.id,
+      stage_id: firstStage.id,
+      title: title.trim() || "Novo card",
+    })
+    .select("id")
+    .single();
+  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+
+  for (const v of values) {
+    if (v.value === null || v.value === "") continue;
+    await setFieldValue(card.id, v.fieldId, v.value);
+  }
+  revalidatePath("/board");
+  return card.id;
+}
+
 // ── Pipelines (boards) — criar / renomear / arquivar (só Gestor) ─────────────
 
 /** Cria um pipeline com 3 colunas padrão (A fazer / Fazendo / Feito). */
@@ -133,6 +181,15 @@ export async function setBoardArchived(boardId: string, archived: boolean): Prom
     .from("board")
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", boardId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/** Define o modo do formulário de criação do pipeline (simple/generic/custom:*). */
+export async function setBoardCreationForm(boardId: string, mode: string): Promise<void> {
+  await requireActor("board:configure");
+  const db = createAdminClient();
+  const { error } = await db.from("board").update({ creation_form: mode }).eq("id", boardId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
 }
@@ -765,7 +822,7 @@ export async function loadFields(boardId: string): Promise<FieldDef[]> {
   // Campos deste pipeline + os GLOBAIS (board_id nulo). RLS escopa.
   const { data } = await db
     .from("field_definition")
-    .select("id, name, type, config, show_on_card_face, position, board_id")
+    .select("id, name, type, config, show_on_card_face, show_on_create, is_required, position, board_id")
     .or(`board_id.eq.${boardId},board_id.is.null`)
     .order("position");
   return (data ?? []).map((f) => ({
@@ -774,6 +831,8 @@ export async function loadFields(boardId: string): Promise<FieldDef[]> {
     type: f.type,
     options: (f.config?.options ?? []) as FieldDef["options"],
     showOnCardFace: f.show_on_card_face,
+    showOnCreate: f.show_on_create ?? false,
+    isRequired: f.is_required ?? false,
     position: Number(f.position),
     global: f.board_id === null,
   }));
@@ -924,6 +983,30 @@ export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise
   revalidatePath("/board");
 }
 
+/** Marca/desmarca "pedir na criação" (aparece no formulário genérico). */
+export async function toggleFieldOnCreate(fieldId: string, show: boolean): Promise<void> {
+  await requireActor("field:manage");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("field_definition")
+    .update({ show_on_create: show })
+    .eq("id", fieldId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/** Marca/desmarca "obrigatório" no formulário de criação. */
+export async function toggleFieldRequired(fieldId: string, required: boolean): Promise<void> {
+  await requireActor("field:manage");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("field_definition")
+    .update({ is_required: required })
+    .eq("id", fieldId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
 export async function setFieldValue(
   cardId: string,
   fieldId: string,
@@ -951,6 +1034,7 @@ export async function setFieldValue(
   };
   switch (field.type) {
     case "text":
+    case "long_text":
     case "link":
     case "select":
     case "status":

@@ -191,6 +191,7 @@ export interface VolumeCard {
 
 export type FieldType =
   | "text"
+  | "long_text"
   | "number"
   | "date"
   | "select" // single

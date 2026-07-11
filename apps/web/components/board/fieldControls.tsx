@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlignLeft,
   Calendar,
   CheckSquare,
   CircleDot,
@@ -14,12 +15,20 @@ import {
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { addField, deleteField, toggleFieldOnCard, updateField } from "@/lib/board/actions";
+import {
+  addField,
+  deleteField,
+  toggleFieldOnCard,
+  toggleFieldOnCreate,
+  toggleFieldRequired,
+  updateField,
+} from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
 
 const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
   { type: "text", label: "Texto", Icon: Type },
+  { type: "long_text", label: "Texto longo", Icon: AlignLeft },
   { type: "number", label: "Número", Icon: Hash },
   { type: "status", label: "Status", Icon: CircleDot },
   { type: "select", label: "Seleção", Icon: ListChecks },
@@ -36,16 +45,29 @@ export function FieldEditor({
   value,
   members,
   onSave,
+  live = false,
 }: {
   field: FieldDef;
   value: FieldValueRaw | undefined;
   members: MemberOption[];
   onSave: (value: string | number | boolean | null, patch: Partial<FieldValueRaw>) => void;
+  /** true = campos de texto/número reagem no onChange (controlado), p/ formulários de criação. */
+  live?: boolean;
 }) {
   const cls =
     "w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400";
 
   switch (field.type) {
+    case "long_text":
+      return (
+        <textarea
+          {...(live
+            ? { value: value?.text ?? "", onChange: (e) => onSave(e.target.value, { text: e.target.value || null }) }
+            : { defaultValue: value?.text ?? "", onBlur: (e) => onSave(e.target.value, { text: e.target.value || null }) })}
+          rows={3}
+          className={cls + " resize-y"}
+        />
+      );
     case "checkbox":
       return (
         <input
@@ -59,8 +81,9 @@ export function FieldEditor({
       return (
         <input
           type="number"
-          defaultValue={value?.number ?? ""}
-          onBlur={(e) => onSave(e.target.value, { number: e.target.value === "" ? null : Number(e.target.value) })}
+          {...(live
+            ? { value: value?.number ?? "", onChange: (e) => onSave(e.target.value, { number: e.target.value === "" ? null : Number(e.target.value) }) }
+            : { defaultValue: value?.number ?? "", onBlur: (e) => onSave(e.target.value, { number: e.target.value === "" ? null : Number(e.target.value) }) })}
           className={cls}
         />
       );
@@ -108,8 +131,9 @@ export function FieldEditor({
       return (
         <input
           type="text"
-          defaultValue={value?.text ?? ""}
-          onBlur={(e) => onSave(e.target.value, { text: e.target.value || null })}
+          {...(live
+            ? { value: value?.text ?? "", onChange: (e) => onSave(e.target.value, { text: e.target.value || null }) }
+            : { defaultValue: value?.text ?? "", onBlur: (e) => onSave(e.target.value, { text: e.target.value || null }) })}
           placeholder={field.type === "link" ? "https://…" : ""}
           className={cls}
         />
@@ -167,7 +191,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
             initial={{
               name: field.name,
               type: field.type,
-              optionsText: field.options.map((o) => o.label).join(", "),
+              optionsText: field.options.map((o) => o.label).join("\n"),
               colors: field.options.map((o) => o.color),
               global: field.global,
             }}
@@ -198,6 +222,28 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
             >
               {field.showOnCardFace ? "Ocultar do card" : "Mostrar no card"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                close();
+                await toggleFieldOnCreate(field.id, !field.showOnCreate);
+                onChanged();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
+            >
+              {field.showOnCreate ? "Não pedir na criação" : "Pedir na criação"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                close();
+                await toggleFieldRequired(field.id, !field.isRequired);
+                onChanged();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
+            >
+              {field.isRequired ? "Tornar opcional" : "Tornar obrigatório"}
             </button>
             <button
               type="button"
@@ -248,7 +294,7 @@ function PropertyForm({
     setPending(true);
     const options = needsOptions
       ? optionsText
-          .split(",")
+          .split(/\n/)
           .map((s) => s.trim())
           .filter(Boolean)
           .map((label, i) => ({
@@ -291,11 +337,12 @@ function PropertyForm({
         ))}
       </div>
       {needsOptions && (
-        <input
+        <textarea
           value={optionsText}
           onChange={(e) => setOptionsText(e.target.value)}
-          placeholder="Opções separadas por vírgula"
-          className="mt-2 w-full rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500"
+          rows={4}
+          placeholder="Uma opção por linha"
+          className="mt-2 w-full resize-y rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500"
         />
       )}
       <label className="mt-2 flex items-start gap-2 text-xs text-neutral-600">

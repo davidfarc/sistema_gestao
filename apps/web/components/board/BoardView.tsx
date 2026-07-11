@@ -58,7 +58,7 @@ export function BoardView({
   }
 
   return (
-    <BoardProvider boardId={board.id}>
+    <BoardProvider boardId={board.id} creationForm={board.creationForm}>
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-4 border-b border-neutral-200 px-6 py-3">
         <div>

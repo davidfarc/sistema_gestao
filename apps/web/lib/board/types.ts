@@ -37,6 +37,7 @@ export interface CardView {
 
 export type FieldType =
   | "text"
+  | "long_text"
   | "number"
   | "date"
   | "select"
@@ -57,9 +58,14 @@ export interface FieldDef {
   type: FieldType;
   options: FieldOption[];
   showOnCardFace: boolean;
+  showOnCreate: boolean; // pedir este campo no formulário de criação (genérico)
+  isRequired: boolean; // obrigatório no formulário de criação
   position: number;
   global: boolean; // true = aparece em todos os pipelines (board_id nulo)
 }
+
+/** Modo do formulário de criação de um pipeline. */
+export type CreationForm = "simple" | "generic" | `custom:${string}`;
 
 /** Valor bruto de um campo num card (colunas tipadas). */
 export interface FieldValueRaw {
@@ -91,6 +97,7 @@ export interface StageView {
 export interface BoardData {
   id: string;
   name: string;
+  creationForm: CreationForm;
   stages: StageView[];
   cards: CardView[];
   members: Member[];

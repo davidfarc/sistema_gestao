@@ -14,8 +14,11 @@ function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip |
   const base = { fieldId: f.id as string, name: f.name as string, type };
   switch (type) {
     case "text":
+    case "long_text":
     case "link":
-      return raw.value_text ? { ...base, display: raw.value_text, color: null } : null;
+      return raw.value_text
+        ? { ...base, display: String(raw.value_text).slice(0, 60), color: null }
+        : null;
     case "number":
       return raw.value_number != null
         ? { ...base, display: String(raw.value_number), color: null }
@@ -46,11 +49,11 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const db = await createClient();
 
   // Pipeline pedido (se visível) ou o primeiro não-arquivado. RLS escopa.
-  let board: { id: string; name: string } | null = null;
+  let board: { id: string; name: string; creation_form: string } | null = null;
   if (boardId) {
     const { data } = await db
       .from("board")
-      .select("id, name")
+      .select("id, name, creation_form")
       .eq("id", boardId)
       .is("archived_at", null)
       .maybeSingle();
@@ -59,7 +62,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   if (!board) {
     const { data } = await db
       .from("board")
-      .select("id, name")
+      .select("id, name, creation_form")
       .is("archived_at", null)
       .order("created_at")
       .limit(1)
@@ -151,7 +154,14 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     };
   });
 
-  return { id: board.id, name: board.name, stages, cards, members: [] };
+  return {
+    id: board.id,
+    name: board.name,
+    creationForm: (board.creation_form ?? "simple") as BoardData["creationForm"],
+    stages,
+    cards,
+    members: [],
+  };
 }
 
 /** Lista os pipelines visíveis (RLS: interno vê todos; externo os atribuídos). */
