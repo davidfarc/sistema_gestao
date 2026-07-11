@@ -8,11 +8,21 @@ import {
   type RiskLevel,
   type TipoDemanda,
 } from "@ecco/core";
+import clsx from "clsx";
+import { Package, Repeat, Rocket, Shield, TrendingUp, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { createCardWithFields, loadFields } from "@/lib/board/actions";
 import type { FieldDef } from "@/lib/board/types";
 import type { CustomFormProps } from "./customForms";
+
+// Ícone + descrição de cada tipo (chave = label da opção, em maiúsculas).
+const TIPO_META: Record<string, { desc: string; Icon: LucideIcon }> = {
+  RUN: { desc: "Manter operação — despesa recorrente do dia a dia.", Icon: Repeat },
+  KEEP: { desc: "Sustentar / manter algo existente funcionando.", Icon: Shield },
+  GROW: { desc: "Crescer / expandir capacidade instalada.", Icon: TrendingUp },
+  TRANSFORM: { desc: "Mudança estrutural, novo modelo. Vai à Direção Geral.", Icon: Rocket },
+};
 
 // Nomes das propriedades no board (contrato com a migration 0016 + já existentes).
 const F = {
@@ -199,13 +209,45 @@ export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormPr
           </div>
 
           <div className="grid gap-3 p-4">
+            {/* Tipo — botões com ícone + descrição (tons de azul) */}
+            <div>
+              <p className="mb-1 text-xs font-medium text-neutral-600">Tipo</p>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {(field(F.tipo)?.options ?? []).map((o) => {
+                  const meta = TIPO_META[o.label.toUpperCase()];
+                  const Icon = meta?.Icon ?? Package;
+                  const sel = tipoOpt === o.id;
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => setTipoOpt(o.id)}
+                      className={clsx(
+                        "flex flex-col gap-1 rounded-xl border p-3 text-left transition",
+                        sel
+                          ? "border-primary bg-primary text-white shadow-sm"
+                          : "border-blue-100 bg-blue-50/50 text-neutral-700 hover:border-blue-300 hover:bg-blue-50",
+                      )}
+                    >
+                      <Icon className={clsx("h-4 w-4", sel ? "text-white" : "text-primary")} />
+                      <span className="text-sm font-semibold">{titleCase(o.label)}</span>
+                      {meta && (
+                        <span
+                          className={clsx(
+                            "text-[11px] leading-tight",
+                            sel ? "text-white/80" : "text-neutral-500",
+                          )}
+                        >
+                          {meta.desc}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
-              <Label t="Tipo">
-                <select value={tipoOpt} onChange={(e) => setTipoOpt(e.target.value)} className={inputCls}>
-                  <option value="">—</option>
-                  {selectOptions(F.tipo)}
-                </select>
-              </Label>
               <Label t="Área beneficiada">
                 <select value={areaOpt} onChange={(e) => setAreaOpt(e.target.value)} className={inputCls}>
                   <option value="">—</option>
