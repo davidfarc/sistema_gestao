@@ -38,23 +38,35 @@ export interface Entity {
 // Ator (contexto autenticado) — o que a política de autorização recebe.
 // ────────────────────────────────────────────────────────────────────────────
 
-/** Ações do sistema. Papéis (role) concedem um conjunto delas (data-driven). */
-export type Action =
-  | "board:read"
-  | "board:configure" // criar/renomear/arquivar pipelines + membership (só Gestor)
-  | "card:read"
-  | "card:create"
-  | "card:update"
-  | "card:move"
-  | "card:assign"
-  | "comment:create"
-  | "channel:read"
-  | "channel:post"
-  | "channel:manage" // criar/editar grupos de conversa (Gestor + Gestor de área)
-  | "field:manage" // editar propriedades/campos (só Gestor)
-  | "stage:manage" // configurar etapas do pipeline (Gestor + Gestor de área)
-  | "user:manage" // criar usuários / trocar papéis (só Gestor)
-  | "workflow:manage";
+/**
+ * Ações do sistema, em ordem de exibição. Papéis (role) concedem um conjunto
+ * delas (data-driven).
+ *
+ * A LISTA é a fonte da verdade e o tipo deriva dela — não o contrário. Com um
+ * union escrito à mão mais um array em paralelo, seria possível criar uma ação
+ * que o editor de papéis não mostra, e portanto que ninguém consegue conceder.
+ */
+export const ACTIONS = [
+  "board:read",
+  "board:configure", // criar/renomear/arquivar pipelines + membership
+  "card:read",
+  "card:create",
+  "card:update",
+  "card:move",
+  "card:assign",
+  "comment:create",
+  "channel:read",
+  "channel:post",
+  "channel:manage", // criar/editar grupos de conversa
+  "field:manage", // editar propriedades/campos
+  "stage:manage", // configurar etapas do pipeline
+  "workflow:manage",
+  "salas:manage", // editar a Gestão de Vila (sem ela, o módulo é só leitura)
+  "user:manage", // convidar usuários / trocar papéis comuns
+  "role:manage", // editar papéis e conceder papéis administrativos (Gestor Master)
+] as const;
+
+export type Action = (typeof ACTIONS)[number];
 
 export interface Actor {
   userId: UserId;
@@ -64,6 +76,11 @@ export interface Actor {
   /** Ações concedidas pelos papéis do usuário (resolvidas). */
   permissions: ReadonlySet<Action>;
   teamIds: readonly TeamId[];
+  /**
+   * Cargo no organograma (Diretor Geral, Gestor Financeiro…) — SEPARADO do
+   * papel de permissão. Usado pelas alçadas de demanda (quem aprova o quê).
+   */
+  cargo?: string | null;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -351,7 +368,8 @@ export type RequirementKind =
   | "field_filled"
   | "emenda_concluded"
   | "approval"
-  | "role";
+  | "role"
+  | "prioritized"; // demanda passou pela fila de priorização
 
 export type Enforcement = "block" | "warn";
 
@@ -359,7 +377,7 @@ export interface WorkflowRule extends Entity {
   id: WorkflowRuleId;
   boardId: BoardId;
   fromStageId: StageId | null; // null = qualquer origem
-  toStageId: StageId;
+  toStageId: StageId | null; // null = qualquer destino (trava a saída da origem)
   requirement: RequirementKind;
   /** parâmetro da regra (ex.: fieldDefinitionId, roleId, checklistId). */
   requirementConfig: Record<string, unknown>;

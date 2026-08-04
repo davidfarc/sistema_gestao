@@ -3,8 +3,12 @@
 import {
   BRACKET_LABEL,
   TRACK_LABEL,
+  budgetEffortScore,
+  effortScore,
   evaluate,
+  parseDecimal,
   riceScore,
+  scoreFromLabel,
   type RiskLevel,
   type TipoDemanda,
 } from "@ecco/core";
@@ -14,6 +18,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { createCardWithFields, loadFields } from "@/lib/board/actions";
 import type { FieldDef } from "@/lib/board/types";
+import { DF as F } from "@/lib/demandas/fields";
+import { useThresholds } from "./BoardContext";
 import type { CustomFormProps } from "./customForms";
 
 // Ícone + descrição de cada tipo (chave = label da opção, em maiúsculas).
@@ -24,40 +30,19 @@ const TIPO_META: Record<string, { desc: string; Icon: LucideIcon }> = {
   TRANSFORM: { desc: "Mudança estrutural, novo modelo. Vai à Direção Geral.", Icon: Rocket },
 };
 
-// Nomes das propriedades no board (contrato com a migration 0016 + já existentes).
-const F = {
-  tipo: "Tipo de demanda",
-  area: "Área beneficiada",
-  urgencia: "Urgência",
-  risco: "Risco percebido",
-  orcamento: "Orçamento estimado (R$)",
-  custoAnual: "Custo anualizado (R$/ano)",
-  data: "Data pretendida",
-  recorrente: "Compra recorrente",
-  fornecedorUnico: "Fornecedor único",
-  foraOrcamento: "Fora do orçamento planejado",
-  reversibilidade: "Reversibilidade baixa",
-  fracionamento: "Fracionamento (30 dias)",
-  isList: "É lista de compras?",
-  justificativa: "Justificativa",
-  cotacoes: "Cotações / evidências",
-  riceAlcance: "RICE - Alcance",
-  riceImpacto: "RICE - Impacto",
-  riceConfianca: "RICE - Confiança (%)",
-  riceEsforco: "RICE - Esforço",
-} as const;
-
-function numOrNull(s: string): number | null {
-  const t = s.trim();
-  if (t === "") return null;
-  const n = Number(t.replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
+/** Aceita vírgula decimal — mesmo parser do recálculo, para não divergirem. */
+const numOrNull = (s: string): number | null => parseDecimal(s);
 function titleCase(s: string): string {
   return s ? s[0]!.toUpperCase() + s.slice(1).toLowerCase() : s;
 }
 
-export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormProps) {
+export function DemandasCreateForm({
+  boardId,
+  onClose,
+  onCreated,
+  initialFields,
+}: CustomFormProps) {
+  const thresholds = useThresholds(); // limites de alçada do pipeline
   const [fields, setFields] = useState<FieldDef[]>([]);
   const byName = useMemo(() => new Map(fields.map((f) => [f.name, f])), [fields]);
   const field = (name: string) => byName.get(name);
@@ -84,20 +69,25 @@ export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormPr
   const [riceAlcance, setRiceAlcance] = useState("");
   const [riceImpactoOpt, setRiceImpactoOpt] = useState("");
   const [riceConfianca, setRiceConfianca] = useState("");
-  const [riceEsforco, setRiceEsforco] = useState("");
+  const [riceTempo, setRiceTempo] = useState("");
+  const [riceComplexOpt, setRiceComplexOpt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    loadFields(boardId).then((fs) => {
+    function aplicar(fs: FieldDef[]) {
       setFields(fs);
       // defaults amigáveis: Tipo=RUN, Urgência=Normal (se existirem).
       const t = fs.find((f) => f.name === F.tipo)?.options.find((o) => o.label.toUpperCase() === "RUN");
       if (t) setTipoOpt(t.id);
       const u = fs.find((f) => f.name === F.urgencia)?.options.find((o) => o.label.toLowerCase().startsWith("normal"));
       if (u) setUrgenciaOpt(u.id);
-    });
-  }, [boardId]);
+    }
+    // Na caixa de entrada os campos vêm prontos do servidor: quem não enxerga
+    // o pipeline não os lê pela RLS, e o formulário viria vazio.
+    if (initialFields) aplicar(initialFields);
+    else loadFields(boardId).then(aplicar);
+  }, [boardId, initialFields]);
 
   // Alçada em tempo real.
   const alcada = useMemo(() => {
@@ -115,20 +105,36 @@ export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormPr
       reversibilidadeBaixa: reversibilidade,
       reclassificadoTransform: false,
       fracionamentoDetectado: fracionamento,
-    });
+    }, thresholds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoOpt, riscoOpt, orcamento, recorrente, custoAnual, fornecedorUnico, foraOrcamento, reversibilidade, fracionamento, fields]);
+  }, [tipoOpt, riscoOpt, orcamento, recorrente, custoAnual, fornecedorUnico, foraOrcamento, reversibilidade, fracionamento, fields, thresholds]);
+
+  // Esforço = Tempo + Complexidade + Orçamento (score do orçamento derivado do
+  // valor já digitado acima — não se informa duas vezes).
+  const orcamentoScore = useMemo(
+    () => budgetEffortScore(numOrNull(orcamento)),
+    [orcamento],
+  );
+  const complexidade = useMemo(
+    () => scoreFromLabel(optLabel(F.riceComplexidade, riceComplexOpt)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [riceComplexOpt, fields],
+  );
+  const effort = useMemo(
+    () => effortScore({ tempoMeses: numOrNull(riceTempo), complexidade, orcamentoScore }),
+    [riceTempo, complexidade, orcamentoScore],
+  );
 
   const rice = useMemo(
     () =>
       riceScore({
         reach: numOrNull(riceAlcance),
-        impact: numOrNull(optLabel(F.riceImpacto, riceImpactoOpt)),
+        impact: scoreFromLabel(optLabel(F.riceImpacto, riceImpactoOpt)),
         confidence: numOrNull(riceConfianca),
-        effort: numOrNull(riceEsforco),
+        effort,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [riceAlcance, riceImpactoOpt, riceConfianca, riceEsforco, fields],
+    [riceAlcance, riceImpactoOpt, riceConfianca, effort, fields],
   );
 
   async function submit(e: FormEvent) {
@@ -167,7 +173,8 @@ export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormPr
       put(F.riceAlcance, numOrNull(riceAlcance));
       put(F.riceImpacto, riceImpactoOpt || null);
       put(F.riceConfianca, numOrNull(riceConfianca));
-      put(F.riceEsforco, numOrNull(riceEsforco));
+      put(F.riceTempo, numOrNull(riceTempo));
+      put(F.riceComplexidade, riceComplexOpt || null);
       const id = await createCardWithFields(boardId, nome, v);
       onCreated(id);
     } catch (err) {
@@ -297,9 +304,50 @@ export function DemandasCreateForm({ boardId, onClose, onCreated }: CustomFormPr
                   {selectOptions(F.riceImpacto)}
                 </select>
               </Label>
-              <Label t="Confiança (%)"><input type="number" value={riceConfianca} onChange={(e) => setRiceConfianca(e.target.value)} className={inputCls} /></Label>
-              <Label t="Esforço"><input type="number" value={riceEsforco} onChange={(e) => setRiceEsforco(e.target.value)} className={inputCls} /></Label>
+              <Label t="Confiança (%)"><input type="number" value={riceConfianca} onChange={(e) => setRiceConfianca(e.target.value)} placeholder="0 a 100" className={inputCls} /></Label>
             </div>
+
+            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
+              Esforço
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Label t="Tempo em meses (pedido → entrega)">
+                <input
+                  type="number"
+                  step="0.5"
+                  min={0}
+                  value={riceTempo}
+                  onChange={(e) => setRiceTempo(e.target.value)}
+                  placeholder="1 = até 1 mês; 0,5 = quinzena"
+                  className={inputCls}
+                />
+              </Label>
+              <Label t="Orçamento (automático)">
+                <div className={inputCls + " bg-neutral-50 text-neutral-500"}>
+                  {orcamentoScore != null
+                    ? `${orcamentoScore} — ${orcamentoScore === 1 ? "até R$10k" : orcamentoScore === 2 ? "R$10k–50k" : "acima de R$50k"}`
+                    : "informe o orçamento acima"}
+                </div>
+              </Label>
+            </div>
+            <Label t="Complexidade">
+              <select
+                value={riceComplexOpt}
+                onChange={(e) => setRiceComplexOpt(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">—</option>
+                {selectOptions(F.riceComplexidade)}
+              </select>
+            </Label>
+            <p className="text-xs text-neutral-500">
+              Esforço ={" "}
+              <span className="font-medium text-neutral-700">
+                {effort != null ? effort : "—"}
+              </span>{" "}
+              (tempo {riceTempo || "—"} + complexidade {complexidade ?? "—"} + orçamento{" "}
+              {orcamentoScore ?? "—"})
+            </p>
 
             {alcada.requiresEvidences && (
               <>

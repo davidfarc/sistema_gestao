@@ -76,6 +76,43 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   limiteAnualRecorrencia: 24000,
 };
 
+const THRESHOLD_KEYS = [
+  "limiteFaixaA",
+  "limiteFaixaB",
+  "limiteGrow",
+  "limiteAnualRecorrencia",
+] as const;
+
+/**
+ * Converte a config crua (jsonb do board, formulário, etc.) em Thresholds,
+ * caindo no default POR CHAVE quando o valor é ausente ou inválido. jsonb pode
+ * devolver string; sem a coerção, o `toLocaleString` das mensagens dos gatilhos
+ * quebraria. `{}` ⇒ DEFAULT_THRESHOLDS.
+ */
+export function parseThresholds(raw: unknown): Thresholds {
+  const src = (raw ?? {}) as Record<string, unknown>;
+  const out = { ...DEFAULT_THRESHOLDS };
+  if (typeof src !== "object") return out;
+  for (const key of THRESHOLD_KEYS) {
+    const n = Number(src[key]);
+    if (Number.isFinite(n) && n > 0) out[key] = n;
+  }
+  return out;
+}
+
+/** Valida limites antes de salvar. Retorna a mensagem de erro, ou null se ok. */
+export function validateThresholds(t: Thresholds): string | null {
+  for (const key of THRESHOLD_KEYS) {
+    const v = t[key];
+    if (!Number.isFinite(v) || v <= 0) return "Os limites devem ser valores positivos.";
+    if (!Number.isInteger(v)) return "Os limites devem ser números inteiros (sem centavos).";
+  }
+  if (t.limiteFaixaA >= t.limiteFaixaB) {
+    return "O limite da Faixa A deve ser menor que o da Faixa B.";
+  }
+  return null;
+}
+
 const APPROVERS_RAPIDA: Approver[] = [{ role: "Gestor Financeiro", or: ["Diretor Administrativo"] }];
 const APPROVERS_PADRAO: Approver[] = [
   { role: "Gestor Financeiro" },
@@ -195,8 +232,79 @@ export const BRACKET_LABEL: Record<Bracket, string> = {
 };
 
 /**
+ * Converte texto em número aceitando vírgula decimal ("0,25" ⇒ 0.25).
+ * Os rótulos de impacto são escritos em pt-BR; `Number("0,25")` daria NaN.
+ * Null quando vazio ou não numérico.
+ */
+export function parseDecimal(value: string | number | null | undefined): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  const t = value.trim().replace(",", ".");
+  if (t === "") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Extrai o score de um rótulo que começa com o número e explica o significado
+ * ("0,25 — Mínimo", "3 — Múltiplas áreas…"). Sem o corte no travessão,
+ * `parseDecimal` receberia o texto inteiro e devolveria null.
+ */
+export function scoreFromLabel(label: string | null | undefined): number | null {
+  if (!label) return null;
+  const head = label.split(/[—–-]/)[0] ?? label;
+  return parseDecimal(head);
+}
+
+// ── Esforço do RICE (manual de boas práticas de Compras/Demandas) ────────────
+//
+// Effort = Tempo + Complexidade + Orçamento. É SOMA — confirmado pelo exemplo do
+// manual (telhado: 2 + 4 + 2 = 8). Cada parcela tem sua tabela.
+
+/**
+ * Score do orçamento: até R$10k = 1, R$10k–50k = 2, acima de R$50k = 3.
+ * Derivado do valor já informado na demanda — não se digita de novo.
+ *
+ * ⚠️ O manual tem uma divergência: a tabela dá 3 para "acima de 50k", mas o
+ * exemplo pontua R$73k como 2. Seguimos a tabela (ela é a definição).
+ */
+export function budgetEffortScore(orcamento: number | null | undefined): number | null {
+  if (!Number.isFinite(orcamento)) return null;
+  const v = orcamento as number;
+  if (v <= 10_000) return 1;
+  if (v <= 50_000) return 2;
+  return 3;
+}
+
+/** Níveis de complexidade (1–4) com a descrição de cada um. */
+export const COMPLEXITY_LEVELS: { score: 1 | 2 | 3 | 4; label: string }[] = [
+  { score: 1, label: "Compra direta: 1 responsável, sem validação técnica, 1 fornecedor" },
+  { score: 2, label: "Envolve 2–3 pessoas/áreas OU cotação simples OU validação leve" },
+  { score: 3, label: "Múltiplas áreas + critérios técnicos + negociação + comparação estruturada" },
+  {
+    score: 4,
+    label: "Contrato/renovação, múltiplos aprovadores críticos, dependência externa, escopo móvel",
+  },
+];
+
+/**
+ * Esforço = Tempo (meses) + Complexidade (1–4) + Orçamento (1–3).
+ * Null se faltar alguma parcela — sem isso o RICE não fecha.
+ */
+export function effortScore(input: {
+  tempoMeses?: number | null;
+  complexidade?: number | null;
+  orcamentoScore?: number | null;
+}): number | null {
+  const { tempoMeses, complexidade, orcamentoScore } = input;
+  if (![tempoMeses, complexidade, orcamentoScore].every((v) => Number.isFinite(v))) return null;
+  return tempoMeses! + complexidade! + orcamentoScore!;
+}
+
+/**
  * Score RICE = (Reach × Impact × Confiança%) / Esforço. Null se faltar algum
- * input ou esforço <= 0. Impact é o multiplicador (0,25…2); Confiança em 0–100.
+ * input, se algum não for numérico, ou se o esforço for <= 0. Impact é o
+ * multiplicador (0,25…2); Confiança em 0–100.
  */
 export function riceScore(input: {
   reach?: number | null;
@@ -205,7 +313,9 @@ export function riceScore(input: {
   effort?: number | null;
 }): number | null {
   const { reach, impact, confidence, effort } = input;
-  if (reach == null || impact == null || confidence == null || effort == null) return null;
-  if (effort <= 0) return null;
-  return (reach * impact * (confidence / 100)) / effort;
+  // `Number.isFinite` (e não `!= null`) para barrar NaN vindo de texto inválido —
+  // sem isso o NaN se propaga e a tela mostra "NaN".
+  if (![reach, impact, confidence, effort].every((v) => Number.isFinite(v))) return null;
+  if (effort! <= 0) return null;
+  return (reach! * impact! * (confidence! / 100)) / effort!;
 }

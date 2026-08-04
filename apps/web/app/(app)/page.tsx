@@ -1,7 +1,20 @@
 import { KanbanSquare } from "lucide-react";
 import Link from "next/link";
 
-export default function Home() {
+import { Shortcuts } from "@/components/home/Shortcuts";
+import { provisionAndGetActor } from "@/lib/actor";
+import { loadBoardOptions, loadShortcuts } from "@/lib/shortcuts/actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const [actor, shortcuts, boards] = await Promise.all([
+    provisionAndGetActor(),
+    loadShortcuts(),
+    loadBoardOptions(),
+  ]);
+  const canManage = actor?.permissions.has("board:configure") ?? false;
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-10 md:py-16">
       <p className="text-sm font-medium uppercase tracking-wide text-secondary">
@@ -13,27 +26,22 @@ export default function Home() {
         gráfica.
       </p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+      <div className="mt-8">
         <Link
           href="/board"
-          className="group rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
+          className="group flex max-w-sm items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
         >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white">
-              <KanbanSquare className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-base">Quadro de produção</h3>
-              <p className="text-sm text-secondary">Kanban + lista, cards e checklists</p>
-            </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
+            <KanbanSquare className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base">Quadro de produção</h3>
+            <p className="text-sm text-secondary">Kanban + lista, cards e checklists</p>
           </div>
         </Link>
-
-        <div className="rounded-xl border border-dashed border-surface-medium p-5">
-          <h3 className="text-base text-secondary">Relatórios</h3>
-          <p className="mt-1 text-sm text-secondary">Em breve</p>
-        </div>
       </div>
+
+      <Shortcuts shortcuts={shortcuts} boards={boards} canManage={canManage} />
     </main>
   );
 }

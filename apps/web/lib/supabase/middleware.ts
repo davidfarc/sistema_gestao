@@ -40,8 +40,13 @@ export async function updateSession(request: NextRequest) {
   const isPublic = path.startsWith("/login") || path.startsWith("/auth");
 
   if (!user && !isPublic) {
+    // Guarda o destino para devolver a pessoa a ele depois de entrar. Sem isso,
+    // um link compartilhado (ex.: o formulário de novo card no portal de
+    // atalhos) joga quem ainda não logou na home e perde a intenção do clique.
     const url = request.nextUrl.clone();
+    const destino = path + request.nextUrl.search;
     url.pathname = "/login";
+    url.search = destino === "/" ? "" : `?next=${encodeURIComponent(destino)}`;
     return NextResponse.redirect(url);
   }
 

@@ -1,7 +1,18 @@
 "use client";
 
 import clsx from "clsx";
-import { Archive, Check, ChevronDown, Pencil, Plus, RotateCcw, Users, X } from "lucide-react";
+import {
+  Archive,
+  Check,
+  ChevronDown,
+  Pencil,
+  Plus,
+  RotateCcw,
+  SlidersHorizontal,
+  Users,
+  X,
+} from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -19,10 +30,13 @@ export function PipelineSelector({
   boards,
   currentId,
   canConfigure,
+  canManageAlcadas = false,
 }: {
   boards: BoardSummary[];
   currentId: string;
   canConfigure: boolean;
+  /** Direção Geral ou Gestor — mostra o atalho para os limites de alçada. */
+  canManageAlcadas?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -139,41 +153,59 @@ export function PipelineSelector({
                     >
                       {b.name}
                     </button>
-                    {canConfigure && (
-                      <div className="flex shrink-0 pr-1 opacity-0 group-hover:opacity-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMembersFor(b);
-                            setOpen(false);
-                          }}
-                          className="p-1 text-neutral-400 hover:text-neutral-700"
-                          title="Membros / acesso"
-                          aria-label="Membros"
-                        >
-                          <Users className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(b.id);
-                            setEditName(b.name);
-                          }}
-                          className="p-1 text-neutral-400 hover:text-neutral-700"
-                          aria-label="Renomear"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => archive(b.id, true)}
-                          disabled={active.length <= 1}
-                          title={active.length <= 1 ? "Não é possível arquivar o único pipeline" : "Arquivar"}
-                          className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
-                          aria-label="Arquivar"
-                        >
-                          <Archive className="h-3.5 w-3.5" />
-                        </button>
+                    {(canConfigure || canManageAlcadas) && (
+                      // Sempre visíveis (antes eram opacity-0 e só apareciam no
+                      // hover — ninguém achava a configuração).
+                      <div className="flex shrink-0 pr-1 opacity-70 transition-opacity group-hover:opacity-100">
+                        {canManageAlcadas && (
+                          <Link
+                            href={`/configuracoes/alcadas?board=${b.id}`}
+                            onClick={() => setOpen(false)}
+                            className="p-1 text-neutral-400 hover:text-neutral-700"
+                            title="Limites de alçada"
+                            aria-label="Limites de alçada"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </Link>
+                        )}
+                        {canConfigure && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMembersFor(b);
+                                setOpen(false);
+                              }}
+                              className="p-1 text-neutral-400 hover:text-neutral-700"
+                              title="Membros / acesso"
+                              aria-label="Membros"
+                            >
+                              <Users className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId(b.id);
+                                setEditName(b.name);
+                              }}
+                              className="p-1 text-neutral-400 hover:text-neutral-700"
+                              title="Renomear"
+                              aria-label="Renomear"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => archive(b.id, true)}
+                              disabled={active.length <= 1}
+                              title={active.length <= 1 ? "Não é possível arquivar o único pipeline" : "Arquivar"}
+                              className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                              aria-label="Arquivar"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

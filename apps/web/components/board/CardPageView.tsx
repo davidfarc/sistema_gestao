@@ -6,19 +6,27 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { setFieldValue, updateCard } from "@/lib/board/actions";
+import { canEditField } from "@/lib/board/types";
 import type { CardPageData, FieldValueRaw } from "@/lib/board/types";
 import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import { Comments } from "./Comments";
 import { FieldEditor } from "./fieldControls";
+import { RichDescription } from "./RichDescription";
 import { Responsavel } from "./Responsavel";
 
 function emptyValue(fieldId: string): FieldValueRaw {
   return { fieldId, text: null, number: null, date: null, bool: null, memberId: null };
 }
 
-export function CardPageView({ data }: { data: CardPageData }) {
+export function CardPageView({
+  data,
+  myUserId = null,
+}: {
+  data: CardPageData;
+  myUserId?: string | null;
+}) {
   const router = useRouter();
   const refresh = () => router.refresh();
   const [title, setTitle] = useState(data.title);
@@ -31,9 +39,10 @@ export function CardPageView({ data }: { data: CardPageData }) {
     updateCard({ id: data.id, title: next }).then(refresh);
   }
 
-  function saveDescription() {
-    if (description === (data.description ?? "")) return;
-    updateCard({ id: data.id, description }).then(refresh);
+  function saveDescription(html: string) {
+    setDescription(html);
+    if (html === (data.description ?? "")) return;
+    updateCard({ id: data.id, description: html }).then(refresh);
   }
 
   function saveField(fieldId: string, value: string | number | boolean | null, patch: Partial<FieldValueRaw>) {
@@ -73,13 +82,10 @@ export function CardPageView({ data }: { data: CardPageData }) {
         {/* Conteúdo principal (~70%) */}
         <div className="min-w-0">
           <Section title="Descrição">
-            <textarea
+            <RichDescription
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onBlur={saveDescription}
-              rows={4}
-              placeholder="Adicione uma descrição detalhada…"
-              className="w-full resize-y rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400"
+              onSave={saveDescription}
+              placeholder="Adicione uma descrição detalhada… (cole imagens aqui)"
             />
           </Section>
 
@@ -99,6 +105,7 @@ export function CardPageView({ data }: { data: CardPageData }) {
                         value={values[f.id]}
                         members={d.members}
                         onSave={(value, patch) => saveField(f.id, value, patch)}
+                        readOnly={!canEditField(f, myUserId)}
                       />
                     </dd>
                   </div>
@@ -107,13 +114,28 @@ export function CardPageView({ data }: { data: CardPageData }) {
             )}
           </Section>
 
-          <Section title="Responsável">
-            <Responsavel
-              cardId={data.id}
-              responsibleId={d.responsibleId}
-              members={d.members}
-              onChanged={refresh}
-            />
+          <Section title="Pessoas">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1">
+                <span className="text-xs text-neutral-500">Solicitante</span>
+                <Responsavel
+                  cardId={data.id}
+                  responsibleId={d.requesterId}
+                  members={d.members}
+                  onChanged={refresh}
+                  role="solicitante"
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs text-neutral-500">Responsável</span>
+                <Responsavel
+                  cardId={data.id}
+                  responsibleId={d.responsibleId}
+                  members={d.members}
+                  onChanged={refresh}
+                />
+              </label>
+            </div>
           </Section>
 
           <Section title="Checklists">

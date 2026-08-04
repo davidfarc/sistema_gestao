@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu as MenuIcon,
   MessagesSquare,
-  Users,
+  School,
+  Settings,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -32,8 +33,11 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
+  // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
+  // acesso fica no próprio quadro (e no badge do card).
+  { Icon: School, label: "Gestão de Vila", href: "/salas" },
   { Icon: MessagesSquare, label: "Conversas", href: "/canais" },
-  { Icon: Users, label: "Usuários", href: "/configuracoes/usuarios" },
+  { Icon: Settings, label: "Configurações", href: "/configuracoes" },
 ];
 
 export function Sidebar({ user }: { user: { email: string; internal: boolean } | null }) {

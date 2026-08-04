@@ -1,11 +1,22 @@
 "use server";
 
-import { CardService, ForbiddenError, GateBlockedError, type RuleViolation } from "@ecco/core";
+import {
+  CardService,
+  ForbiddenError,
+  GateBlockedError,
+  validateThresholds,
+  type Action,
+  type RuleViolation,
+  type Thresholds,
+} from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
-import { provisionAndGetActor, requireActor } from "@/lib/actor";
-import { getSessionUser } from "@/lib/auth";
+import { provisionAndGetActor, requireActor, requireAlcadaManager } from "@/lib/actor";
+import { getSessionUser, isInternalEmail } from "@/lib/auth";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
+import { assertCanCreateInBoard } from "@/lib/board/intake";
+import { parseIntake } from "@/lib/board/types";
+import { ACOES_DE_GESTAO, ehPapelAdministrativo } from "@/lib/roles/catalog";
 import { ensureDmChannel } from "@/lib/comms/dm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -20,6 +31,7 @@ import type {
   FieldDef,
   FieldType,
   FieldValueRaw,
+  Intake,
   MemberOption,
   RoleOption,
   UserRow,
@@ -51,46 +63,9 @@ async function recordActivity(
 // ── Cards ────────────────────────────────────────────────────────────────────
 
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(boardId: string, title: string): Promise<void> {
-  await requireActor("card:create");
-  const db = createAdminClient();
-
-  const { data: board } = await db
-    .from("board")
-    .select("id, organization_id")
-    .eq("id", boardId)
-    .maybeSingle();
-  if (!board) throw new Error("Pipeline não encontrado.");
-
-  const { data: firstStage } = await db
-    .from("stage")
-    .select("id")
-    .eq("board_id", board.id)
-    .order("position")
-    .limit(1)
-    .maybeSingle();
-  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
-
-  const { error } = await db.from("card").insert({
-    organization_id: board.organization_id,
-    board_id: board.id,
-    stage_id: firstStage.id,
-    title: title.trim() || "Novo card",
-  });
-  if (error) throw new Error(error.message);
-  revalidatePath("/board");
-}
-
-/**
- * Cria um card e seta os valores das propriedades de uma vez (form de criação
- * genérico/personalizado). Cria na 1ª etapa; ignora valores vazios. Retorna o id.
- */
-export async function createCardWithFields(
-  boardId: string,
-  title: string,
-  values: { fieldId: string; value: string | number | boolean | null }[],
-): Promise<string> {
-  await requireActor("card:create");
+export async function createCard(boardId: string, title: string): Promise<string> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
   const db = createAdminClient();
 
   const { data: board } = await db
@@ -116,6 +91,64 @@ export async function createCardWithFields(
       board_id: board.id,
       stage_id: firstStage.id,
       title: title.trim() || "Novo card",
+      requester_id: actor.userId as string, // solicitante = quem abriu
+    })
+    .select("id")
+    .single();
+  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  revalidatePath("/board");
+  return card.id;
+}
+
+/** Troca o solicitante do card (nativo, ao lado do responsável). */
+export async function setCardRequester(cardId: string, userId: string | null): Promise<void> {
+  await requireActor("card:update");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("card")
+    .update({ requester_id: userId })
+    .eq("id", cardId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/**
+ * Cria um card e seta os valores das propriedades de uma vez (form de criação
+ * genérico/personalizado). Cria na 1ª etapa; ignora valores vazios. Retorna o id.
+ */
+export async function createCardWithFields(
+  boardId: string,
+  title: string,
+  values: { fieldId: string; value: string | number | boolean | null }[],
+): Promise<string> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
+  const db = createAdminClient();
+
+  const { data: board } = await db
+    .from("board")
+    .select("id, organization_id")
+    .eq("id", boardId)
+    .maybeSingle();
+  if (!board) throw new Error("Pipeline não encontrado.");
+
+  const { data: firstStage } = await db
+    .from("stage")
+    .select("id")
+    .eq("board_id", board.id)
+    .order("position")
+    .limit(1)
+    .maybeSingle();
+  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
+
+  const { data: card, error } = await db
+    .from("card")
+    .insert({
+      organization_id: board.organization_id,
+      board_id: board.id,
+      stage_id: firstStage.id,
+      title: title.trim() || "Novo card",
+      requester_id: actor.userId as string, // solicitante = quem abriu
     })
     .select("id")
     .single();
@@ -192,6 +225,71 @@ export async function setBoardCreationForm(boardId: string, mode: string): Promi
   const { error } = await db.from("board").update({ creation_form: mode }).eq("id", boardId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+/**
+ * Define quem pode abrir o formulário de criação deste pipeline.
+ * `userIds` só é usado no modo "users"; nos demais a lista é zerada, para não
+ * deixar resíduo que reapareceria ao voltar para esse modo.
+ */
+export async function setBoardIntake(
+  boardId: string,
+  intake: Intake,
+  userIds: string[] = [],
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAlcadaManager();
+  const modo: Intake = intake === "org" || intake === "users" ? intake : "members";
+  if (modo === "users" && userIds.length === 0) {
+    return { ok: false, error: "Escolha ao menos uma pessoa, ou use outra opção." };
+  }
+
+  const db = createAdminClient();
+  const { error } = await db
+    .from("board")
+    .update({ intake: modo, intake_user_ids: modo === "users" ? userIds : [] })
+    .eq("id", boardId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/board");
+  revalidatePath("/configuracoes/alcadas");
+  return { ok: true };
+}
+
+/** Configuração atual da caixa de entrada de um pipeline. */
+export async function loadBoardIntake(
+  boardId: string,
+): Promise<{ intake: Intake; userIds: string[] }> {
+  await requireAlcadaManager();
+  const db = createAdminClient();
+  const { data } = await db
+    .from("board")
+    .select("intake, intake_user_ids")
+    .eq("id", boardId)
+    .maybeSingle();
+  return {
+    intake: parseIntake(data?.intake),
+    userIds: (data?.intake_user_ids as string[] | null) ?? [],
+  };
+}
+
+/** Salva os limites de alçada do pipeline (Direção Geral ou Gestor). */
+export async function setBoardAlcadaThresholds(
+  boardId: string,
+  thresholds: Thresholds,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAlcadaManager();
+  const invalid = validateThresholds(thresholds);
+  if (invalid) return { ok: false, error: invalid };
+
+  const db = createAdminClient();
+  const { error } = await db
+    .from("board")
+    .update({ alcada_thresholds: thresholds })
+    .eq("id", boardId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/board");
+  revalidatePath("/configuracoes/alcadas");
+  return { ok: true };
 }
 
 /**
@@ -287,7 +385,7 @@ export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
       loadComments(cardId),
       loadCardResponsible(cardId),
       loadMembers(),
-      db.from("card").select("description").eq("id", cardId).maybeSingle(),
+      db.from("card").select("description, requester_id").eq("id", cardId).maybeSingle(),
     ]);
   return {
     description: cardRes.data?.description ?? null,
@@ -296,6 +394,7 @@ export async function loadCardDetail(cardId: string): Promise<CardDetailData> {
     activity,
     comments,
     responsibleId,
+    requesterId: cardRes.data?.requester_id ?? null,
     members,
   };
 }
@@ -498,7 +597,12 @@ export async function deleteAttachment(id: string): Promise<void> {
 
 export async function loadMembers(): Promise<MemberOption[]> {
   const db = await createClient(); // sessão → RLS
-  const { data } = await db.from("app_user").select("id, name, email").order("name");
+  // Quem teve o acesso revogado não deve ser oferecido como responsável.
+  const { data } = await db
+    .from("app_user")
+    .select("id, name, email")
+    .is("archived_at", null)
+    .order("name");
   return (data ?? []).map((u) => ({ id: u.id, name: u.name || u.email }));
 }
 
@@ -567,16 +671,21 @@ export async function setCardResponsible(
 
 // ── Usuários (acessos) ───────────────────────────────────────────────────────
 
+// Estas duas leem com a chave de serviço, que ignora a RLS. Server action é
+// endpoint público para quem está logado: sem o requireActor, qualquer pessoa
+// autenticada listaria todos os usuários e papéis da organização.
 export async function loadRoles(): Promise<RoleOption[]> {
+  await requireActor("user:manage");
   const db = createAdminClient();
   const { data } = await db.from("role").select("id, name").order("name");
   return (data ?? []).map((r) => ({ id: r.id, name: r.name }));
 }
 
 export async function loadUsers(): Promise<UserRow[]> {
+  await requireActor("user:manage");
   const db = createAdminClient();
   const [usersRes, ursRes, rolesRes] = await Promise.all([
-    db.from("app_user").select("id, name, email, is_internal").order("name"),
+    db.from("app_user").select("id, name, email, is_internal, cargo, archived_at").order("name"),
     db.from("user_role").select("user_id, role_id"),
     db.from("role").select("id, name"),
   ]);
@@ -593,8 +702,22 @@ export async function loadUsers(): Promise<UserRow[]> {
       internal: u.is_internal,
       roleId,
       roleName: roleId ? (roleName.get(roleId) ?? null) : null,
+      cargo: u.cargo ?? null,
+      archived: u.archived_at != null,
     };
   });
+}
+
+/** Define o cargo (organograma) de um usuário — usado nas alçadas de demandas. */
+export async function setUserCargo(userId: string, cargo: string | null): Promise<void> {
+  await requireActor("user:manage");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("app_user")
+    .update({ cargo: cargo || null })
+    .eq("id", userId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/configuracoes/usuarios");
 }
 
 /**
@@ -606,7 +729,6 @@ export async function loadUsers(): Promise<UserRow[]> {
 export async function createUser(input: {
   email: string;
   name: string;
-  internal: boolean;
   roleId?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const actor = await requireActor("user:manage");
@@ -623,6 +745,30 @@ export async function createUser(input: {
     .eq("email", email)
     .maybeSingle();
   if (existing) return { ok: false, error: "Já existe um usuário com esse e-mail." };
+
+  // Interno/externo NÃO é escolha de formulário: deriva do domínio, igual ao
+  // login (`provisionAndGetActor`). Antes, marcar "interno" num e-mail de fora
+  // permitia dar papel de gestão a alguém externo — a checagem abaixo seria
+  // burlada até o 1º login corrigir o campo.
+  const internal = isInternalEmail(email);
+
+  if (input.roleId) {
+    const { data: papel } = await db
+      .from("role")
+      .select("name, permissions, organization_id")
+      .eq("id", input.roleId)
+      .maybeSingle();
+    if (!papel || papel.organization_id !== (actor.organizationId as string)) {
+      return { ok: false, error: "Papel inválido." };
+    }
+    const perms = ((papel.permissions as string[] | null) ?? []) as Action[];
+    if (!internal && GESTAO.some((a) => perms.includes(a))) {
+      return {
+        ok: false,
+        error: `"${papel.name}" é um papel de gestão e só pode ser dado a e-mails do domínio da organização.`,
+      };
+    }
+  }
 
   // Cria o auth user (ou reaproveita, se já existir no auth mas não no app_user).
   let userId: string;
@@ -645,7 +791,7 @@ export async function createUser(input: {
       organization_id: actor.organizationId as string,
       email,
       name: input.name.trim() || (email.split("@")[0] ?? email),
-      is_internal: input.internal,
+      is_internal: internal,
     },
     { onConflict: "id" },
   );
@@ -660,12 +806,130 @@ export async function createUser(input: {
   return { ok: true };
 }
 
-/** Troca o papel de um usuário (um papel por usuário). */
+/** Ações que caracterizam poder de gestão — vedadas a usuário externo. */
+const GESTAO: Action[] = ACOES_DE_GESTAO;
+
+/** Quantos usuários ativos têm `user:manage` hoje (para não zerar a gestão). */
+async function contarGestores(db: ReturnType<typeof createAdminClient>): Promise<string[]> {
+  const { data: roles } = await db.from("role").select("id, permissions");
+  const gestorRoleIds = (roles ?? [])
+    .filter((r) => ((r.permissions as string[] | null) ?? []).includes("user:manage"))
+    .map((r) => r.id);
+  if (gestorRoleIds.length === 0) return [];
+
+  const { data: urs } = await db.from("user_role").select("user_id").in("role_id", gestorRoleIds);
+  const ids = [...new Set((urs ?? []).map((u) => u.user_id))];
+  if (ids.length === 0) return [];
+
+  // Usuário arquivado não conta: ele não consegue mais entrar.
+  const { data: ativos } = await db
+    .from("app_user")
+    .select("id")
+    .in("id", ids)
+    .is("archived_at", null);
+  return (ativos ?? []).map((u) => u.id);
+}
+
+/**
+ * Troca o papel de um usuário (um papel por usuário), com duas travas:
+ *
+ * 1. Usuário EXTERNO não recebe papel de gestão. Ele entra por convite e por
+ *    atribuição; deixá-lo virar Gestor daria a alguém de fora o controle da
+ *    base inteira, inclusive de quem mais entra.
+ * 2. Não é possível remover o último Gestor ativo. Sem isso a organização se
+ *    tranca do lado de fora: `user:manage` é o que libera esta tela, e o
+ *    bootstrap automático só age em usuário sem papel algum — o caminho de
+ *    volta seria SQL manual no banco.
+ */
 export async function setUserRole(userId: string, roleId: string): Promise<void> {
-  await requireActor("user:manage");
+  const actor = await requireActor("user:manage");
   const db = createAdminClient();
+
+  const [{ data: alvo }, { data: papel }] = await Promise.all([
+    db.from("app_user").select("id, email, organization_id").eq("id", userId).maybeSingle(),
+    db.from("role").select("id, name, permissions, organization_id").eq("id", roleId).maybeSingle(),
+  ]);
+  if (!alvo) throw new Error("Usuário não encontrado.");
+  if (!papel) throw new Error("Papel não encontrado.");
+  // Papel de outra organização não se mistura com este usuário.
+  if (papel.organization_id !== alvo.organization_id) throw new Error("Papel inválido.");
+  if (alvo.organization_id !== (actor.organizationId as string)) {
+    throw new Error("Usuário de outra organização.");
+  }
+
+  const perms = ((papel.permissions as string[] | null) ?? []) as Action[];
+
+  // Conceder um papel administrativo é conceder controle sobre o próprio
+  // controle de acesso. Fica reservado ao Gestor Master: um Gestor comum
+  // administra usuários, mas não promove ninguém a Gestor.
+  if (ehPapelAdministrativo(perms) && !actor.permissions.has("role:manage")) {
+    throw new Error(
+      `Só o Gestor Master pode atribuir o papel "${papel.name}". Peça a ele.`,
+    );
+  }
+
+  const ehGestao = GESTAO.some((a) => perms.includes(a));
+  // Calcula pelo domínio em vez de ler `is_internal`: contas criadas pelo
+  // formulário antigo têm o valor errado gravado (dava para marcar "interno"
+  // à mão), e a coluna só se corrige no primeiro login — tarde demais se o
+  // papel de gestão já tiver sido concedido.
+  if (ehGestao && !isInternalEmail(alvo.email)) {
+    throw new Error(
+      `Usuário externo não pode receber o papel "${papel.name}". Papéis de gestão são exclusivos de e-mails do domínio da organização.`,
+    );
+  }
+
+  if (!perms.includes("user:manage")) {
+    const gestores = await contarGestores(db);
+    if (gestores.length === 1 && gestores[0] === userId) {
+      throw new Error(
+        "Este é o último usuário com gestão de acessos. Promova outra pessoa antes de mudar o papel dele.",
+      );
+    }
+  }
+
   await db.from("user_role").delete().eq("user_id", userId);
   const { error } = await db.from("user_role").insert({ user_id: userId, role_id: roleId });
+  if (error) throw new Error(error.message);
+  revalidatePath("/configuracoes/usuarios");
+}
+
+/** Corrige o nome exibido de um usuário. */
+export async function setUserName(userId: string, name: string): Promise<void> {
+  await requireActor("user:manage");
+  const limpo = name.trim();
+  if (!limpo) throw new Error("O nome não pode ficar vazio.");
+  const db = createAdminClient();
+  const { error } = await db.from("app_user").update({ name: limpo }).eq("id", userId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/configuracoes/usuarios");
+}
+
+/**
+ * Revoga (ou devolve) o acesso de um usuário. Arquivar não apaga nada: o
+ * histórico de cards, comentários e aprovações continua atribuído a ele — por
+ * isso arquivar, e não excluir.
+ */
+export async function setUserArchived(userId: string, archived: boolean): Promise<void> {
+  const actor = await requireActor("user:manage");
+  const db = createAdminClient();
+
+  if (archived) {
+    if (userId === (actor.userId as string)) {
+      throw new Error("Você não pode revogar o próprio acesso.");
+    }
+    const gestores = await contarGestores(db);
+    if (gestores.length === 1 && gestores[0] === userId) {
+      throw new Error(
+        "Este é o último usuário com gestão de acessos. Promova outra pessoa antes de revogar o acesso dele.",
+      );
+    }
+  }
+
+  const { error } = await db
+    .from("app_user")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", userId);
   if (error) throw new Error(error.message);
   revalidatePath("/configuracoes/usuarios");
 }
@@ -680,7 +944,12 @@ export async function loadBoardMembers(
   const db = createAdminClient();
   const [memRes, usersRes] = await Promise.all([
     db.from("board_member").select("user_id").eq("board_id", boardId),
-    db.from("app_user").select("id, name, email").eq("is_internal", true).order("name"),
+    db
+      .from("app_user")
+      .select("id, name, email")
+      .eq("is_internal", true)
+      .is("archived_at", null)
+      .order("name"),
   ]);
   return {
     memberIds: (memRes.data ?? []).map((m) => m.user_id),
@@ -822,7 +1091,9 @@ export async function loadFields(boardId: string): Promise<FieldDef[]> {
   // Campos deste pipeline + os GLOBAIS (board_id nulo). RLS escopa.
   const { data } = await db
     .from("field_definition")
-    .select("id, name, type, config, show_on_card_face, show_on_create, is_required, position, board_id")
+    .select(
+      "id, name, type, config, show_on_card_face, show_on_create, is_required, position, board_id, allowed_editors",
+    )
     .or(`board_id.eq.${boardId},board_id.is.null`)
     .order("position");
   return (data ?? []).map((f) => ({
@@ -835,18 +1106,38 @@ export async function loadFields(boardId: string): Promise<FieldDef[]> {
     isRequired: f.is_required ?? false,
     position: Number(f.position),
     global: f.board_id === null,
+    allowedEditors: (f.allowed_editors ?? []) as string[],
   }));
 }
 
-/** Todos os valores de campo do board (para a lista). RLS escopa por usuário. */
-export async function loadAllFieldValues(): Promise<
-  { cardId: string; value: FieldValueRaw }[]
-> {
-  const db = await createClient();
-  const { data } = await db
-    .from("field_value")
-    .select("card_id, field_definition_id, value_text, value_number, value_date, value_bool, value_member_id");
-  return (data ?? []).map((v) => ({
+/** Define quem pode editar uma propriedade (vazio = todos). */
+export async function setFieldEditors(fieldId: string, userIds: string[]): Promise<void> {
+  await requireAlcadaManager();
+  const db = createAdminClient();
+  const { error } = await db
+    .from("field_definition")
+    .update({ allowed_editors: userIds })
+    .eq("id", fieldId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+  revalidatePath("/configuracoes/alcadas");
+}
+
+const FIELD_VALUE_COLS =
+  "card_id, field_definition_id, value_text, value_number, value_date, value_bool, value_member_id";
+
+type FieldValueRow = {
+  card_id: string;
+  field_definition_id: string;
+  value_text: string | null;
+  value_number: number | null;
+  value_date: string | null;
+  value_bool: boolean | null;
+  value_member_id: string | null;
+};
+
+function mapFieldValue(v: FieldValueRow): { cardId: string; value: FieldValueRaw } {
+  return {
     cardId: v.card_id,
     value: {
       fieldId: v.field_definition_id,
@@ -856,7 +1147,40 @@ export async function loadAllFieldValues(): Promise<
       bool: v.value_bool,
       memberId: v.value_member_id,
     },
-  }));
+  };
+}
+
+/**
+ * Valores de campo dos cards de UM pipeline. Preferir esta à
+ * `loadAllFieldValues` — filtra no banco em vez de trazer a tabela inteira.
+ */
+export async function loadFieldValuesByBoard(
+  boardId: string,
+): Promise<{ cardId: string; value: FieldValueRaw }[]> {
+  const db = await createClient();
+  const { data: cards } = await db.from("card").select("id").eq("board_id", boardId);
+  const ids = (cards ?? []).map((c) => c.id);
+  if (ids.length === 0) return [];
+
+  const out: { cardId: string; value: FieldValueRaw }[] = [];
+  // Lotes para não estourar o limite de itens do `in()`.
+  for (let i = 0; i < ids.length; i += 500) {
+    const { data } = await db
+      .from("field_value")
+      .select(FIELD_VALUE_COLS)
+      .in("card_id", ids.slice(i, i + 500));
+    for (const v of data ?? []) out.push(mapFieldValue(v));
+  }
+  return out;
+}
+
+/** Todos os valores de campo visíveis (RLS escopa). Prefira loadFieldValuesByBoard. */
+export async function loadAllFieldValues(): Promise<
+  { cardId: string; value: FieldValueRaw }[]
+> {
+  const db = await createClient();
+  const { data } = await db.from("field_value").select(FIELD_VALUE_COLS);
+  return (data ?? []).map(mapFieldValue);
 }
 
 export async function loadCardFieldValues(cardId: string): Promise<FieldValueRaw[]> {
@@ -972,6 +1296,44 @@ export async function deleteField(fieldId: string): Promise<void> {
   revalidatePath("/board");
 }
 
+/**
+ * Move uma propriedade uma casa para a esquerda/direita. A ordem (`position`) é
+ * a mesma usada pela lista, pelos chips do card e pelo card expandido — então
+ * reordenar aqui reflete em todas as visões.
+ *
+ * Regrava a sequência inteira (0..n-1), o que também normaliza posições
+ * duplicadas herdadas. Mover um campo GLOBAL muda a ordem em todos os pipelines,
+ * que é o comportamento esperado de um campo global.
+ */
+export async function moveField(
+  boardId: string,
+  fieldId: string,
+  direction: "left" | "right",
+): Promise<void> {
+  await requireActor("field:manage");
+  const db = createAdminClient();
+
+  const { data } = await db
+    .from("field_definition")
+    .select("id, position")
+    .or(`board_id.eq.${boardId},board_id.is.null`)
+    .order("position");
+  const list = data ?? [];
+
+  const i = list.findIndex((f) => f.id === fieldId);
+  const j = direction === "left" ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= list.length) return; // já está na ponta
+
+  [list[i], list[j]] = [list[j]!, list[i]!];
+
+  await Promise.all(
+    list.map((f, idx) =>
+      db.from("field_definition").update({ position: idx }).eq("id", f.id),
+    ),
+  );
+  revalidatePath("/board");
+}
+
 export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise<void> {
   await requireActor("field:manage");
   const db = createAdminClient();
@@ -1012,14 +1374,20 @@ export async function setFieldValue(
   fieldId: string,
   value: string | number | boolean | null,
 ): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
   const db = createAdminClient();
   const { data: field } = await db
     .from("field_definition")
-    .select("type, organization_id")
+    .select("type, organization_id, name, allowed_editors")
     .eq("id", fieldId)
     .single();
   if (!field) throw new Error("Campo não encontrado.");
+
+  // Alçada da propriedade: lista vazia = todos; senão, só quem está nela.
+  const editors = (field.allowed_editors ?? []) as string[];
+  if (editors.length > 0 && !editors.includes(actor.userId as string)) {
+    throw new ForbiddenError(`Você não tem alçada para alterar "${field.name}".`);
+  }
 
   const patch: Record<string, unknown> = {
     field_definition_id: fieldId,

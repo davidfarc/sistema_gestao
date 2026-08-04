@@ -1,15 +1,30 @@
 import type { CardFacts, CardMovePort, WorkflowRule } from "@ecco/core";
 
+import { DF } from "@/lib/demandas/fields";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type Db = ReturnType<typeof createAdminClient>;
+
+/**
+ * Campos que precisam estar preenchidos para o RICE fechar. O esforço agora vem
+ * de tempo + complexidade + orçamento (este último derivado do valor da demanda,
+ * que também é exigido).
+ */
+const RICE_FIELDS = [
+  DF.riceAlcance,
+  DF.riceImpacto,
+  DF.riceConfianca,
+  DF.riceTempo,
+  DF.riceComplexidade,
+  DF.orcamento,
+];
 
 function mapRule(r: {
   id: string;
   organization_id: string;
   board_id: string;
   from_stage_id: string | null;
-  to_stage_id: string;
+  to_stage_id: string | null;
   requirement: string;
   requirement_config: Record<string, unknown> | null;
   enforcement: string;
@@ -74,6 +89,25 @@ async function gatherFacts(db: Db, cardId: string): Promise<CardFacts> {
       .map((v) => v.field_definition_id),
   );
 
+  // Priorizada = ato explícito na fila (linha viva) E RICE completo. Revalidar o
+  // RICE aqui cobre o caso de alguém limpar os campos depois de priorizar.
+  let isPrioritized = false;
+  const { data: live } = await db
+    .from("prioritization")
+    .select("id, board_id")
+    .eq("card_id", cardId)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (live) {
+    const { data: riceFields } = await db
+      .from("field_definition")
+      .select("id")
+      .or(`board_id.eq.${live.board_id},board_id.is.null`)
+      .in("name", RICE_FIELDS);
+    const ids = (riceFields ?? []).map((f) => f.id);
+    isPrioritized = ids.length === RICE_FIELDS.length && ids.every((id) => filledFieldIds.has(id));
+  }
+
   return {
     checklistComplete,
     hasAttachment: (attachCount ?? 0) > 0,
@@ -81,6 +115,7 @@ async function gatherFacts(db: Db, cardId: string): Promise<CardFacts> {
     hasConcludedEmenda,
     hasApproval: false, // TODO: tabela approval
     actorHasRole: () => false, // TODO: gates por papel
+    isPrioritized,
   };
 }
 
@@ -110,10 +145,35 @@ export function createSupabaseMovePort(): CardMovePort {
         .from("workflow_rule")
         .select("*")
         .eq("board_id", boardId)
-        .eq("to_stage_id", toStageId)
         .eq("is_active", true);
-      return (data ?? [])
-        .filter((r) => r.from_stage_id === null || r.from_stage_id === fromStageId)
+      const rules = data ?? [];
+
+      // `prioritized` é posicional: vale ao avançar para ALÉM do checkpoint —
+      // pegando tanto quem pula a etapa quanto quem tenta sair dela. Voltar
+      // para trás continua livre.
+      let posOf: Map<string, number> | null = null;
+      if (rules.some((r) => r.requirement === "prioritized")) {
+        const { data: stages } = await db
+          .from("stage")
+          .select("id, position")
+          .eq("board_id", boardId);
+        posOf = new Map((stages ?? []).map((s) => [s.id, Number(s.position)]));
+      }
+
+      return rules
+        .filter((r) => {
+          if (r.requirement === "prioritized") {
+            const checkpoint = (r.requirement_config as { checkpointStageId?: string } | null)
+              ?.checkpointStageId;
+            if (!checkpoint || !posOf) return false;
+            const to = posOf.get(toStageId);
+            const check = posOf.get(checkpoint);
+            return to != null && check != null && to > check;
+          }
+          const toOk = r.to_stage_id === null || r.to_stage_id === toStageId;
+          const fromOk = r.from_stage_id === null || r.from_stage_id === fromStageId;
+          return toOk && fromOk;
+        })
         .map(mapRule);
     },
     async getFacts(cardId) {

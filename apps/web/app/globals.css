@@ -84,6 +84,37 @@ h1, h2, h3, h4, .font-headline {
   color: var(--color-primary);
 }
 
+/* ── Checklist dentro da descrição (Tiptap TaskList) ─────────────────────────
+   A caixa e o texto precisam ficar na MESMA linha. Seletores arbitrários do
+   Tailwind não davam conta da estrutura aninhada do TaskItem
+   (li > label > input + span, li > div > p), então vai CSS direto. */
+.ecco-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.25rem 0;
+}
+.ecco-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.ecco-editor ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  user-select: none;
+}
+.ecco-editor ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ecco-editor ul[data-type="taskList"] li > div > p {
+  margin: 0;
+}
+.ecco-editor ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--color-secondary);
+  text-decoration: line-through;
+}
+
 /* Scroll sem barra visual */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

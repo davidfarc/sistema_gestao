@@ -28,6 +28,7 @@ function facts(partial: Partial<CardFacts> = {}): CardFacts {
     hasConcludedEmenda: false,
     hasApproval: false,
     actorHasRole: () => false,
+    isPrioritized: false,
     ...partial,
   };
 }

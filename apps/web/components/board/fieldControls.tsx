@@ -2,12 +2,15 @@
 
 import {
   AlignLeft,
+  ArrowLeft,
+  ArrowRight,
   Calendar,
   CheckSquare,
   CircleDot,
   Hash,
   Link as LinkIcon,
   ListChecks,
+  Lock,
   Type,
   User,
   type LucideIcon,
@@ -15,7 +18,13 @@ import {
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { addField, deleteField, toggleFieldOnCard, updateField } from "@/lib/board/actions";
+import {
+  addField,
+  deleteField,
+  moveField,
+  toggleFieldOnCard,
+  updateField,
+} from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
 
@@ -33,12 +42,38 @@ const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
 
 const OPTION_COLORS = ["#1d4ed8", "#047857", "#b45309", "#ba1a1a", "#7c3aed", "#0891b2"];
 
+/** Como o valor aparece quando o usuário não tem alçada para editá-lo. */
+function displayValue(
+  field: FieldDef,
+  value: FieldValueRaw | undefined,
+  members: MemberOption[],
+): string {
+  if (!value) return "—";
+  switch (field.type) {
+    case "checkbox":
+      return value.bool ? "Sim" : "Não";
+    case "number":
+      return value.number != null ? String(value.number) : "—";
+    case "date":
+      return value.date ?? "—";
+    case "select":
+    case "status":
+      return field.options.find((o) => o.id === value.text)?.label ?? "—";
+    case "member":
+      return members.find((m) => m.id === value.memberId)?.name ?? "—";
+    default:
+      return value.text || "—";
+  }
+}
+
 export function FieldEditor({
   field,
   value,
   members,
   onSave,
   live = false,
+  readOnly = false,
+  compact = false,
 }: {
   field: FieldDef;
   value: FieldValueRaw | undefined;
@@ -46,12 +81,45 @@ export function FieldEditor({
   onSave: (value: string | number | boolean | null, patch: Partial<FieldValueRaw>) => void;
   /** true = campos de texto/número reagem no onChange (controlado), p/ formulários de criação. */
   live?: boolean;
+  /** Sem alçada para editar esta propriedade — mostra o valor com cadeado. */
+  readOnly?: boolean;
+  /** Célula de tabela: tudo em uma linha só, para não esticar a altura da linha. */
+  compact?: boolean;
 }) {
   const cls =
     "w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400";
 
+  if (readOnly) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1 py-0.5 text-sm text-neutral-500"
+        title="Você não tem alçada para alterar esta propriedade."
+      >
+        {field.type === "checkbox" ? (
+          <input type="checkbox" checked={value?.bool ?? false} disabled className="h-4 w-4 rounded border-neutral-300" />
+        ) : (
+          <span className="truncate">{displayValue(field, value, members)}</span>
+        )}
+        <Lock className="h-3 w-3 shrink-0 text-neutral-300" />
+      </span>
+    );
+  }
+
   switch (field.type) {
     case "long_text":
+      // Na lista vira uma linha só (senão cada linha da tabela fica com a
+      // altura do textarea, mesmo vazia). O texto inteiro segue editável no card.
+      if (compact) {
+        return (
+          <input
+            type="text"
+            {...(live
+              ? { value: value?.text ?? "", onChange: (e) => onSave(e.target.value, { text: e.target.value || null }) }
+              : { defaultValue: value?.text ?? "", onBlur: (e) => onSave(e.target.value, { text: e.target.value || null }) })}
+            className={cls}
+          />
+        );
+      }
       return (
         <textarea
           {...(live
@@ -197,7 +265,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
             }}
           />
         ) : (
-          <div className="w-44 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
+          <div className="w-52 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
             <button
               type="button"
               onClick={() => setEditing(true)}
@@ -205,6 +273,30 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
             >
               Editar propriedade
             </button>
+            <div className="my-1 border-t border-neutral-100" />
+            <button
+              type="button"
+              onClick={async () => {
+                close();
+                await moveField(boardId, field.id, "left");
+                onChanged();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 text-neutral-400" /> Mover para a esquerda
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                close();
+                await moveField(boardId, field.id, "right");
+                onChanged();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
+            >
+              <ArrowRight className="h-3.5 w-3.5 text-neutral-400" /> Mover para a direita
+            </button>
+            <div className="my-1 border-t border-neutral-100" />
             <button
               type="button"
               onClick={async () => {

@@ -3,6 +3,8 @@
  * O card é identificado pela numeração (#number) + título — sem taxonomia.
  */
 
+import type { Thresholds } from "@ecco/core";
+
 export interface Member {
   id: string;
   name: string;
@@ -27,10 +29,14 @@ export interface CardView {
   title: string;
   stageId: string;
   assignee: Member | null;
+  /** Quem pediu (nativo, ao lado do responsável). Preenchido na criação. */
+  requester: Member | null;
   labels: Label[];
   dueDate: string | null; // ISO
   status: StatusValue | null;
   fields: FieldChip[]; // campos customizados marcados "mostrar no card"
+  /** Está numa etapa cuja saída exige priorização (e ainda não foi priorizada). */
+  awaitingPrioritization?: boolean;
 }
 
 // ── Propriedades customizadas (campos) ──────────────────────────────────────
@@ -62,10 +68,38 @@ export interface FieldDef {
   isRequired: boolean; // obrigatório no formulário de criação
   position: number;
   global: boolean; // true = aparece em todos os pipelines (board_id nulo)
+  /**
+   * Alçada da propriedade: ids de quem pode editá-la. Vazio = qualquer um que
+   * possa editar o card. Ex.: só a coordenação marca o checkbox "Aprovado".
+   */
+  allowedEditors: string[];
+}
+
+/** Quem pode editar esta propriedade? Lista vazia = todos. */
+export function canEditField(field: FieldDef, userId: string | null | undefined): boolean {
+  if (field.allowedEditors.length === 0) return true;
+  return !!userId && field.allowedEditors.includes(userId);
 }
 
 /** Modo do formulário de criação de um pipeline. */
 export type CreationForm = "simple" | "generic" | `custom:${string}`;
+
+/**
+ * Quem pode abrir o formulário de criação de um pipeline.
+ * - `members`: só quem tem acesso ao pipeline (padrão, comportamento histórico)
+ * - `org`: qualquer pessoa interna da organização, mesmo sem ver o quadro
+ * - `users`: apenas as pessoas nomeadas
+ *
+ * Serve ao caso de quem pede algo a outra área — o gestor pedagógico abrindo
+ * uma demanda para TI — sem lhe dar visibilidade do pipeline inteiro: quem
+ * entra por aqui enxerga somente as próprias solicitações.
+ */
+export type Intake = "members" | "org" | "users";
+
+/** Interpreta a coluna `board.intake`, caindo no padrão fechado. */
+export function parseIntake(raw: unknown): Intake {
+  return raw === "org" || raw === "users" ? raw : "members";
+}
 
 /** Valor bruto de um campo num card (colunas tipadas). */
 export interface FieldValueRaw {
@@ -98,6 +132,10 @@ export interface BoardData {
   id: string;
   name: string;
   creationForm: CreationForm;
+  /** Limites de alçada do pipeline (já mesclados com os defaults do core). */
+  alcadaThresholds: Thresholds;
+  /** Quem pode abrir o formulário de criação deste pipeline. */
+  intake: Intake;
   stages: StageView[];
   cards: CardView[];
   members: Member[];
@@ -202,6 +240,7 @@ export interface CardDetailData {
   activity: ActivityView[];
   comments: CommentView[];
   responsibleId: string | null; // responsável do card (único, independe de etapa)
+  requesterId: string | null; // solicitante (quem abriu o card)
   members: MemberOption[];
 }
 
@@ -232,4 +271,7 @@ export interface UserRow {
   internal: boolean;
   roleId: string | null;
   roleName: string | null;
+  cargo: string | null;
+  /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
+  archived: boolean;
 }

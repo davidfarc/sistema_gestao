@@ -19,12 +19,21 @@ export function GenericCreateForm({
   boardId,
   onClose,
   onCreated,
+  initialFields,
 }: {
   boardId: string;
   onClose: () => void;
   onCreated: (cardId: string) => void;
+  /**
+   * Campos já resolvidos pelo servidor. Usado pela caixa de entrada: quem não
+   * enxerga o pipeline não consegue lê-los pela RLS, e `loadFields` devolveria
+   * uma lista vazia — o formulário apareceria sem nenhum campo, em silêncio.
+   */
+  initialFields?: FieldDef[];
 }) {
-  const [fields, setFields] = useState<FieldDef[]>([]);
+  const [fields, setFields] = useState<FieldDef[]>(
+    initialFields ? initialFields.filter((f) => f.showOnCreate) : [],
+  );
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [title, setTitle] = useState("");
   const [entries, setEntries] = useState<
@@ -34,9 +43,11 @@ export function GenericCreateForm({
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    loadFields(boardId).then((fs) => setFields(fs.filter((f) => f.showOnCreate)));
+    if (!initialFields) {
+      loadFields(boardId).then((fs) => setFields(fs.filter((f) => f.showOnCreate)));
+    }
     loadMembers().then(setMembers);
-  }, [boardId]);
+  }, [boardId, initialFields]);
 
   function onSave(fieldId: string, value: string | number | boolean | null, patch: Partial<FieldValueRaw>) {
     setEntries((prev) => ({

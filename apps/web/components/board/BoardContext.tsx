@@ -1,12 +1,18 @@
 "use client";
 
+import { DEFAULT_THRESHOLDS, type Thresholds } from "@ecco/core";
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { CreationForm } from "@/lib/board/types";
+import type { CreationForm, Intake } from "@/lib/board/types";
 
 interface BoardCtx {
   boardId: string;
   creationForm: CreationForm;
+  thresholds: Thresholds;
+  /** Id do usuário logado — para saber se ele tem alçada em cada propriedade. */
+  myUserId: string | null;
+  /** Quem pode abrir o formulário de criação deste pipeline. */
+  intake: Intake;
 }
 
 const BoardIdContext = createContext<BoardCtx | null>(null);
@@ -14,14 +20,22 @@ const BoardIdContext = createContext<BoardCtx | null>(null);
 export function BoardProvider({
   boardId,
   creationForm,
+  thresholds,
+  myUserId = null,
+  intake = "members",
   children,
 }: {
   boardId: string;
   creationForm: CreationForm;
+  thresholds: Thresholds;
+  myUserId?: string | null;
+  intake?: Intake;
   children: ReactNode;
 }) {
   return (
-    <BoardIdContext.Provider value={{ boardId, creationForm }}>{children}</BoardIdContext.Provider>
+    <BoardIdContext.Provider value={{ boardId, creationForm, thresholds, myUserId, intake }}>
+      {children}
+    </BoardIdContext.Provider>
   );
 }
 
@@ -39,4 +53,19 @@ export function useBoardId(): string {
 /** Modo do formulário de criação do pipeline atual. */
 export function useCreationForm(): CreationForm {
   return useBoard().creationForm;
+}
+
+/** Limites de alçada configurados para o pipeline atual (prévia no client). */
+export function useThresholds(): Thresholds {
+  return useContext(BoardIdContext)?.thresholds ?? DEFAULT_THRESHOLDS;
+}
+
+/** Quem pode abrir o formulário de criação do pipeline atual. */
+export function useIntake(): Intake {
+  return useContext(BoardIdContext)?.intake ?? "members";
+}
+
+/** Id do usuário logado (null fora do provider). */
+export function useMyUserId(): string | null {
+  return useContext(BoardIdContext)?.myUserId ?? null;
 }

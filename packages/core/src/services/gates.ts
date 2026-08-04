@@ -17,6 +17,8 @@ export interface CardFacts {
   hasConcludedEmenda: boolean;
   hasApproval: boolean;
   actorHasRole: (roleId: string) => boolean;
+  /** Demanda priorizada: RICE completo + ato explícito na fila. */
+  isPrioritized: boolean;
 }
 
 export interface RuleViolation {
@@ -55,6 +57,8 @@ function requirementMet(rule: WorkflowRule, facts: CardFacts): boolean {
       const roleId = asString(rule.requirementConfig["roleId"]);
       return roleId !== undefined && facts.actorHasRole(roleId);
     }
+    case "prioritized":
+      return facts.isPrioritized;
     default: {
       const _exhaustive: never = rule.requirement;
       return _exhaustive;
@@ -69,6 +73,8 @@ const MESSAGES: Record<RequirementKind, string> = {
   emenda_concluded: "A emenda precisa estar concluída antes de avançar.",
   approval: "Falta a aprovação necessária.",
   role: "Você não tem o papel necessário para esta transição.",
+  prioritized:
+    "Esta demanda ainda não passou pela priorização. Complete o RICE e priorize-a na fila (Prioridades).",
 };
 
 /**
