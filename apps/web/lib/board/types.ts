@@ -5,6 +5,12 @@
 
 import type { Thresholds } from "@ecco/core";
 
+/**
+ * Último pipeline aberto. Cookie (não localStorage) para o servidor já
+ * renderizar o quadro certo — sem abrir no errado e corrigir depois.
+ */
+export const LAST_BOARD_COOKIE = "ecco_ultimo_quadro";
+
 export interface Member {
   id: string;
   name: string;

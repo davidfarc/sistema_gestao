@@ -12,7 +12,7 @@ import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { PipelineSelector } from "./PipelineSelector";
 import { moveCard } from "@/lib/board/actions";
-import type { BoardData, BoardSummary } from "@/lib/board/types";
+import { LAST_BOARD_COOKIE, type BoardData, type BoardSummary } from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
@@ -43,6 +43,12 @@ export function BoardView({
 
   // Sincroniza com o servidor após router.refresh() (ex.: card recém-criado).
   useEffect(() => setCards(board.cards), [board.cards]);
+
+  // Lembra o pipeline aberto para que "Quadro" no menu volte pra cá. Um ano,
+  // Lax (só navegação normal precisa lê-lo) e sem `secure` para o localhost.
+  useEffect(() => {
+    document.cookie = `${LAST_BOARD_COOKIE}=${board.id}; path=/; max-age=31536000; samesite=lax`;
+  }, [board.id]);
 
   const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
   const selectedStage = selectedCard
