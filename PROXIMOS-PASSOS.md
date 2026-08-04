@@ -115,3 +115,43 @@ ambas já no escopo do MVP (dnd-kit + TanStack Table).
 **Integração futura:** unir com o projeto iniciado antes em
 `C:\Users\Entrevista\.gemini\antigravity\scratch\eccoprime-demandas` (a mapear quando
 chegarmos na fase de integração; ver Fase 3 do PLANO.md).
+
+## Retomada 2026-08-04 (máquina nova, após formatação)
+
+Máquina formatada; os arquivos locais foram perdidos e o projeto foi recuperado **do
+GitHub** — que provou seu valor como fonte de verdade. Nada do histórico se perdeu.
+
+**Local do repo nesta máquina: `C:\dev\sistema_gestao`.**
+
+⚠️ **O Google Drive não pode hospedar este repo — não é lentidão, é falha dura.** O `G:`
+não suporta symlink, e o pnpm aborta com
+`ERR_PNPM_EISDIR: illegal operation on a directory, symlink`. Medido: install no `G:`
+falhou depois de 10+ min; no `C:` levou **24,9 s**. O `G:` pode guardar docs, nunca o
+código. Transferir entre máquinas por `git push`/`pull`, jamais pelo sync do Drive.
+
+**Ambiente reconstruído:**
+- Node **24.19.0** (`winget install OpenJS.NodeJS.LTS -e`).
+- pnpm **11.20.0** via `npm install -g pnpm`. ⚠️ `corepack enable` falha com **EPERM** em
+  `C:\Program Files\nodejs` sem privilégio de admin — usar o npm global.
+- GitHub CLI **2.97.0** autenticado como `davidfarc` (escopos `repo`, `workflow`,
+  `read:org`, `gist`).
+- `pnpm dev` sobe o `apps/web` em `http://localhost:3000`; tela de login renderiza sem
+  erro de console.
+
+**`apps/web/.env.local` foi refeito** (é gitignored, então some em toda formatação — está
+normal). As 4 variáveis estão preenchidas e sendo lidas pelo Next. Modelo em
+`.env.example` na raiz.
+
+**Fluxo acordado com o David:** ao fim de cada bloco de trabalho, `commit` + `push` direto
+na `main` — sem pedir autorização a cada vez. O objetivo é que uma formatação nunca mais
+custe trabalho.
+
+### Pendências desta retomada
+
+1. **`DATABASE_URL`** (senha do Postgres do Supabase) — segue pendente, como na retomada
+   anterior. Necessária só para `infra/apply.mjs` / `infra/check.mjs` (conexão direta na
+   porta 5432); o `apps/web` funciona sem ela. Verificar se as 15 migrations já estão
+   aplicadas no projeto "Gestão Ecco" antes de rodar qualquer coisa.
+2. **Rotacionar a secret key** do Supabase — ela foi exposta num print durante a retomada.
+3. **Cópia obsoleta no Drive** em `G:\Drives compartilhados\GESTÃO\ARQUIVO\Claude IA\DavidPC\sistema_gestao`
+   (com `node_modules` quebrados). Pode ser removida — o David faz isso manualmente.
