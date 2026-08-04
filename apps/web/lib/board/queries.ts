@@ -1,8 +1,9 @@
 ﻿import { parseThresholds } from "@ecco/core";
+import { cookies } from "next/headers";
 
 import { memberView } from "@/lib/board/avatar";
 import { createClient } from "@/lib/supabase/server";
-import { parseIntake } from "./types";
+import { LAST_BOARD_COOKIE, parseIntake } from "./types";
 import type { BoardData, BoardSummary, CardView, FieldChip, FieldType, StageView } from "./types";
 
 function formatDate(iso: string): string {
@@ -68,15 +69,30 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       .maybeSingle();
     board = data;
   }
+  // Sem pipeline na URL: o Ãºltimo que a pessoa deixou aberto (cookie gravado
+  // pela BoardView). RLS escopa, entÃ£o um cookie velho de um pipeline que ela
+  // perdeu acesso simplesmente nÃ£o resolve e cai no fallback.
+  if (!board) {
+    const last = (await cookies()).get(LAST_BOARD_COOKIE)?.value;
+    if (last) {
+      const { data } = await db
+        .from("board")
+        .select("id, name, creation_form, alcada_thresholds, intake")
+        .eq("id", last)
+        .is("archived_at", null)
+        .maybeSingle();
+      board = data;
+    }
+  }
+  // Primeira visita: o primeiro em ordem alfabÃ©tica â€” a mesma ordem do seletor,
+  // por isso ordenado aqui com byName (e nÃ£o no Postgres, cuja collation
+  // divergiria da do navegador).
   if (!board) {
     const { data } = await db
       .from("board")
       .select("id, name, creation_form, alcada_thresholds, intake")
-      .is("archived_at", null)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle();
-    board = data;
+      .is("archived_at", null);
+    board = (data ?? []).sort(byName)[0] ?? null;
   }
   if (!board) return null;
 
