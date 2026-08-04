@@ -30,6 +30,7 @@ function facts(partial: Partial<CardFacts> = {}): CardFacts {
     hasConcludedEmenda: false,
     hasApproval: false,
     actorHasRole: () => false,
+    isPrioritized: false,
     ...partial,
   };
 }
@@ -51,6 +52,17 @@ test("checklist completo → libera", () => {
     [rule({ requirement: "checklist_complete" })],
     facts({ checklistComplete: true }),
   );
+  assert.equal(r.blocked, false);
+});
+
+test("demanda não priorizada → bloqueia a saída da etapa", () => {
+  const r = evaluateGates([rule({ requirement: "prioritized" })], facts());
+  assert.equal(r.blocked, true);
+  assert.match(r.violations[0]!.message, /priorização/i);
+});
+
+test("demanda priorizada → libera", () => {
+  const r = evaluateGates([rule({ requirement: "prioritized" })], facts({ isPrioritized: true }));
   assert.equal(r.blocked, false);
 });
 

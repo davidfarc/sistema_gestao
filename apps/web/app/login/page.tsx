@@ -18,9 +18,14 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
+    // Repassa o destino que o middleware guardou, para cair no lugar clicado
+    // (um formulário de novo card, um card específico) e não na home.
+    const next = new URLSearchParams(window.location.search).get("next");
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next) callback.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callback.toString() },
     });
     if (error) {
       setError(error.message);

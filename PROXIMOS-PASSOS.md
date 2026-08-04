@@ -118,40 +118,53 @@ chegarmos na fase de integração; ver Fase 3 do PLANO.md).
 
 ## Retomada 2026-08-04 (máquina nova, após formatação)
 
-Máquina formatada; os arquivos locais foram perdidos e o projeto foi recuperado **do
-GitHub** — que provou seu valor como fonte de verdade. Nada do histórico se perdeu.
+Máquina formatada; os arquivos locais foram perdidos. **Local do repo nesta máquina:
+`C:\dev\sistema_gestao`.**
 
-**Local do repo nesta máquina: `C:\dev\sistema_gestao`.**
+### ⚠️ Lição principal: houve ~3 semanas de trabalho fora do GitHub
 
-⚠️ **O Google Drive não pode hospedar este repo — não é lentidão, é falha dura.** O `G:`
-não suporta symlink, e o pnpm aborta com
+O último commit na `main` era de **11/07** (`5d04802`), mas produção rodava código de
+**29/07** — 79 arquivos que **nunca foram commitados**, só publicados na Vercel por CLI.
+Foram recuperados baixando os fontes do deployment `ecco-sistema-m2cc49y80` pela API
+(`/v6/deployments/{id}/files` + `/v7/.../files/{uid}`), o que só foi possível porque
+**deploy por CLI guarda os fontes**. Se o projeto estivesse ligado ao Git na Vercel, esse
+trabalho estaria perdido.
+
+**Por isso o combinado agora é: `commit` + `push` ao fim de cada bloco de trabalho.**
+Nunca deixar o deploy ser a única cópia. Ideal: ligar o GitHub ao projeto na Vercel
+(Settings → Git) para o deploy sair do push, e não de um upload local.
+
+### O Google Drive não pode hospedar este repo
+
+Não é lentidão, é falha dura: o `G:` não suporta symlink e o pnpm aborta com
 `ERR_PNPM_EISDIR: illegal operation on a directory, symlink`. Medido: install no `G:`
-falhou depois de 10+ min; no `C:` levou **24,9 s**. O `G:` pode guardar docs, nunca o
-código. Transferir entre máquinas por `git push`/`pull`, jamais pelo sync do Drive.
+falhou após 10+ min; no `C:` levou **24,9 s**. Transferir entre máquinas por
+`git push`/`pull`, jamais pelo sync do Drive.
 
-**Ambiente reconstruído:**
+### Ambiente reconstruído
+
 - Node **24.19.0** (`winget install OpenJS.NodeJS.LTS -e`).
-- pnpm **11.20.0** via `npm install -g pnpm`. ⚠️ `corepack enable` falha com **EPERM** em
-  `C:\Program Files\nodejs` sem privilégio de admin — usar o npm global.
-- GitHub CLI **2.97.0** autenticado como `davidfarc` (escopos `repo`, `workflow`,
-  `read:org`, `gist`).
-- `pnpm dev` sobe o `apps/web` em `http://localhost:3000`; tela de login renderiza sem
-  erro de console.
+- pnpm via `npm install -g pnpm`. ⚠️ `corepack enable` falha com **EPERM** em
+  `C:\Program Files\nodejs` sem admin.
+- `gh` **2.97.0** (`davidfarc`) e Vercel CLI **58.5.1** (`david-6537`, time `eccoprime`).
+- Identidade do git precisou ser refeita: `David <david@adm.eccoprime.com.br>`.
+- ⚠️ Instalar sob PATH: o Windows serve às janelas novas uma cópia velha do ambiente até
+  o próximo logoff — chamar os binários por caminho completo resolve na hora.
 
-**`apps/web/.env.local` foi refeito** (é gitignored, então some em toda formatação — está
-normal). As 4 variáveis estão preenchidas e sendo lidas pelo Next. Modelo em
-`.env.example` na raiz.
+### Segredos (não versionados — refazer a cada formatação)
 
-**Fluxo acordado com o David:** ao fim de cada bloco de trabalho, `commit` + `push` direto
-na `main` — sem pedir autorização a cada vez. O objetivo é que uma formatação nunca mais
-custe trabalho.
+- `apps/web/.env.local` — as 4 variáveis do Supabase.
+- `.env` na raiz — **`DATABASE_URL`**, usada por `infra/apply.mjs` e `infra/check.mjs`
+  (conexão direta na 5432). Recuperada junto com o deployment; a pendência de "senha do
+  Postgres" das retomadas anteriores está **resolvida**.
+
+Guardar essas chaves num gerenciador de senhas: é a única parte que o GitHub não protege.
 
 ### Pendências desta retomada
 
-1. **`DATABASE_URL`** (senha do Postgres do Supabase) — segue pendente, como na retomada
-   anterior. Necessária só para `infra/apply.mjs` / `infra/check.mjs` (conexão direta na
-   porta 5432); o `apps/web` funciona sem ela. Verificar se as 15 migrations já estão
-   aplicadas no projeto "Gestão Ecco" antes de rodar qualquer coisa.
-2. **Rotacionar a secret key** do Supabase — ela foi exposta num print durante a retomada.
-3. **Cópia obsoleta no Drive** em `G:\Drives compartilhados\GESTÃO\ARQUIVO\Claude IA\DavidPC\sistema_gestao`
-   (com `node_modules` quebrados). Pode ser removida — o David faz isso manualmente.
+1. **Rotacionar a secret key** do Supabase — foi exposta num print durante a retomada.
+2. **Aplicar migrations pendentes** — o repo tem 30 migrations (`0001`–`0030`); conferir
+   com `node infra/check.mjs` o que já está no banco antes de rodar `apply.mjs`.
+3. **Cópia obsoleta no Drive** em `G:\...\DavidPC\sistema_gestao` e a pasta de trabalho
+   `C:\dev\_recuperado-vercel` (fontes baixados da Vercel) podem ser removidas quando
+   quiser — o David faz remoções manualmente.

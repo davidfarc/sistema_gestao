@@ -1,5 +1,8 @@
+﻿import { parseThresholds } from "@ecco/core";
+
 import { memberView } from "@/lib/board/avatar";
 import { createClient } from "@/lib/supabase/server";
+import { parseIntake } from "./types";
 import type { BoardData, BoardSummary, CardView, FieldChip, FieldType, StageView } from "./types";
 
 function formatDate(iso: string): string {
@@ -26,7 +29,7 @@ function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip |
     case "date":
       return raw.value_date ? { ...base, display: formatDate(raw.value_date), color: null } : null;
     case "checkbox":
-      return raw.value_bool ? { ...base, display: `✓ ${f.name}`, color: null } : null;
+      return raw.value_bool ? { ...base, display: `âœ“ ${f.name}`, color: null } : null;
     case "member":
       return raw.value_member_id
         ? { ...base, display: nameOf.get(raw.value_member_id) ?? "?", color: null }
@@ -42,18 +45,24 @@ function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip |
 }
 
 /**
- * Carrega o board com o CLIENT DE SESSÃO (RLS escopa por usuário). Resolve o
- * responsável da etapa atual e os campos customizados marcados "mostrar no card".
+ * Carrega o board com o CLIENT DE SESSÃƒO (RLS escopa por usuÃ¡rio). Resolve o
+ * responsÃ¡vel da etapa atual e os campos customizados marcados "mostrar no card".
  */
 export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const db = await createClient();
 
-  // Pipeline pedido (se visível) ou o primeiro não-arquivado. RLS escopa.
-  let board: { id: string; name: string; creation_form: string } | null = null;
+  // Pipeline pedido (se visÃ­vel) ou o primeiro nÃ£o-arquivado. RLS escopa.
+  let board: {
+    id: string;
+    name: string;
+    creation_form: string;
+    alcada_thresholds: unknown;
+    intake: string;
+  } | null = null;
   if (boardId) {
     const { data } = await db
       .from("board")
-      .select("id, name, creation_form")
+      .select("id, name, creation_form, alcada_thresholds, intake")
       .eq("id", boardId)
       .is("archived_at", null)
       .maybeSingle();
@@ -62,7 +71,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   if (!board) {
     const { data } = await db
       .from("board")
-      .select("id, name, creation_form")
+      .select("id, name, creation_form, alcada_thresholds, intake")
       .is("archived_at", null)
       .order("created_at")
       .limit(1)
@@ -71,11 +80,11 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   }
   if (!board) return null;
 
-  const [stagesRes, cardsRes, fieldsRes] = await Promise.all([
+  const [stagesRes, cardsRes, fieldsRes, gateRes, prioRes] = await Promise.all([
     db.from("stage").select("id, name, category, position").eq("board_id", board.id).order("position"),
     db
       .from("card")
-      .select("id, number, title, stage_id, due_date")
+      .select("id, number, title, stage_id, due_date, requester_id")
       .eq("board_id", board.id)
       .order("position"),
     db
@@ -84,7 +93,26 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       .or(`board_id.eq.${board.id},board_id.is.null`)
       .eq("show_on_card_face", true)
       .order("position"),
+    // Etapa de checkpoint da priorizaÃ§Ã£o â€” vem da regra, sem nome fixo no cÃ³digo.
+    db
+      .from("workflow_rule")
+      .select("requirement_config")
+      .eq("board_id", board.id)
+      .eq("requirement", "prioritized")
+      .eq("is_active", true),
+    db
+      .from("prioritization")
+      .select("card_id")
+      .eq("board_id", board.id)
+      .is("archived_at", null),
   ]);
+
+  const gatedStages = new Set(
+    (gateRes.data ?? [])
+      .map((r) => (r.requirement_config as { checkpointStageId?: string } | null)?.checkpointStageId)
+      .filter((id): id is string => !!id),
+  );
+  const prioritizedCards = new Set((prioRes.data ?? []).map((p) => p.card_id));
 
   const cardsRaw = cardsRes.data ?? [];
   const cardIds = cardsRaw.map((c) => c.id);
@@ -95,7 +123,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const memberIds = new Set<string>();
 
   if (cardIds.length > 0) {
-    // Responsável por card = assignment com stage_id nulo (independe da etapa).
+    // ResponsÃ¡vel por card = assignment com stage_id nulo (independe da etapa).
     const { data: assigns } = await db
       .from("assignment")
       .select("card_id, user_id")
@@ -104,6 +132,10 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     for (const a of assigns ?? []) {
       assigneeOf.set(a.card_id, a.user_id);
       memberIds.add(a.user_id);
+    }
+    // Solicitante Ã© coluna do prÃ³prio card.
+    for (const c of cardsRaw) {
+      if (c.requester_id) memberIds.add(c.requester_id);
     }
   }
 
@@ -147,10 +179,14 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       title: c.title,
       stageId: c.stage_id,
       assignee: uid ? memberView(uid, nameOf.get(uid) ?? "?") : null,
+      requester: c.requester_id
+        ? memberView(c.requester_id, nameOf.get(c.requester_id) ?? "?")
+        : null,
       labels: [],
       status: null,
       dueDate: c.due_date,
       fields,
+      awaitingPrioritization: gatedStages.has(c.stage_id) && !prioritizedCards.has(c.id),
     };
   });
 
@@ -158,18 +194,30 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     id: board.id,
     name: board.name,
     creationForm: (board.creation_form ?? "simple") as BoardData["creationForm"],
+    alcadaThresholds: parseThresholds(board.alcada_thresholds),
+    intake: parseIntake(board.intake),
     stages,
     cards,
     members: [],
   };
 }
 
-/** Lista os pipelines visíveis (RLS: interno vê todos; externo os atribuídos). */
+/**
+ * Lista os pipelines visÃ­veis (RLS: interno vÃª todos; externo os atribuÃ­dos),
+ * em ordem alfabÃ©tica. A ordenaÃ§Ã£o Ã© feita aqui, e nÃ£o no `order()` do Postgres,
+ * porque o collation do banco nÃ£o conhece as regras do portuguÃªs â€” "Ãvila"
+ * viria depois de "Bahia". A lista Ã© curta, entÃ£o o custo Ã© irrelevante.
+ */
 export async function loadBoards(): Promise<BoardSummary[]> {
   const db = await createClient();
-  const { data } = await db
-    .from("board")
-    .select("id, name, archived_at")
-    .order("created_at");
-  return (data ?? []).map((b) => ({ id: b.id, name: b.name, archived: b.archived_at != null }));
+  const { data } = await db.from("board").select("id, name, archived_at");
+  return (data ?? [])
+    .map((b) => ({ id: b.id, name: b.name, archived: b.archived_at != null }))
+    .sort(byName);
 }
+
+/** Comparador alfabÃ©tico pt-BR: ignora caixa e trata acento como a letra base. */
+export function byName<T extends { name: string }>(a: T, b: T): number {
+  return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
+}
+

@@ -1,9 +1,20 @@
 import { cache } from "react";
 
-import { asId, assertCan, UnauthorizedError, type Action, type Actor } from "@ecco/core";
+import {
+  asId,
+  assertCan,
+  ForbiddenError,
+  UnauthorizedError,
+  type Action,
+  type Actor,
+} from "@ecco/core";
 
 import { getSessionUser, isInternalEmail } from "@/lib/auth";
+import { CARGOS } from "@/lib/demandas/cargos";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+/** "Diretor Geral" — vem da lista de cargos, não como string solta. */
+const DIRETOR_GERAL: string = CARGOS[0];
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -80,10 +91,34 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   const name =
     (meta.full_name as string) || (meta.name as string) || su.email.split("@")[0] || su.email;
 
-  await db.from("app_user").upsert(
-    { id: su.id, organization_id: org.id, email: su.email, name, is_internal: internal },
-    { onConflict: "id" },
-  );
+  // Quem já existe aqui foi convidado (pré-cadastrado pela gestão) ou já entrou
+  // antes. Busca por id e, se não achar, por e-mail: o pré-cadastro cria o
+  // usuário em `auth.users`, mas o vínculo só se confirma no 1º login.
+  const { data: existing } = await db
+    .from("app_user")
+    .select("id, cargo, archived_at")
+    .or(`id.eq.${su.id},email.eq.${su.email}`)
+    .limit(1)
+    .maybeSingle();
+
+  // Porta de entrada: domínio autorizado OU convite. Sem isso, abrir a tela de
+  // consentimento do Google para fora da organização deixaria qualquer conta
+  // Google do mundo virar usuário desta base só por descobrir a URL.
+  if (!internal && !existing) return null;
+
+  // Acesso revogado continua revogado — arquivar precisa valer no login, senão
+  // a pessoa desligada volta a entrar sozinha no próximo acesso.
+  if (existing?.archived_at) return null;
+
+  // O upsert não escreve `cargo`; o select devolve o valor atual sem query extra.
+  const { data: upserted } = await db
+    .from("app_user")
+    .upsert(
+      { id: su.id, organization_id: org.id, email: su.email, name, is_internal: internal },
+      { onConflict: "id" },
+    )
+    .select("cargo")
+    .maybeSingle();
   await ensureDefaultRole(db, su.id, org.id, internal);
 
   const permissions = await resolvePermissions(db, su.id);
@@ -93,6 +128,7 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
     isInternal: internal,
     permissions,
     teamIds: [],
+    cargo: upserted?.cargo ?? null,
   };
 });
 
@@ -104,5 +140,26 @@ export async function requireActor(action?: Action): Promise<Actor> {
   const actor = await provisionAndGetActor();
   if (!actor) throw new UnauthorizedError("Autenticação necessária.");
   if (action) assertCan(actor, action);
+  return actor;
+}
+
+/**
+ * Quem pode mexer nos limites de alçada: o **Diretor Geral** (decisão de
+ * governança financeira) ou o **Gestor** — que é o usuário master e pode
+ * delegar. `user:manage` é o proxy de "é Gestor" (ação exclusiva desse papel).
+ * Não lança — use para esconder/mostrar UI.
+ */
+export function canManageAlcadas(actor: Actor | null | undefined): boolean {
+  if (!actor) return false;
+  return actor.cargo === DIRETOR_GERAL || actor.permissions.has("user:manage");
+}
+
+/** Versão que lança — use nas escritas do servidor. */
+export async function requireAlcadaManager(): Promise<Actor> {
+  const actor = await provisionAndGetActor();
+  if (!actor) throw new UnauthorizedError("Autenticação necessária.");
+  if (!canManageAlcadas(actor)) {
+    throw new ForbiddenError("Só a Direção Geral ou um Gestor pode alterar os limites de alçada.");
+  }
   return actor;
 }

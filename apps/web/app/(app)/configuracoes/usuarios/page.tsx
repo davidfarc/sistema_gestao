@@ -8,29 +8,29 @@ export default async function UsuariosPage() {
   const actor = await provisionAndGetActor();
   if (!actor?.permissions.has("user:manage")) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <div className="mt-6">
         <h1 className="text-2xl">Usuários</h1>
         <p className="mt-2 text-sm text-secondary">
           Você não tem permissão para gerenciar usuários (apenas Gestor).
         </p>
-      </main>
+      </div>
     );
   }
 
   const [users, roles] = await Promise.all([loadUsers(), loadRoles()]);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <p className="text-sm font-medium uppercase tracking-wide text-secondary">Configurações</p>
-      <h1 className="mt-1 text-2xl">Usuários</h1>
+    <div className="mt-6">
+      <h1 className="text-2xl">Usuários</h1>
       <p className="mt-2 text-sm text-secondary">
-        Quem tem acesso ao sistema e o papel de cada um. Os usuários entram por Google e são
-        criados no primeiro login.
+        Quem tem acesso ao sistema e o papel de cada um. Os usuários entram por Google e são criados
+        no primeiro login. O <strong>cargo</strong> define quem aprova as demandas em cada faixa de
+        alçada.
       </p>
 
       <div className="mt-6">
         <UsersTable users={users} roles={roles} />
       </div>
-    </main>
+    </div>
   );
 }

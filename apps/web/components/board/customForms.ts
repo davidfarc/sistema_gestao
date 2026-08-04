@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 
+import type { FieldDef } from "@/lib/board/types";
 import { DemandasCreateForm } from "./DemandasCreateForm";
 
 /** Props que todo formulário de criação personalizado recebe. */
@@ -9,6 +10,13 @@ export interface CustomFormProps {
   boardId: string;
   onClose: () => void;
   onCreated: (cardId: string) => void;
+  /**
+   * Campos resolvidos no servidor, para a caixa de entrada (quem abre o
+   * formulário sem enxergar o pipeline). Quando ausente, o formulário busca
+   * sozinho. Todo formulário personalizado novo deve respeitar isto — é o que
+   * o torna utilizável por quem pede algo de fora da área.
+   */
+  initialFields?: FieldDef[];
 }
 
 /**

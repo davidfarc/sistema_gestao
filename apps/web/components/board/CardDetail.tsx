@@ -11,6 +11,8 @@ import { ActivityFeed } from "./ActivityFeed";
 import { Attachments } from "./Attachments";
 import { Checklists } from "./Checklists";
 import { Comments } from "./Comments";
+import { DemandPanel } from "./DemandPanel";
+import { RichDescription } from "./RichDescription";
 import { Responsavel } from "./Responsavel";
 
 const EMPTY: CardDetailData = {
@@ -20,6 +22,7 @@ const EMPTY: CardDetailData = {
   activity: [],
   comments: [],
   responsibleId: null,
+  requesterId: null,
   members: [],
 };
 
@@ -64,10 +67,11 @@ export function CardDetail({
     });
   }
 
-  function saveDescription() {
-    if (description == null || description === (data?.description ?? "")) return;
+  function saveDescription(html: string) {
+    setDescription(html);
+    if (html === (data?.description ?? "")) return;
     startTransition(async () => {
-      await updateCard({ id: card.id, description });
+      await updateCard({ id: card.id, description: html });
       router.refresh();
     });
   }
@@ -126,24 +130,39 @@ export function CardDetail({
           </div>
         </div>
 
+        <DemandPanel cardId={card.id} />
+
         <Section title="Descrição">
-          <textarea
-            value={description ?? ""}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={saveDescription}
-            rows={3}
-            placeholder="Adicione uma descrição…"
-            className="w-full resize-y rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400"
-          />
+          {/* Só monta o editor depois que a descrição chegou, senão ele nasce vazio. */}
+          {data ? (
+            <RichDescription value={description ?? ""} onSave={saveDescription} />
+          ) : (
+            <div className="min-h-24 animate-pulse rounded-lg border border-neutral-200 bg-neutral-50" />
+          )}
         </Section>
 
-        <Section title="Responsável">
-          <Responsavel
-            cardId={card.id}
-            responsibleId={d.responsibleId}
-            members={d.members}
-            onChanged={reloadAndRefresh}
-          />
+        <Section title="Pessoas">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1">
+              <span className="text-xs text-neutral-500">Solicitante</span>
+              <Responsavel
+                cardId={card.id}
+                responsibleId={d.requesterId}
+                members={d.members}
+                onChanged={reloadAndRefresh}
+                role="solicitante"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs text-neutral-500">Responsável</span>
+              <Responsavel
+                cardId={card.id}
+                responsibleId={d.responsibleId}
+                members={d.members}
+                onChanged={reloadAndRefresh}
+              />
+            </label>
+          </div>
         </Section>
 
         <Section title="Checklists">

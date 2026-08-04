@@ -1,5 +1,7 @@
 "use client";
 
+import { ListOrdered } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -18,16 +20,20 @@ export interface BoardCaps {
   fields: boolean; // editar propriedades (field:manage)
   stages: boolean; // configurar etapas (stage:manage)
   boards: boolean; // criar/renomear/arquivar pipelines (board:configure)
+  alcadas: boolean; // limites de alçada (Direção Geral ou Gestor)
+  create: boolean; // criar cards (card:create)
 }
 
 export function BoardView({
   board,
   boards,
   caps,
+  myUserId = null,
 }: {
   board: BoardData;
   boards: BoardSummary[];
   caps: BoardCaps;
+  myUserId?: string | null;
 }) {
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
@@ -58,15 +64,36 @@ export function BoardView({
   }
 
   return (
-    <BoardProvider boardId={board.id} creationForm={board.creationForm}>
+    <BoardProvider
+      boardId={board.id}
+      creationForm={board.creationForm}
+      thresholds={board.alcadaThresholds}
+      myUserId={myUserId}
+      intake={board.intake}
+    >
     <div className="flex h-dvh flex-col">
       <header className="flex items-center gap-4 border-b border-neutral-200 px-6 py-3">
         <div>
-          <PipelineSelector boards={boards} currentId={board.id} canConfigure={caps.boards} />
+          <PipelineSelector
+            boards={boards}
+            currentId={board.id}
+            canConfigure={caps.boards}
+            canManageAlcadas={caps.alcadas}
+          />
           <p className="px-1.5 text-xs text-neutral-400">{cards.length} cards</p>
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          {/* Fila de priorização: só existe no pipeline de demandas. */}
+          {board.creationForm === "custom:demandas" && (
+            <Link
+              href={`/prioridades?board=${board.id}`}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+              title="Fila de prioridade (RICE)"
+            >
+              <ListOrdered className="h-4 w-4" /> Prioridades
+            </Link>
+          )}
           <div className="flex rounded-lg border border-neutral-200 p-0.5 text-sm">
             <ToggleButton active={view === "kanban"} onClick={() => setView("kanban")}>
               Kanban
@@ -75,7 +102,7 @@ export function BoardView({
               Lista
             </ToggleButton>
           </div>
-          <NewCardDialog />
+          <NewCardDialog canCreate={caps.create} />
         </div>
       </header>
 

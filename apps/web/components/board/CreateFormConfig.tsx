@@ -40,6 +40,7 @@ export function CreateFormConfig({
     router.refresh();
   }
 
+
   async function toggleCreate(f: FieldDef) {
     const next = !f.showOnCreate;
     setItems((prev) => prev.map((x) => (x.id === f.id ? { ...x, showOnCreate: next } : x)));
@@ -91,6 +92,11 @@ export function CreateFormConfig({
               </option>
             ))}
           </select>
+
+          <p className="mt-2 text-xs text-neutral-400">
+            Quem pode <em>abrir</em> este formulário se define em Configurações → Alçadas,
+            junto das demais autoridades do pipeline.
+          </p>
         </div>
 
         {mode === "generic" ? (
