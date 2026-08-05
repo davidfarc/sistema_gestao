@@ -151,6 +151,23 @@ falhou após 10+ min; no `C:` levou **24,9 s**. Transferir entre máquinas por
 - ⚠️ Instalar sob PATH: o Windows serve às janelas novas uma cópia velha do ambiente até
   o próximo logoff — chamar os binários por caminho completo resolve na hora.
 
+### ⚠️ Antes do primeiro `vercel deploy` numa máquina nova: religar o projeto
+
+A pasta `.vercel` (que guarda o vínculo com o projeto) é gitignored e some na
+formatação. Sem ela, `vercel deploy` **cria um projeto novo** batizado com o nome da
+pasta — foi o que aconteceu em 05/08, gerando um projeto órfão `sistema_gestao` cujo
+build quebrou em `/auth/callback` por não ter as variáveis de ambiente. Religar antes:
+
+```
+vercel link --project ecco-sistema --scope eccoprime --yes
+```
+
+O `link` cria um `.env.local` na raiz (só um `VERCEL_OIDC_TOKEN`) e duplica duas linhas
+no `.gitignore` — a duplicação pode ser descartada com `git checkout -- .gitignore`.
+
+Deploy de produção: `vercel deploy --prod --scope eccoprime --yes`. **Rodar
+`pnpm build` local antes** — pega o erro em 40 s em vez de esperar o build remoto.
+
 ### Segredos (não versionados — refazer a cada formatação)
 
 - `apps/web/.env.local` — as 4 variáveis do Supabase.
