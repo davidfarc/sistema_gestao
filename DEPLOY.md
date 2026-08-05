@@ -10,13 +10,20 @@
 - **Variáveis** (Production) já configuradas: as 4 abaixo.
 - **Supabase Auth** já apontado para a URL de produção (Site URL + Redirect URLs com wildcard,
   mantendo `localhost`).
-- **Deploy feito via CLI** a partir da **raiz do repo** (sobe o monorepo pnpm inteiro).
+- **Deploy automático a partir do GitHub** (desde 05/08/2026): o projeto está ligado a
+  `davidfarc/sistema_gestao`, branch de produção `main`. **Todo `push` na `main` publica.**
 
-**Redeploy (após mudanças locais):** na raiz, com a Vercel CLI logada:
-```
-vercel deploy --prod --scope eccoprime --yes
-```
-Ou conectar o GitHub ao projeto (Settings → Git) para **deploy automático a cada push**.
+**Como publicar:** `git push origin main`. É isso.
+
+⚠️ **Não usar mais `vercel deploy` como rotina.** Era o modo antigo (upload da máquina
+local) e foi a causa de **79 arquivos / 3 semanas de trabalho ficarem fora do GitHub** —
+recuperados em 04/08 baixando os fontes do deployment pela API. Com o Git ligado, é
+impossível ter código no ar que não esteja versionado; manter assim.
+
+A CLI segue útil para emergências (`vercel deploy --prod --scope eccoprime --yes`) e para
+inspeção (`vercel ls`, `vercel inspect`, `vercel logs`). Em máquina nova, religar antes:
+`vercel link --project ecco-sistema --scope eccoprime --yes` — sem isso a CLI cria um
+projeto novo com o nome da pasta.
 
 ⚠️ Migrations **não** rodam no deploy — aplicar à parte (ver §Notas).
 
