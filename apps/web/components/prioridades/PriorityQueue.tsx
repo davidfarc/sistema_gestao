@@ -55,25 +55,35 @@ export function PriorityQueue({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  async function run(cardId: string, fn: () => Promise<{ ok: true } | { ok: false; error: string }>) {
+  async function run(
+    cardId: string,
+    fn: () => Promise<{ ok: true; warning?: string } | { ok: false; error: string }>,
+  ) {
     setBusy(cardId);
     setError(null);
     const res = await fn();
     setBusy(null);
     if (!res.ok) setError(res.error);
-    else router.refresh();
+    else {
+      setNotice(res.warning ?? null);
+      router.refresh();
+    }
   }
 
   const prioritized = data.items.filter((i) => i.prioritized);
-  const pending = data.items.filter((i) => !i.prioritized);
-  const awaiting = pending.filter((i) => i.awaitingPrioritization);
-  const others = pending.filter((i) => !i.awaitingPrioritization);
+  // Só chega aqui quem está no checkpoint ou já foi priorizado (ver
+  // loadPriorityQueue) — não existe mais a seção "demais demandas".
+  const awaiting = data.items.filter((i) => !i.prioritized && i.awaitingPrioritization);
 
   return (
     <div className="grid gap-8">
       {error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+      {notice && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{notice}</p>
       )}
 
       <Section
@@ -113,23 +123,6 @@ export function PriorityQueue({
         </Section>
       )}
 
-      {others.length > 0 && (
-        <Section
-          title="Demais demandas"
-          count={others.length}
-          hint="Ainda não estão na etapa de priorização."
-        >
-          {others.map((item) => (
-            <Card
-              key={item.cardId}
-              item={item}
-              busy={busy === item.cardId}
-              canPrioritize={canPrioritize}
-              onPrioritize={() => run(item.cardId, () => prioritizeCard(item.cardId))}
-            />
-          ))}
-        </Section>
-      )}
     </div>
   );
 }
