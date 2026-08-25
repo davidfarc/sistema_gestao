@@ -86,22 +86,6 @@ export function PriorityQueue({
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{notice}</p>
       )}
 
-      <Section
-        title="Aguardando priorização"
-        count={awaiting.length}
-        hint="Estas demandas estão travadas: só seguem no pipeline depois de priorizadas."
-      >
-        {awaiting.map((item) => (
-          <Card
-            key={item.cardId}
-            item={item}
-            busy={busy === item.cardId}
-            canPrioritize={canPrioritize}
-            onPrioritize={() => run(item.cardId, () => prioritizeCard(item.cardId))}
-          />
-        ))}
-      </Section>
-
       {prioritized.length > 0 && (
         <Section title="Priorizadas" count={prioritized.length} hint="Ordem definida pelo comitê.">
           {prioritized.map((item, i) => (
@@ -123,6 +107,21 @@ export function PriorityQueue({
         </Section>
       )}
 
+      <Section
+        title="Aguardando priorização"
+        count={awaiting.length}
+        hint="Estas demandas estão travadas: só seguem no pipeline depois de priorizadas."
+      >
+        {awaiting.map((item) => (
+          <Card
+            key={item.cardId}
+            item={item}
+            busy={busy === item.cardId}
+            canPrioritize={canPrioritize}
+            onPrioritize={() => run(item.cardId, () => prioritizeCard(item.cardId))}
+          />
+        ))}
+      </Section>
     </div>
   );
 }
