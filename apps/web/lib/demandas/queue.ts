@@ -1,10 +1,11 @@
 "use server";
 
-import { positionAfter, positionBetween } from "@ecco/core";
+import { CardService, positionAfter, positionBetween, type Actor } from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
 import { requireActor } from "@/lib/actor";
 import { loadFieldValuesByBoard, loadFields } from "@/lib/board/actions";
+import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import type { FieldValueRaw } from "@/lib/board/types";
 import { computeDemand } from "@/lib/demandas/eval";
 import type { QueueData, QueueItem } from "@/lib/demandas/queueTypes";
@@ -101,13 +102,19 @@ export async function loadPriorityQueue(boardId: string): Promise<QueueData | nu
     const computed = computeDemand(fields, valuesByCard.get(c.id) ?? [], thresholds);
     if (!computed) continue;
     const p = prioOf.get(c.id);
+    const awaiting = gatedStages.has(c.stage_id);
+    // O painel é a mesa de priorização, não um inventário do pipeline: entra
+    // quem está no checkpoint e quem já foi priorizado (estes precisam seguir
+    // visíveis na fila mesmo depois de avançarem de etapa). Sem checkpoint
+    // configurado não há o que filtrar — mostra tudo, como antes.
+    if (gatedStages.size > 0 && !awaiting && !p) continue;
     items.push({
       cardId: c.id,
       number: Number(c.number),
       title: c.title,
       stageId: c.stage_id,
       stageName: stageName.get(c.stage_id) ?? "—",
-      awaitingPrioritization: gatedStages.has(c.stage_id),
+      awaitingPrioritization: awaiting,
       rice: computed.rice,
       riceComplete: computed.riceComplete,
       tipo: computed.fields.tipo,
@@ -170,20 +177,96 @@ async function logActivity(
   });
 }
 
+/**
+ * As duas etapas que a regra de priorização define: o CHECKPOINT (onde se
+ * prioriza) e a etapa SEGUINTE (destino de quem foi priorizado). Sai da própria
+ * regra — sem nome de etapa chumbado, então renomear ou reordenar colunas não
+ * quebra nada. Null quando o pipeline não tem trava de priorização.
+ */
+async function prioritizationStages(
+  db: ReturnType<typeof createAdminClient>,
+  boardId: string,
+): Promise<{ checkpointId: string; posOf: Map<string, number>; nextId: string | null } | null> {
+  const { data: rules } = await db
+    .from("workflow_rule")
+    .select("requirement_config")
+    .eq("board_id", boardId)
+    .eq("requirement", "prioritized")
+    .eq("is_active", true);
+  const checkpointId = (rules ?? [])
+    .map((r) => (r.requirement_config as { checkpointStageId?: string } | null)?.checkpointStageId)
+    .find((id): id is string => !!id);
+  if (!checkpointId) return null;
+
+  const { data: stages } = await db.from("stage").select("id, position").eq("board_id", boardId);
+  const posOf = new Map((stages ?? []).map((s) => [s.id as string, Number(s.position)]));
+  const cp = posOf.get(checkpointId);
+  if (cp == null) return null;
+
+  const next = [...posOf.entries()]
+    .filter(([, pos]) => pos > cp)
+    .sort((a, b) => a[1] - b[1])[0];
+  return { checkpointId, posOf, nextId: next?.[0] ?? null };
+}
+
+/**
+ * Move o card como CONSEQUÊNCIA de priorizar/despriorizar — é o sistema
+ * seguindo o fluxo, não a pessoa arrastando. Por isso concede `card:move` ao
+ * ator: quem tem autoridade para priorizar autoriza o avanço que decorre disso
+ * (o papel "Externo", por exemplo, tem `card:update` mas não `card:move`).
+ * Os gates do quadro continuam sendo avaliados normalmente.
+ */
+async function moveAsConsequence(
+  actor: Actor,
+  cardId: string,
+  toStageId: string,
+  orgId: string,
+  reason: string,
+): Promise<string | null> {
+  const elevated: Actor = {
+    ...actor,
+    permissions: new Set([...actor.permissions, "card:move"]),
+  };
+  const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
+  try {
+    const res = await service.move(elevated, cardId, toStageId);
+    if (res.moved) {
+      await logActivity(cardId, orgId, actor.userId as string, "card_moved", { toStageId, reason });
+    }
+    return null;
+  } catch (e) {
+    // A priorização em si já valeu; só o passeio do card falhou. Devolver o
+    // motivo em vez de engolir — senão a pessoa fica sem entender por que o
+    // card não saiu do lugar.
+    return e instanceof Error ? e.message : "não foi possível mover o card";
+  }
+}
+
 /** Ato explícito de priorizar. Revalida o RICE no servidor. */
 export async function prioritizeCard(
   cardId: string,
   note?: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
   const actor = await requireActor("card:update");
   const db = createAdminClient();
 
   const { data: card } = await db
     .from("card")
-    .select("id, board_id, organization_id")
+    .select("id, board_id, organization_id, stage_id")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return { ok: false, error: "Card não encontrado." };
+
+  // Só se prioriza no checkpoint. Priorizar uma demanda que ainda está atrás
+  // dele criaria uma fila com demanda que nem passou por cotação/confirmação —
+  // e o card não teria para onde avançar sem pular etapas.
+  const stages = await prioritizationStages(db, card.board_id);
+  if (stages && card.stage_id !== stages.checkpointId) {
+    return {
+      ok: false,
+      error: "Só é possível priorizar demandas que já estão em “Aguardando priorização”.",
+    };
+  }
 
   const [fields, values, thresholds] = await Promise.all([
     loadFields(card.board_id),
@@ -230,20 +313,36 @@ export async function prioritizeCard(
     rice: computed.rice,
     note: note?.trim() || null,
   });
+
+  // Priorizar É o ato que libera a demanda: ela segue para a etapa seguinte ao
+  // checkpoint em vez de ficar parada esperando alguém arrastar.
+  let warning: string | null = null;
+  if (stages?.nextId) {
+    warning = await moveAsConsequence(
+      actor,
+      cardId,
+      stages.nextId,
+      card.organization_id,
+      "prioritized",
+    );
+  }
+
   revalidatePath("/prioridades");
   revalidatePath("/board");
-  return { ok: true };
+  return warning
+    ? { ok: true, warning: `Prioridade registrada, mas o card não avançou: ${warning}` }
+    : { ok: true };
 }
 
 /** Remove a priorização (arquiva — preserva o histórico). */
 export async function deprioritizeCard(
   cardId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
   const actor = await requireActor("card:update");
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
-    .select("organization_id")
+    .select("organization_id, board_id, stage_id")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return { ok: false, error: "Card não encontrado." };
@@ -256,9 +355,31 @@ export async function deprioritizeCard(
   if (error) return { ok: false, error: error.message };
 
   await logActivity(cardId, card.organization_id, actor.userId as string, "demand_deprioritized", {});
+
+  // Simétrico ao avanço: sem prioridade, a demanda não pode ficar adiante do
+  // checkpoint — volta para lá e espera ser priorizada de novo. Quem já estava
+  // atrás do checkpoint fica onde está.
+  let warning: string | null = null;
+  const stages = await prioritizationStages(db, card.board_id);
+  if (stages) {
+    const atual = stages.posOf.get(card.stage_id);
+    const cp = stages.posOf.get(stages.checkpointId);
+    if (atual != null && cp != null && atual > cp) {
+      warning = await moveAsConsequence(
+        actor,
+        cardId,
+        stages.checkpointId,
+        card.organization_id,
+        "deprioritized",
+      );
+    }
+  }
+
   revalidatePath("/prioridades");
   revalidatePath("/board");
-  return { ok: true };
+  return warning
+    ? { ok: true, warning: `Prioridade removida, mas o card não voltou: ${warning}` }
+    : { ok: true };
 }
 
 /** Move a demanda uma posição para cima/baixo na fila. */

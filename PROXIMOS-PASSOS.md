@@ -180,7 +180,8 @@ Guardar essas chaves num gerenciador de senhas: é a única parte que o GitHub n
 ### Pendências desta retomada
 
 1. **Rotacionar a secret key** do Supabase — foi exposta num print durante a retomada.
-2. **Aplicar migrations pendentes** — o repo tem 30 migrations (`0001`–`0030`); conferir
+2. **Aplicar migrations pendentes** — o repo tem 30 arquivos em `infra/migrations`
+   (`0001`–`0031`; o `0003` é seed, fica em `infra/seeds`); conferir
    com `node infra/check.mjs` o que já está no banco antes de rodar `apply.mjs`.
 3. **Cópia obsoleta no Drive** em `G:\...\DavidPC\sistema_gestao` e a pasta de trabalho
    `C:\dev\_recuperado-vercel` (fontes baixados da Vercel) podem ser removidas quando
