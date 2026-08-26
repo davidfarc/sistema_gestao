@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PriorityQueue } from "@/components/prioridades/PriorityQueue";
 import { provisionAndGetActor } from "@/lib/actor";
 import { loadBoards } from "@/lib/board/queries";
@@ -42,7 +44,15 @@ export default async function PrioridadesPage({
       <p className="text-sm font-medium uppercase tracking-wide text-secondary">
         {queue.boardName}
       </p>
-      <h1 className="mt-1 text-2xl">Fila de prioridade (RICE)</h1>
+      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl">Fila de prioridade (RICE)</h1>
+        <Link
+          href={{ pathname: "/prioridades/planejamento", query: { board: queue.boardId } }}
+          className="text-sm text-blue-700 hover:underline"
+        >
+          Planejamento de gastos →
+        </Link>
+      </div>
       <p className="mt-2 text-sm text-secondary">
         Demandas ordenadas pelo score RICE. Priorizar registra quem decidiu e libera a demanda
         para seguir no pipeline.
