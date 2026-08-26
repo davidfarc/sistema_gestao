@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { PriorityQueue } from "@/components/prioridades/PriorityQueue";
+import { SpendCharts } from "@/components/prioridades/SpendCharts";
 import { provisionAndGetActor } from "@/lib/actor";
 import { loadBoards } from "@/lib/board/queries";
 import { loadPriorityQueue } from "@/lib/demandas/queue";
+import { loadSpendData } from "@/lib/demandas/spend";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +40,7 @@ export default async function PrioridadesPage({
   }
 
   const canPrioritize = actor?.permissions.has("card:update") ?? false;
+  const spend = await loadSpendData(queue.boardId);
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -61,6 +64,19 @@ export default async function PrioridadesPage({
       <div className="mt-6">
         <PriorityQueue data={queue} canPrioritize={canPrioritize} />
       </div>
+
+      {spend && (
+        <section className="mt-10 border-t border-neutral-200 pt-8">
+          <h2 className="text-lg">Orçamento e execução</h2>
+          <p className="mt-1 max-w-3xl text-sm text-secondary">
+            O mês vem da &ldquo;Data pretendida&rdquo; da demanda — é ela que diz quando o gasto
+            deve acontecer.
+          </p>
+          <div className="mt-5">
+            <SpendCharts data={spend} />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
