@@ -61,6 +61,7 @@ export const ACTIONS = [
   "field:manage", // editar propriedades/campos
   "stage:manage", // configurar etapas do pipeline
   "workflow:manage",
+  "plan:manage", // planejamento de gastos (quanto se pretende gastar por mês)
   "salas:manage", // editar a Gestão de Vila (sem ela, o módulo é só leitura)
   "user:manage", // convidar usuários / trocar papéis comuns
   "role:manage", // editar papéis e conceder papéis administrativos (Gestor Master)
