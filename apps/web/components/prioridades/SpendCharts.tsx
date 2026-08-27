@@ -59,6 +59,16 @@ interface Slice {
 }
 
 /**
+ * Texto do `<title>` da fatia. React 19 trata `<title>` como elemento especial e
+ * exige UM único filho de texto — montar em pedaços no JSX gera vários nós e
+ * quebra a hidratação. Por isso a string vem pronta.
+ */
+function rotuloFatia(s: Slice, unidade: string, percentual?: string): string {
+  const valor = unidade === "R$" ? brl(s.value) : String(s.value);
+  return percentual ? s.label + ": " + valor + " (" + percentual + ")" : s.label + ": " + valor;
+}
+
+/**
  * Rosca. O buraco carrega o total — o número que dá sentido a todas as fatias.
  * Fatias separadas por 2px da superfície, como manda o guia de marcas.
  */
@@ -87,18 +97,14 @@ function Donut({ slices, total, unidade }: { slices: Slice[]; total: number; uni
       <svg viewBox="0 0 200 200" className="h-52 w-52 shrink-0" role="img">
         {unica ? (
           <circle cx={C} cy={C} r={(R + r) / 2} fill="none" stroke={unica.color} strokeWidth={R - r}>
-            <title>
-              {unica.label}: {unidade === "R$" ? brl(unica.value) : unica.value}
-            </title>
+            <title>{rotuloFatia(unica, unidade)}</title>
           </circle>
         ) : (
           geo.arcs.map((a) => {
             const s = slices[a.index]!;
             return (
               <path key={s.key} d={a.d} fill={s.color} stroke={s.stroke ?? "#ffffff"} strokeWidth={2}>
-                <title>
-                  {s.label}: {unidade === "R$" ? brl(s.value) : s.value} ({pct(s.value, soma)})
-                </title>
+                <title>{rotuloFatia(s, unidade, pct(s.value, soma))}</title>
               </path>
             );
           })
@@ -145,6 +151,12 @@ function Donut({ slices, total, unidade }: { slices: Slice[]; total: number; uni
       </ul>
     </div>
   );
+}
+
+/** Largura em %, travada em 100 — nenhuma barra escapa da caixa. */
+function pctLargura(valor: number, max: number): string {
+  if (!(max > 0)) return "0%";
+  return Math.min(100, Math.max(0, (valor / max) * 100)) + "%";
 }
 
 /**
@@ -201,18 +213,25 @@ function BarrasPrevistoRealizado({
                 )}
               </span>
             </div>
-            <div className="relative h-5 w-full overflow-hidden rounded" style={{ background: COR.saldo }}>
-              {/* Trilha = previsto. Barra = realizado, ancorada na base. */}
+            {/* A extensão do cinza É o previsto — se a trilha fosse sempre 100%,
+                áreas com orçamentos diferentes ficariam com a mesma barra. */}
+            <div className="relative h-5 w-full rounded bg-neutral-50">
+              {i.previsto > 0 && (
+                <div
+                  className="absolute inset-y-0 left-0 rounded"
+                  style={{ width: pctLargura(i.previsto, max), background: COR.saldo }}
+                />
+              )}
               <div
-                className="absolute left-0 top-0 h-full rounded-r"
-                style={{ width: `${(dentro / max) * 100}%`, background: COR.realizado }}
+                className="absolute inset-y-0 left-0 rounded"
+                style={{ width: pctLargura(dentro, max), background: COR.realizado }}
               />
               {acima > 0 && (
                 <div
-                  className="absolute top-0 h-full"
+                  className="absolute inset-y-0 rounded-r"
                   style={{
-                    left: `${(dentro / max) * 100}%`,
-                    width: `${(acima / max) * 100}%`,
+                    left: pctLargura(dentro, max),
+                    width: pctLargura(acima, max),
                     background: COR.excedente,
                     borderLeft: "2px solid #ffffff",
                   }}
@@ -221,9 +240,9 @@ function BarrasPrevistoRealizado({
               {i.previsto > 0 && (
                 <div
                   aria-hidden
-                  title={`Previsto: ${brl(i.previsto)}`}
-                  className="absolute top-0 h-full border-r-2 border-neutral-500"
-                  style={{ width: `${(i.previsto / max) * 100}%` }}
+                  title={"Previsto: " + brl(i.previsto)}
+                  className="absolute inset-y-0 border-r-2 border-neutral-500"
+                  style={{ width: pctLargura(i.previsto, max) }}
                 />
               )}
             </div>

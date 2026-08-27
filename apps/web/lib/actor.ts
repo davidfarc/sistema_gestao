@@ -96,7 +96,7 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   // usuário em `auth.users`, mas o vínculo só se confirma no 1º login.
   const { data: existing } = await db
     .from("app_user")
-    .select("id, cargo, archived_at")
+    .select("id, cargo, archived_at, is_internal")
     .or(`id.eq.${su.id},email.eq.${su.email}`)
     .limit(1)
     .maybeSingle();
@@ -110,22 +110,31 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   // a pessoa desligada volta a entrar sozinha no próximo acesso.
   if (existing?.archived_at) return null;
 
+  // O login NÃO rebaixa quem já existe. `is_internal` é o que a RLS consulta
+  // (public.is_internal), então recalculá-lo a cada acesso deixa um erro de
+  // INTERNAL_EMAIL_DOMAIN — em qualquer máquina, inclusive um dev local — apagar
+  // o acesso de gente real na base compartilhada. Aconteceu em 27/08: um .env.local
+  // com um domínio só marcou o Gestor Master como externo em produção.
+  // Só quem entra pela primeira vez tem o valor decidido pelo domínio; mudar
+  // depois é ato explícito, pela tela de usuários.
+  const efetivoInterno = existing ? (existing.is_internal ?? internal) : internal;
+
   // O upsert não escreve `cargo`; o select devolve o valor atual sem query extra.
   const { data: upserted } = await db
     .from("app_user")
     .upsert(
-      { id: su.id, organization_id: org.id, email: su.email, name, is_internal: internal },
+      { id: su.id, organization_id: org.id, email: su.email, name, is_internal: efetivoInterno },
       { onConflict: "id" },
     )
     .select("cargo")
     .maybeSingle();
-  await ensureDefaultRole(db, su.id, org.id, internal);
+  await ensureDefaultRole(db, su.id, org.id, efetivoInterno);
 
   const permissions = await resolvePermissions(db, su.id);
   return {
     userId: asId(su.id),
     organizationId: asId(org.id),
-    isInternal: internal,
+    isInternal: efetivoInterno,
     permissions,
     teamIds: [],
     cargo: upserted?.cargo ?? null,

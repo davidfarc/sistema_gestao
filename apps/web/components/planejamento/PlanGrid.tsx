@@ -120,7 +120,7 @@ export function PlanGrid({ grid, canEdit }: { grid: Grid; canEdit: boolean }) {
                 Área
               </th>
               {MESES.map((m) => (
-                <th key={m} className="min-w-24 px-2 py-2 text-right font-medium text-neutral-600">
+                <th key={m} className="min-w-20 px-2 py-2 text-right font-medium text-neutral-600">
                   {m}
                 </th>
               ))}
