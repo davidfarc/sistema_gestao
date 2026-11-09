@@ -1,5 +1,27 @@
 # Deploy — Sistema de Gestão Editorial (Ecco Prime)
 
+## ☁️ Cloudflare Workers (migração da Vercel, iniciada em 09/11/2026)
+
+- **Worker:** `ecco-sistema` (conta Cloudflare `efdb21fc716c3157857d39c96d4cd601`),
+  ligado ao GitHub `davidfarc/sistema_gestao` pelo Workers Builds.
+- **Adaptador:** OpenNext (`@opennextjs/cloudflare`); config em `apps/web/wrangler.jsonc`
+  e `apps/web/open-next.config.ts`.
+- **Build (painel → Settings → Build):** diretório raiz `apps/web`;
+  build `npx opennextjs-cloudflare build`; deploy `npx opennextjs-cloudflare deploy`;
+  outros ramos `npx opennextjs-cloudflare upload` (gera versão de prévia, não publica).
+- **Variáveis:** URL e chave *publishable* do Supabase têm padrão em `next.config.ts`
+  (são públicas); `INTERNAL_EMAIL_DOMAIN` em `wrangler.jsonc` → `vars`.
+  **Segredos** (só no Cloudflare): `SUPABASE_SERVICE_ROLE_KEY`; opcional `ACTIVESOFT_API_TOKEN`.
+  Cadastro: `wrangler secret put <NOME> --name ecco-sistema` (dentro de `apps/web`).
+- ⚠️ **Build local no Windows não roda certo** (o OpenNext gera caminhos com `\` e o
+  Worker falha com "Dynamic require of /.next/server/middleware-manifest.json").
+  O build que vale é o do Cloudflare (Linux). Exige Modo de Desenvolvedor do Windows
+  só para o `opennextjs-cloudflare build` local não falhar com EPERM.
+- **Supabase Auth:** liberar o endereço do Worker em Authentication → URL Configuration.
+
+---
+
+
 > Hospedagem na **Vercel** (Next.js) + **Supabase** já hospedado (DB/Auth/Realtime).
 > GitHub = fonte de verdade: `github.com/davidfarc/sistema_gestao`.
 
