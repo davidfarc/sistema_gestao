@@ -15,6 +15,7 @@ export default function Modal({
   submitLabel = "Salvar",
   submitTone = "primary",
   size = "md",
+  hideCancel = false,
 }: {
   open: boolean;
   title: string;
@@ -24,6 +25,8 @@ export default function Modal({
   submitLabel?: string;
   submitTone?: "primary" | "danger";
   size?: "md" | "lg";
+  /** Janela só de consulta: esconde o "Cancelar" (o botão principal fecha). */
+  hideCancel?: boolean;
 }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -83,13 +86,15 @@ export default function Modal({
             {err && <p className="text-danger text-sm bg-danger/10 rounded-md px-3 py-2">{err}</p>}
           </div>
           <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-medium">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-semibold text-secondary hover:text-primary"
-            >
-              Cancelar
-            </button>
+            {!hideCancel && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-secondary hover:text-primary"
+              >
+                Cancelar
+              </button>
+            )}
             <button
               type="submit"
               disabled={saving}

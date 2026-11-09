@@ -21,6 +21,7 @@ import SalasHeader from "@/components/salas/SalasHeader";
 import RoomCard from "@/components/salas/RoomCard";
 import RoomFormModal from "@/components/salas/RoomFormModal";
 import RoutineSummary from "@/components/salas/RoutineSummary";
+import RoomStudentsModal from "@/components/salas/RoomStudentsModal";
 import type { Room } from "@/lib/salas/types";
 
 export default function SalasPage() {
@@ -29,6 +30,7 @@ export default function SalasPage() {
   const write = useSalasWrite();
   const [roomModalOpen, setRoomModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [viewingRoom, setViewingRoom] = useState<Room | null>(null);
 
   if (loading) {
     return (
@@ -124,6 +126,7 @@ export default function SalasPage() {
             shift={shift}
             onEdit={openEditRoom}
             onDelete={handleDeleteRoom}
+            onViewStudents={setViewingRoom}
           />
         ))}
 
@@ -174,6 +177,13 @@ export default function SalasPage() {
         rooms={rooms}
         defaultVila={vila}
         onClose={() => setRoomModalOpen(false)}
+      />
+
+      <RoomStudentsModal
+        room={viewingRoom}
+        students={students}
+        day={day}
+        onClose={() => setViewingRoom(null)}
       />
     </div>
   );

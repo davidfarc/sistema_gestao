@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { User, UserX, Pencil, Trash2 } from "lucide-react";
+import { User, UserX, Pencil, Trash2, Eye } from "lucide-react";
 import {
   isAdultAbsentToday,
   isAdultInRoom,
@@ -27,6 +27,7 @@ export default function RoomCard({
   shift,
   onEdit,
   onDelete,
+  onViewStudents,
 }: {
   room: Room;
   students: Student[];
@@ -36,6 +37,7 @@ export default function RoomCard({
   shift: Shift;
   onEdit?: (room: Room) => void;
   onDelete?: (room: Room) => void;
+  onViewStudents?: (room: Room) => void;
 }) {
   const roomStudents = students.filter(
     (s) => sameId(s.roomId, room.id) && isStudentPresent(s, day, shift)
@@ -65,6 +67,16 @@ export default function RoomCard({
           </h3>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-xs text-secondary">{roomStudents.length} alunos</span>
+            {onViewStudents && (
+              <button
+                type="button"
+                onClick={() => onViewStudents(room)}
+                title="Ver alunos da turma (manhã, tarde e almoço do dia)"
+                className="inline-flex items-center gap-1 bg-primary text-white px-2.5 py-1 rounded-md text-[11px] font-bold hover:bg-primary-high"
+              >
+                <Eye className="w-3 h-3" aria-hidden="true" /> Ver Alunos
+              </button>
+            )}
             {onDelete && (
               <button
                 type="button"
