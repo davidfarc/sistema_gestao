@@ -5,6 +5,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ecco-sistema",
   "main": ".open-next/worker.js",
+  // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
+  "workers_dev": true,
+  "preview_urls": true,
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
