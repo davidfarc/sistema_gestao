@@ -38,3 +38,8 @@ supabase/.temp/
 
 .vercel
 .env*
+
+# Cloudflare (OpenNext / wrangler)
+.open-next/
+.wrangler/
+.dev.vars*

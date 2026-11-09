@@ -1,0 +1,23 @@
+// Configuração do Cloudflare Workers para o apps/web (Next.js via OpenNext).
+// Segredos (SUPABASE_SERVICE_ROLE_KEY, ACTIVESOFT_API_TOKEN) NÃO ficam aqui:
+// são cadastrados no painel do Cloudflare (Worker → Settings → Variables and Secrets).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ecco-sistema",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "ecco-sistema"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

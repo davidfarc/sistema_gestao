@@ -7,3 +7,7 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Permite usar recursos do Cloudflare no `next dev` (hospedagem: Cloudflare Workers via OpenNext).
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();

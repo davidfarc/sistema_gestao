@@ -5,6 +5,8 @@ packages:
 
 allowBuilds:
   sharp: true # otimização de imagem do Next (binário pré-compilado)
+  esbuild: true # usado pelo build do OpenNext (Cloudflare)
+  workerd: true # runtime local do Cloudflare (wrangler / preview)
 
 autoInstallPeers: true
 strictPeerDependencies: false
