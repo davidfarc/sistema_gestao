@@ -17,6 +17,10 @@
       "service": "ecco-sistema"
     }
   ],
+  // Variáveis não secretas (lidas em tempo de execução).
+  "vars": {
+    "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br"
+  },
   "observability": {
     "enabled": true
   }
