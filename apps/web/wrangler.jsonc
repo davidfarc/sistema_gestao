@@ -21,7 +21,10 @@
     }
   ],
   // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
-  // frente do Supabase de São Paulo (schema `anamnese`, porta de transação 6543). A senha fica na config do
+  // frente do Supabase de São Paulo (schema `anamnese`). Origem = conexão DIRETA
+  // (db.<ref>.supabase.co, IPv6), como pede a doc do Hyperdrive: pela porta de
+  // transação (6543) as consultas travavam; pela de sessão o Hyperdrive lotava
+  // as 15 vagas do pooler. A senha fica na config do
   // Hyperdrive, não aqui. Cache de consultas DESLIGADO no Hyperdrive
   // (wrangler hyperdrive update ... --caching-disabled true): agenda não pode
   // mostrar horário já ocupado como livre. O localConnectionString é FICTÍCIO: o
