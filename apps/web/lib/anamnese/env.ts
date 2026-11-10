@@ -28,10 +28,3 @@ export function googleConfig() {
   return { clientId, clientSecret, redirectUri, configured: Boolean(clientId && clientSecret) };
 }
 
-/** Envio de e-mails por API HTTP (ver mail.ts). Mantém o nome antigo para as telas. */
-export function smtpConfig() {
-  return {
-    from: process.env.MAIL_FROM ?? "Eccoprime <nao-responder@eccoprime.com.br>",
-    configured: Boolean(process.env.MAIL_API_KEY),
-  };
-}

@@ -4,7 +4,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ecco-sistema",
-  "main": ".open-next/worker.js",
+  // worker.ts = app do OpenNext + rotina agendada de "Novos alunos".
+  "main": "worker.ts",
   // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
   "workers_dev": true,
   "preview_urls": true,
@@ -35,9 +36,14 @@
       "localConnectionString": "postgresql://local:local@localhost:5432/local"
     }
   ],
+  // E-mails da central (Cloudflare Email Service). O remetente (var MAIL_FROM)
+  // precisa ser de um domínio habilitado em Email Sending no painel.
+  "send_email": [{ "name": "EMAIL" }],
+  // Rotina de Novos alunos a cada 5 min (ver worker.ts).
+  "triggers": { "crons": ["*/5 * * * *"] },
   // Variáveis não secretas (lidas em tempo de execução).
-  // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET; depois
-  // GOOGLE_CLIENT_ID/SECRET e MAIL_API_KEY) ficam só no Cloudflare.
+  // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET,
+  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
   "vars": {
     "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
     "APP_URL": "https://ecco-sistema.dafarc.workers.dev"

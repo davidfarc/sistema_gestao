@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/anamnese/auth";
 import { prisma } from "@/lib/anamnese/db";
 import { getSettings } from "@/lib/anamnese/settings";
-import { smtpConfig } from "@/lib/anamnese/env";
+import { mailConfigured } from "@/lib/anamnese/mail";
 import { fmtDateTime } from "@/lib/anamnese/time";
 import { PageHeader } from "@/components/anamnese/page-header";
 import { Alert, Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/anamnese/ui/card";
@@ -17,7 +17,7 @@ const checkbox = "size-4 accent-[hsl(var(--primary))]";
 export default async function SettingsPage() {
   await requireUser(["ADMIN"]);
   const s = await getSettings();
-  const smtp = smtpConfig();
+  const mail = { configured: mailConfigured(), from: process.env.MAIL_FROM };
   const [pending, failed] = await Promise.all([
     prisma.notification.count({ where: { status: "PENDING" } }),
     prisma.notification.findMany({ where: { status: "FAILED" }, orderBy: { updatedAt: "desc" }, take: 10 }),
@@ -82,8 +82,8 @@ export default async function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between"><CardTitle>Envio de e-mails</CardTitle><Badge variant={smtp.configured ? "success" : "warning"}>{smtp.configured ? "Envio ativo" : "Envio não configurado"}</Badge></div>
-          <CardDescription>{pending} e-mail(s) na fila. {smtp.configured ? `Remetente: ${smtp.from}` : "O envio de e-mails ainda não foi configurado (MAIL_API_KEY / MAIL_FROM). Os e-mails ficam na fila e são enviados quando for ativado."}</CardDescription>
+          <div className="flex items-center justify-between"><CardTitle>Envio de e-mails</CardTitle><Badge variant={mail.configured ? "success" : "warning"}>{mail.configured ? "Envio ativo" : "Envio não configurado"}</Badge></div>
+          <CardDescription>{pending} e-mail(s) na fila. {mail.configured ? `Remetente: ${mail.from}` : "O envio de e-mails ainda não foi ativado (domínio no Cloudflare Email Sending e MAIL_FROM). Os e-mails ficam na fila e saem quando for ativado."}</CardDescription>
         </CardHeader>
         <CardContent>
           {failed.length === 0 ? <p className="text-sm text-secondary">Nenhum e-mail com falha definitiva.</p> : (
