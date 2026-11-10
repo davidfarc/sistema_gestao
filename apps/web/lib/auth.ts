@@ -1,19 +1,31 @@
-import type { User } from "@supabase/supabase-js";
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
 
+export type SessionUser = {
+  id: string;
+  email: string | undefined;
+  user_metadata: Record<string, unknown>;
+};
+
 /**
- * Usuário autenticado (validado no servidor) ou null. Deduplicado por request
- * com `cache()` — o `auth.getUser()` é uma chamada de rede; sem isso ele roda
- * várias vezes por carregamento (layout + página + sidebar).
+ * Usuário autenticado ou null, deduplicado por request com `cache()`.
+ *
+ * `getClaims()` valida a assinatura do token (ES256, chaves públicas do
+ * projeto, guardadas em cache) sem ir ao servidor de Auth a cada clique — o
+ * `getUser()` fazia uma ida e volta de rede por página. Expirado ou adulterado
+ * → null, igual antes.
  */
-export const getSessionUser = cache(async (): Promise<User | null> => {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  return {
+    id: claims.sub,
+    email: claims.email,
+    user_metadata: (claims.user_metadata as Record<string, unknown> | undefined) ?? {},
+  };
 });
 
 /**

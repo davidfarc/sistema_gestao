@@ -31,10 +31,11 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // IMPORTANTE: getUser() valida o token no servidor (não confiar em getSession).
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() renova a sessão quando preciso e valida a assinatura do token
+  // localmente (chaves públicas ES256 do projeto) — sem ida ao servidor de Auth
+  // a cada clique. Nunca usar getSession() para decidir acesso.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const path = request.nextUrl.pathname;
   // Públicas: login e, da central de anamneses ("Novos alunos"), a página de
