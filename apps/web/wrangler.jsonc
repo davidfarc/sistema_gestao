@@ -22,12 +22,15 @@
   ],
   // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
   // frente do Supabase (schema `anamnese`). A senha fica na config do
-  // Hyperdrive, não aqui. Rodar local: variável
+  // Hyperdrive, não aqui. O localConnectionString é FICTÍCIO: o
+  // `opennextjs-cloudflare upload/deploy` exige um valor local mesmo sem usá-lo.
+  // Para rodar de verdade localmente, sobrescreva com a variável
   // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_ANAMNESE_DB.
   "hyperdrive": [
     {
       "binding": "ANAMNESE_DB",
-      "id": "6b001abc51b1495dbc1d8c86f3e35b83"
+      "id": "6b001abc51b1495dbc1d8c86f3e35b83",
+      "localConnectionString": "postgresql://local:local@localhost:5432/local"
     }
   ],
   // Variáveis não secretas (lidas em tempo de execução).
