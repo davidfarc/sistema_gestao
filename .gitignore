@@ -44,3 +44,6 @@ supabase/.temp/
 .wrangler/
 .dev.vars*
 
+
+# Backups com dados pessoais/segredos nunca entram no Git
+infra/backups/

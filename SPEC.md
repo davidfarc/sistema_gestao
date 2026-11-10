@@ -463,16 +463,21 @@ publicar. Detalhes em `DEPLOY.md`.
 
 ---
 
-## 13. Segurança — pendências urgentes
+## 13. Segurança — incidente de 10/11/2026
 
-1. **O repositório `davidfarc/sistema_gestao` está público.** Deixar privado
-   (GitHub → Settings → Danger Zone → Change visibility).
-2. **`infra/backups/salas-rtdb-2026-07-29….json` está no repositório** e contém a
-   **chave da API do Activesoft** e dados de alunos e funcionários (nomes, faltas, motivos).
-   É preciso:
-   - **gerar uma chave nova no Activesoft**, revogar a antiga e atualizar o segredo
-     `ACTIVESOFT_API_TOKEN` no Cloudflare;
-   - remover o arquivo **e o histórico dele** do Git (ex.: `git filter-repo`) e guardar
-     backups fora do repositório (Drive restrito);
-   - avaliar se a exposição precisa ser comunicada (LGPD, dados de menores).
-3. Manter a regra: nenhum segredo e nenhum dado pessoal em arquivo versionado.
+O repositório ficou **público** por um período e continha
+`infra/backups/salas-rtdb-2026-07-29….json`, com a **chave da API do Activesoft** e dados de
+alunos e funcionários (nomes, faltas, motivos).
+
+| Ação | Situação |
+|---|---|
+| Repositório tornado privado | ✅ 10/11/2026 |
+| Arquivo removido do repositório **e do histórico** de todos os ramos (`git filter-repo`) | ✅ 10/11/2026 |
+| Nova chave no Activesoft, antiga revogada, segredo `ACTIVESOFT_API_TOKEN` atualizado no Cloudflare | ⏳ Com o David |
+| Avaliar se a exposição precisa ser comunicada (LGPD, dados de menores) | ⏳ |
+
+**Regras daqui para frente**
+- Nenhum segredo e nenhum dado pessoal em arquivo versionado. Backups ficam fora do Git
+  (Drive com acesso restrito). `infra/backups/` está no `.gitignore`.
+- Cópias antigas do repositório (clonadas antes de 10/11/2026) ainda têm o arquivo no
+  histórico: apague e clone de novo. Não envie nada a partir delas.
