@@ -60,7 +60,7 @@ function staffBooking(s: AppSettings, a: Full, who: string) {
       "Nova anamnese agendada",
       `<p>${esc(who)}, uma família realizou um novo agendamento.</p>${details(a)}
 <p>Telefone: <strong>${esc(a.phone)}</strong><br>E-mail: <strong>${esc(a.email)}</strong></p>
-<p><a href="${appUrl()}/painel/agendamentos">Abrir no painel</a></p>`,
+<p><a href="${appUrl()}/novos-alunos/agendamentos">Abrir em Novos alunos</a></p>`,
     ),
   };
 }

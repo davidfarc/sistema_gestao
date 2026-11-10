@@ -24,7 +24,7 @@ export function encryptionKey(): Buffer {
 export function googleConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? `${appUrl()}/api/google/callback`;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? `${appUrl()}/api/anamnese/google/callback`;
   return { clientId, clientSecret, redirectUri, configured: Boolean(clientId && clientSecret) };
 }
 
