@@ -8,6 +8,10 @@
   // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
   "workers_dev": true,
   "preview_urls": true,
+  // Roda o Worker na mesma região do Supabase (us-east-2, Ohio). Sem isso ele
+  // roda em São Paulo e cada consulta ao banco faz ida e volta até Ohio
+  // (~130 ms); com ~10 consultas por página, 1,5 s só de espera.
+  "placement": { "mode": "targeted", "region": "aws:us-east-2" },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
