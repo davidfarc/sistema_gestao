@@ -132,6 +132,6 @@ export async function retryNotificationAction(_p: ActionState, fd: FormData): Pr
     });
     const r = await processNotifications(5);
     revalidatePath("/novos-alunos/configuracoes");
-    return { ok: true, message: r.smtpConfigured ? "Reenvio solicitado." : "E-mail ainda não configurado (SMTP): permanece na fila." };
+    return { ok: true, message: r.mailConfigured ? "Reenvio solicitado." : "Envio de e-mail ainda não ativado: permanece na fila." };
   });
 }

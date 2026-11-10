@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  const back = (msg: string) => NextResponse.redirect(`${appUrl()}/painel/google?erro=${encodeURIComponent(msg)}`);
+  const back = (msg: string) => NextResponse.redirect(`${appUrl()}/novos-alunos/google?erro=${encodeURIComponent(msg)}`);
   if (!user) return NextResponse.redirect(`${appUrl()}/login`);
   if (!googleConfig().configured) return back("Google não configurado no servidor (GOOGLE_CLIENT_ID/SECRET).");
 

@@ -60,7 +60,7 @@ function staffBooking(s: AppSettings, a: Full, who: string) {
       "Nova anamnese agendada",
       `<p>${esc(who)}, uma família realizou um novo agendamento.</p>${details(a)}
 <p>Telefone: <strong>${esc(a.phone)}</strong><br>E-mail: <strong>${esc(a.email)}</strong></p>
-<p><a href="${appUrl()}/painel/agendamentos">Abrir no painel</a></p>`,
+<p><a href="${appUrl()}/novos-alunos/agendamentos">Abrir em Novos alunos</a></p>`,
     ),
   };
 }
@@ -193,7 +193,7 @@ export async function queueReminders(now = new Date()): Promise<number> {
 
 /** Envia e-mails pendentes com retentativa exponencial. Seguro para execução repetida/concorrente. */
 export async function processNotifications(limit = 30, now = new Date()) {
-  const result = { sent: 0, failed: 0, skipped: 0, smtpConfigured: mailConfigured() };
+  const result = { sent: 0, failed: 0, skipped: 0, mailConfigured: mailConfigured() };
   const pending = await prisma.notification.findMany({
     where: { status: "PENDING", scheduledFor: { lte: now } },
     orderBy: { scheduledFor: "asc" },
@@ -209,9 +209,9 @@ export async function processNotifications(limit = 30, now = new Date()) {
       result.skipped++;
       continue;
     }
-    if (!result.smtpConfigured) {
+    if (!result.mailConfigured) {
       result.skipped++;
-      continue; // permanece PENDING até o SMTP ser configurado
+      continue; // permanece PENDING até o envio ser ativado
     }
     // "Claim" otimista para evitar envio duplo por execuções simultâneas
     const claim = await prisma.notification.updateMany({

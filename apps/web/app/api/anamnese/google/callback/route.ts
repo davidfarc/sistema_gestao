@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const to = (q: string) => NextResponse.redirect(`${appUrl()}/painel/google?${q}`);
+  const to = (q: string) => NextResponse.redirect(`${appUrl()}/novos-alunos/google?${q}`);
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(`${appUrl()}/login`);
 

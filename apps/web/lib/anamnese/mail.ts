@@ -1,43 +1,44 @@
-// Envio de e-mails da central de anamneses.
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+
+// Envio de e-mails da central de anamneses pelo Cloudflare Email Service
+// (binding `EMAIL` no wrangler.jsonc). Não há chave de API: o remetente
+// precisa ser de um domínio habilitado em Email Sending no painel.
 //
-// O original usava SMTP (nodemailer), que não roda no Cloudflare Workers. O
-// envio passa a ser por API HTTP de um provedor transacional (definido na
-// etapa de automações). Enquanto MAIL_API_KEY não estiver configurada,
+// Enquanto MAIL_FROM não estiver definido (ou o binding não existir),
 // `mailConfigured()` é falso: as notificações ficam na fila (tabela
-// Notification) e nada se perde — mesmo comportamento do original sem SMTP.
-//
-// Formato aceito hoje: API compatível com Resend (POST /emails, Bearer token).
+// Notification) e são enviadas pela rotina automática quando for ativado.
 
-const DEFAULT_ENDPOINT = "https://api.resend.com/emails";
+type SendEmail = {
+  send(message: { from: string | { email: string; name?: string }; to: string; subject: string; html: string; text: string }): Promise<{ messageId: string }>;
+};
 
-function config() {
-  return {
-    apiKey: process.env.MAIL_API_KEY,
-    endpoint: process.env.MAIL_API_URL ?? DEFAULT_ENDPOINT,
-    from: process.env.MAIL_FROM ?? "Eccoprime <nao-responder@eccoprime.com.br>",
-  };
+function binding(): SendEmail | null {
+  try {
+    const { env } = getCloudflareContext() as unknown as { env: { EMAIL?: SendEmail } };
+    return env.EMAIL ?? null;
+  } catch {
+    return null; // fora do Worker (build/scripts)
+  }
+}
+
+/** "Nome <email@dominio>" ou só "email@dominio". */
+function parseFrom(raw: string): { email: string; name?: string } {
+  const m = raw.match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  return m ? { name: m[1] || undefined, email: m[2]! } : { email: raw.trim() };
 }
 
 export function mailConfigured(): boolean {
-  return Boolean(config().apiKey);
+  return Boolean(process.env.MAIL_FROM && binding());
 }
 
 export async function sendMail(to: string, subject: string, html: string): Promise<void> {
-  const c = config();
-  if (!c.apiKey) throw new Error("Envio de e-mail não configurado (defina MAIL_API_KEY e MAIL_FROM).");
+  const email = binding();
+  const from = process.env.MAIL_FROM;
+  if (!email || !from) throw new Error("Envio de e-mail não configurado (MAIL_FROM e domínio em Email Sending).");
   const text = html
     .replace(/<style[\s\S]*?<\/style>/g, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const res = await fetch(c.endpoint, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${c.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: c.from, to: [to], subject, html, text }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Falha ao enviar e-mail (${res.status}): ${body.slice(0, 300)}`);
-  }
+  await email.send({ from: parseFrom(from), to, subject, html, text });
 }

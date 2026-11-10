@@ -30,6 +30,18 @@ async function resolvePermissions(db: Db, userId: string): Promise<Set<Action>> 
   return perms;
 }
 
+/** Permissões a partir de `user_role` com o papel embutido (`role(permissions)`). */
+function permissionsFrom(rows: unknown[] | null): Set<Action> {
+  const perms = new Set<Action>();
+  for (const row of rows ?? []) {
+    const role = (row as { role: { permissions: string[] | null } | { permissions: string[] | null }[] | null }).role;
+    for (const r of Array.isArray(role) ? role : role ? [role] : []) {
+      for (const p of r.permissions ?? []) perms.add(p as Action);
+    }
+  }
+  return perms;
+}
+
 async function ensureDefaultRole(db: Db, userId: string, orgId: string, internal: boolean) {
   const { count } = await db
     .from("user_role")
@@ -78,28 +90,28 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   if (!su?.email) return null;
 
   const db = createAdminClient();
-  const { data: org } = await db
-    .from("organization")
-    .select("id")
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
+
+  // Uma rodada só: organização, cadastro e papéis (com as permissões) em
+  // paralelo. Antes eram ~6 consultas em sequência a cada clique.
+  const [{ data: org }, { data: existing }, { data: roleRows }] = await Promise.all([
+    db.from("organization").select("id").order("created_at").limit(1).maybeSingle(),
+    // Quem já existe aqui foi convidado (pré-cadastrado pela gestão) ou já
+    // entrou antes. Busca por id e, se não achar, por e-mail: o pré-cadastro
+    // cria o usuário em `auth.users`, mas o vínculo só se confirma no 1º login.
+    db
+      .from("app_user")
+      .select("id, organization_id, email, name, cargo, archived_at, is_internal")
+      .or(`id.eq.${su.id},email.eq.${su.email}`)
+      .limit(1)
+      .maybeSingle(),
+    db.from("user_role").select("role(permissions)").eq("user_id", su.id),
+  ]);
   if (!org) return null;
 
   const internal = isInternalEmail(su.email);
   const meta = su.user_metadata ?? {};
   const name =
     (meta.full_name as string) || (meta.name as string) || su.email.split("@")[0] || su.email;
-
-  // Quem já existe aqui foi convidado (pré-cadastrado pela gestão) ou já entrou
-  // antes. Busca por id e, se não achar, por e-mail: o pré-cadastro cria o
-  // usuário em `auth.users`, mas o vínculo só se confirma no 1º login.
-  const { data: existing } = await db
-    .from("app_user")
-    .select("id, cargo, archived_at, is_internal")
-    .or(`id.eq.${su.id},email.eq.${su.email}`)
-    .limit(1)
-    .maybeSingle();
 
   // Porta de entrada: domínio autorizado OU convite. Sem isso, abrir a tela de
   // consentimento do Google para fora da organização deixaria qualquer conta
@@ -119,25 +131,43 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
   // depois é ato explícito, pela tela de usuários.
   const efetivoInterno = existing ? (existing.is_internal ?? internal) : internal;
 
-  // O upsert não escreve `cargo`; o select devolve o valor atual sem query extra.
-  const { data: upserted } = await db
-    .from("app_user")
-    .upsert(
-      { id: su.id, organization_id: org.id, email: su.email, name, is_internal: efetivoInterno },
-      { onConflict: "id" },
-    )
-    .select("cargo")
-    .maybeSingle();
-  await ensureDefaultRole(db, su.id, org.id, efetivoInterno);
+  // Grava só quando há algo a gravar (1º acesso, vínculo do pré-cadastro, nome
+  // ou e-mail mudado no Google). Antes o upsert rodava em todo clique.
+  let cargo = existing?.cargo ?? null;
+  const precisaGravar =
+    !existing ||
+    existing.id !== su.id ||
+    existing.organization_id !== org.id ||
+    existing.email !== su.email ||
+    existing.name !== name ||
+    existing.is_internal !== efetivoInterno;
+  if (precisaGravar) {
+    // O upsert não escreve `cargo`; o select devolve o valor atual sem query extra.
+    const { data: upserted } = await db
+      .from("app_user")
+      .upsert(
+        { id: su.id, organization_id: org.id, email: su.email, name, is_internal: efetivoInterno },
+        { onConflict: "id" },
+      )
+      .select("cargo")
+      .maybeSingle();
+    cargo = upserted?.cargo ?? cargo;
+  }
 
-  const permissions = await resolvePermissions(db, su.id);
+  let permissions = permissionsFrom(roleRows);
+  if (!roleRows || roleRows.length === 0) {
+    // Sem papel ainda (1º acesso): atribui o padrão e relê.
+    await ensureDefaultRole(db, su.id, org.id, efetivoInterno);
+    permissions = await resolvePermissions(db, su.id);
+  }
+
   return {
     userId: asId(su.id),
     organizationId: asId(org.id),
     isInternal: efetivoInterno,
     permissions,
     teamIds: [],
-    cargo: upserted?.cargo ?? null,
+    cargo,
   };
 });
 

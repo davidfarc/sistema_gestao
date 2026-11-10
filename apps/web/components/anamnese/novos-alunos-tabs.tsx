@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
   BarChart3, CalendarCheck, CalendarClock, CalendarDays, Cog, GraduationCap, History,
-  LayoutDashboard, Link2, Users, UserRound,
+  LayoutDashboard, Link2, UserRound,
 } from "lucide-react";
 
 // Abas da seção "Novos alunos" — mesmo padrão visual das abas da Gestão de Vila.
 const ICONS = {
   home: LayoutDashboard, agenda: CalendarDays, list: CalendarCheck, avail: CalendarClock, report: BarChart3,
-  psy: UserRound, seg: GraduationCap, users: Users, google: Link2, cfg: Cog, audit: History,
+  psy: UserRound, seg: GraduationCap, google: Link2, cfg: Cog, audit: History,
 } as const;
 
 export type TabItem = { href: string; label: string; icon: keyof typeof ICONS };

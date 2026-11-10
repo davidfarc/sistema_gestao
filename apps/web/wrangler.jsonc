@@ -1,10 +1,11 @@
 // Configuração do Cloudflare Workers para o apps/web (Next.js via OpenNext).
-// Segredos (SUPABASE_SERVICE_ROLE_KEY, ACTIVESOFT_API_TOKEN) NÃO ficam aqui:
+// Segredos (SUPABASE_SECRET_KEY, ACTIVESOFT_API_TOKEN) NÃO ficam aqui:
 // são cadastrados no painel do Cloudflare (Worker → Settings → Variables and Secrets).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ecco-sistema",
-  "main": ".open-next/worker.js",
+  // worker.ts = app do OpenNext + rotina agendada de "Novos alunos".
+  "main": "worker.ts",
   // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
   "workers_dev": true,
   "preview_urls": true,
@@ -21,7 +22,10 @@
     }
   ],
   // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
-  // frente do Supabase (schema `anamnese`). A senha fica na config do
+  // frente do Supabase de São Paulo (schema `anamnese`). Origem = conexão DIRETA
+  // (db.<ref>.supabase.co, IPv6), como pede a doc do Hyperdrive: pela porta de
+  // transação (6543) as consultas travavam; pela de sessão o Hyperdrive lotava
+  // as 15 vagas do pooler. A senha fica na config do
   // Hyperdrive, não aqui. Cache de consultas DESLIGADO no Hyperdrive
   // (wrangler hyperdrive update ... --caching-disabled true): agenda não pode
   // mostrar horário já ocupado como livre. O localConnectionString é FICTÍCIO: o
@@ -31,16 +35,27 @@
   "hyperdrive": [
     {
       "binding": "ANAMNESE_DB",
-      "id": "6b001abc51b1495dbc1d8c86f3e35b83",
+      "id": "47abd82e77784dafa650ee342da392f1",
       "localConnectionString": "postgresql://local:local@localhost:5432/local"
     }
   ],
+  // E-mails da central (Cloudflare Email Service). O remetente (var MAIL_FROM)
+  // usa msg.eccoprime.com.br, habilitado em Email Sending (o e-mail da escola,
+  // no Google Workspace, segue nos registros do domínio principal).
+  "send_email": [{ "name": "EMAIL" }],
+  // Rotina de Novos alunos a cada 5 min (ver worker.ts).
+  "triggers": { "crons": ["*/5 * * * *"] },
   // Variáveis não secretas (lidas em tempo de execução).
-  // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET; depois
-  // GOOGLE_CLIENT_ID/SECRET e MAIL_API_KEY) ficam só no Cloudflare.
+  // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET,
+  // GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
   "vars": {
     "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
-    "APP_URL": "https://ecco-sistema.dafarc.workers.dev"
+    "APP_URL": "https://ecco-sistema.dafarc.workers.dev",
+    // Remetente dos e-mails da central (subdomínio habilitado em Email Sending).
+    "MAIL_FROM": "Eccoprime <nao-responder@msg.eccoprime.com.br>",
+    // Cliente OAuth do Google (o mesmo do login); o segredo GOOGLE_CLIENT_SECRET
+    // fica só no Cloudflare. Usado pela integração com o Google Agenda.
+    "GOOGLE_CLIENT_ID": "833143786008-gmvkj1j6thpabs8lqn2oq1ot7eblt2an.apps.googleusercontent.com"
   },
   "observability": {
     "enabled": true

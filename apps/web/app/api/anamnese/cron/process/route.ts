@@ -9,9 +9,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+  // trim(): o segredo colado no painel pode trazer espaço/quebra de linha nas
+  // pontas, e cabeçalhos HTTP chegam sem eles — a comparação daria diferente.
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret) return false;
-  const given = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const given = (req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "").trim();
   const a = Buffer.from(given);
   const b = Buffer.from(secret);
   return a.length === b.length && timingSafeEqual(a, b);
