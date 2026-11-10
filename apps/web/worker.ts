@@ -21,7 +21,7 @@ export default {
       return;
     }
     const url = `${env.APP_URL ?? "https://ecco-sistema.dafarc.workers.dev"}/api/anamnese/cron/process`;
-    const req = new Request(url, { method: "POST", headers: { Authorization: `Bearer ${env.CRON_SECRET}` } });
+    const req = new Request(url, { method: "POST", headers: { Authorization: `Bearer ${env.CRON_SECRET.trim()}` } });
     ctx.waitUntil(
       app.fetch(req, env, ctx).then(async (res: Response) => {
         if (!res.ok) console.error("Rotina de Novos alunos falhou:", res.status, await res.text());
