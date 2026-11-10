@@ -1,10 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import clsx from "clsx";
+import { todayKey } from "@/lib/anamnese/time";
 
 const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const DOW = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+const navBtn =
+  "grid h-10 w-10 place-items-center rounded-full border border-surface-medium bg-surface-lowest text-primary transition hover:border-primary/30 hover:bg-surface-low disabled:pointer-events-none disabled:opacity-30";
 
 /** Calendário mensal acessível. Datas sem disponibilidade ficam desabilitadas. `month` = "yyyy-MM". */
 export function MonthCalendar({
@@ -22,6 +26,7 @@ export function MonthCalendar({
   const [y = 1970, m = 1] = month.split("-").map(Number);
   const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const daysIn = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const today = todayKey();
   const shift = (delta: number) => {
     const d = new Date(Date.UTC(y, m - 1 + delta, 1));
     onMonthChange(d.toISOString().slice(0, 7));
@@ -29,27 +34,30 @@ export function MonthCalendar({
   const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: daysIn }, (_, i) => i + 1)];
 
   return (
-    <div className="w-full max-w-md" aria-busy={loading}>
-      <div className="mb-3 flex items-center justify-between">
-        <button type="button" onClick={() => shift(-1)} disabled={month <= minMonth} aria-label="Mês anterior"
-          className="grid size-11 place-items-center rounded-full border bg-surface-lowest hover:bg-surface-low disabled:opacity-30 border-surface-medium">
-          <ChevronLeft className="size-5" />
+    <div className="w-full max-w-md rounded-2xl border border-surface-medium bg-surface-lowest p-4 sm:p-5" aria-busy={loading}>
+      <div className="mb-4 flex items-center justify-between">
+        <button type="button" onClick={() => shift(-1)} disabled={month <= minMonth} aria-label="Mês anterior" className={navBtn}>
+          <ChevronLeft className="h-5 w-5" />
         </button>
-        <p className="text-lg font-bold" aria-live="polite">{MONTHS[m - 1]} de {y}</p>
-        <button type="button" onClick={() => shift(1)} disabled={month >= maxMonth} aria-label="Próximo mês"
-          className="grid size-11 place-items-center rounded-full border bg-surface-lowest hover:bg-surface-low disabled:opacity-30 border-surface-medium">
-          <ChevronRight className="size-5" />
+        <p className="flex items-center gap-2 font-headline text-lg font-bold text-primary" aria-live="polite">
+          {MONTHS[m - 1]} de {y}
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-secondary" aria-hidden />}
+        </p>
+        <button type="button" onClick={() => shift(1)} disabled={month >= maxMonth} aria-label="Próximo mês" className={navBtn}>
+          <ChevronRight className="h-5 w-5" />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-secondary">
+
+      <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase tracking-wide text-secondary/70">
         {DOW.map((d, i) => <div key={i} className="py-1">{d}</div>)}
       </div>
-      <div className={clsx("mt-1 grid grid-cols-7 gap-1", loading && "opacity-60")}>
+      <div className={clsx("mt-1 grid grid-cols-7 gap-1.5 transition-opacity", loading && "opacity-50")}>
         {cells.map((day, i) => {
           if (!day) return <div key={i} />;
           const key = `${month}-${String(day).padStart(2, "0")}`;
           const ok = available.has(key);
           const sel = selected === key;
+          const isToday = key === today;
           return (
             <button
               key={i}
@@ -59,15 +67,36 @@ export function MonthCalendar({
               aria-pressed={sel}
               aria-label={`${day} de ${MONTHS[m - 1]}${ok ? ", com horários disponíveis" : ", indisponível"}`}
               className={clsx(
-                "aspect-square rounded-lg text-sm font-semibold transition-colors",
-                ok ? "bg-success/10 text-success hover:bg-success hover:text-white" : "cursor-not-allowed text-secondary/40 line-through decoration-1",
-                sel && "!bg-primary !text-white ring-2 ring-primary ring-offset-2",
+                "relative flex aspect-square flex-col items-center justify-center rounded-xl text-sm font-semibold transition",
+                ok
+                  ? "bg-primary/[0.06] text-primary hover:-translate-y-0.5 hover:bg-primary hover:text-white hover:shadow-premium-soft"
+                  : "cursor-not-allowed text-secondary/35",
+                isToday && !sel && "ring-1 ring-primary/40",
+                sel && "!bg-primary !text-white shadow-premium-hover",
               )}
             >
               {day}
+              {ok && (
+                <span
+                  aria-hidden
+                  className={clsx("absolute bottom-1.5 h-1 w-1 rounded-full", sel ? "bg-white" : "bg-success")}
+                />
+              )}
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-surface-medium pt-3 text-xs text-secondary">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-success" aria-hidden /> Com horários
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full ring-1 ring-primary/50" aria-hidden /> Hoje
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-secondary/60">
+          <span className="font-semibold">12</span> Sem horários
+        </span>
       </div>
     </div>
   );
