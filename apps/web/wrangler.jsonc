@@ -47,12 +47,15 @@
   "triggers": { "crons": ["*/5 * * * *"] },
   // Variáveis não secretas (lidas em tempo de execução).
   // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET,
-  // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
+  // GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
   "vars": {
     "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
     "APP_URL": "https://ecco-sistema.dafarc.workers.dev",
     // Remetente dos e-mails da central (subdomínio habilitado em Email Sending).
-    "MAIL_FROM": "Eccoprime <nao-responder@msg.eccoprime.com.br>"
+    "MAIL_FROM": "Eccoprime <nao-responder@msg.eccoprime.com.br>",
+    // Cliente OAuth do Google (o mesmo do login); o segredo GOOGLE_CLIENT_SECRET
+    // fica só no Cloudflare. Usado pela integração com o Google Agenda.
+    "GOOGLE_CLIENT_ID": "833143786008-gmvkj1j6thpabs8lqn2oq1ot7eblt2an.apps.googleusercontent.com"
   },
   "observability": {
     "enabled": true
