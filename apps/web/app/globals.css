@@ -79,9 +79,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, .font-headline {
-  font-family: var(--font-headline);
-  color: var(--color-primary);
+/* Padrão dos títulos. Em @layer base para que uma cor pedida na própria tela
+   (ex.: text-white sobre fundo azul) prevaleça; fora da camada esta regra
+   vencia as classes utilitárias e o título sumia no fundo escuro. */
+@layer base {
+  h1, h2, h3, h4, .font-headline {
+    font-family: var(--font-headline);
+    color: var(--color-primary);
+  }
 }
 
 /* ── Checklist dentro da descrição (Tiptap TaskList) ─────────────────────────
