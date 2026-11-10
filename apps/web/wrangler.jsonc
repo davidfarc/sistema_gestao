@@ -1,5 +1,5 @@
 // Configuração do Cloudflare Workers para o apps/web (Next.js via OpenNext).
-// Segredos (SUPABASE_SERVICE_ROLE_KEY, ACTIVESOFT_API_TOKEN) NÃO ficam aqui:
+// Segredos (SUPABASE_SECRET_KEY, ACTIVESOFT_API_TOKEN) NÃO ficam aqui:
 // são cadastrados no painel do Cloudflare (Worker → Settings → Variables and Secrets).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -8,10 +8,6 @@
   // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
   "workers_dev": true,
   "preview_urls": true,
-  // Roda o Worker na mesma região do Supabase (us-east-2, Ohio). Sem isso ele
-  // roda em São Paulo e cada consulta ao banco faz ida e volta até Ohio
-  // (~130 ms); com ~10 consultas por página, 1,5 s só de espera.
-  "placement": { "mode": "targeted", "region": "aws:us-east-2" },
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
@@ -25,7 +21,7 @@
     }
   ],
   // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
-  // frente do Supabase (schema `anamnese`). A senha fica na config do
+  // frente do Supabase de São Paulo (schema `anamnese`, porta de transação 6543). A senha fica na config do
   // Hyperdrive, não aqui. Cache de consultas DESLIGADO no Hyperdrive
   // (wrangler hyperdrive update ... --caching-disabled true): agenda não pode
   // mostrar horário já ocupado como livre. O localConnectionString é FICTÍCIO: o
@@ -35,7 +31,7 @@
   "hyperdrive": [
     {
       "binding": "ANAMNESE_DB",
-      "id": "6b001abc51b1495dbc1d8c86f3e35b83",
+      "id": "47abd82e77784dafa650ee342da392f1",
       "localConnectionString": "postgresql://local:local@localhost:5432/local"
     }
   ],
