@@ -40,7 +40,8 @@
     }
   ],
   // E-mails da central (Cloudflare Email Service). O remetente (var MAIL_FROM)
-  // precisa ser de um domínio habilitado em Email Sending no painel.
+  // usa msg.eccoprime.com.br, habilitado em Email Sending (o e-mail da escola,
+  // no Google Workspace, segue nos registros do domínio principal).
   "send_email": [{ "name": "EMAIL" }],
   // Rotina de Novos alunos a cada 5 min (ver worker.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
@@ -49,7 +50,9 @@
   // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
   "vars": {
     "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
-    "APP_URL": "https://ecco-sistema.dafarc.workers.dev"
+    "APP_URL": "https://ecco-sistema.dafarc.workers.dev",
+    // Remetente dos e-mails da central (subdomínio habilitado em Email Sending).
+    "MAIL_FROM": "Eccoprime <nao-responder@msg.eccoprime.com.br>"
   },
   "observability": {
     "enabled": true
