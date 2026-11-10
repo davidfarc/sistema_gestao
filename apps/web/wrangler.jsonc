@@ -22,7 +22,9 @@
   ],
   // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
   // frente do Supabase (schema `anamnese`). A senha fica na config do
-  // Hyperdrive, não aqui. O localConnectionString é FICTÍCIO: o
+  // Hyperdrive, não aqui. Cache de consultas DESLIGADO no Hyperdrive
+  // (wrangler hyperdrive update ... --caching-disabled true): agenda não pode
+  // mostrar horário já ocupado como livre. O localConnectionString é FICTÍCIO: o
   // `opennextjs-cloudflare upload/deploy` exige um valor local mesmo sem usá-lo.
   // Para rodar de verdade localmente, sobrescreva com a variável
   // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_ANAMNESE_DB.

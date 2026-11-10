@@ -112,7 +112,7 @@ export async function createPsychologistAction(_p: ActionState, fd: FormData): P
     });
     await audit({ userId: me.id, action: "PSYCHOLOGIST_CREATED", entityType: "Psychologist", entityId: psy.id, details: { email: d.email } });
     revalidatePath("/novos-alunos/psicologas");
-    return { ok: true, message: "Psicóloga cadastrada. Informe a senha inicial a ela por um canal seguro." };
+    return { ok: true, message: "Psicóloga cadastrada. Ela entra pelo login Google do sistema com este e-mail." };
   });
 }
 
