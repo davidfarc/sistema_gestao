@@ -7,6 +7,9 @@ allowBuilds:
   sharp: true # otimização de imagem do Next (binário pré-compilado)
   esbuild: true # usado pelo build do OpenNext (Cloudflare)
   workerd: true # runtime local do Cloudflare (wrangler / preview)
+  prisma: true # CLI do Prisma (módulo Novos alunos / anamneses)
+  "@prisma/client": true
+  "@prisma/engines": true
 
 autoInstallPeers: true
 strictPeerDependencies: false

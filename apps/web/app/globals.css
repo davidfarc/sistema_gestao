@@ -64,6 +64,22 @@
   --color-surface-medium: var(--surface-container-medium);
   --color-surface-high: var(--surface-container-high);
 
+  /* Nomes usados pelas telas de "Novos alunos" (central de anamneses, estilo
+     shadcn), mapeados para a paleta do sistema. */
+  --color-card: var(--surface-container-lowest);
+  --color-card-foreground: var(--foreground);
+  --color-primary-foreground: var(--color-on-primary);
+  --color-accent: var(--color-success);
+  --color-accent-foreground: #ffffff;
+  --color-muted: var(--surface-container-low);
+  --color-muted-foreground: var(--color-secondary);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-success-foreground: #ffffff;
+  --color-border: var(--surface-container-medium);
+  --color-input: var(--surface-container-high);
+  --color-ring: var(--color-primary-high);
+
   --shadow-premium-soft: var(--shadow-premium-soft);
   --shadow-premium-hover: var(--shadow-premium-hover);
 
@@ -125,5 +141,16 @@ h1, h2, h3, h4, .font-headline {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Telas de "Novos alunos" (central de anamneses): bordas na cor neutra da
+   paleta, como no sistema de origem (shadcn). Em @layer base para que as
+   classes utilitárias (border-*) continuem prevalecendo. */
+@layer base {
+  .anamnese *,
+  .anamnese ::before,
+  .anamnese ::after {
+    border-color: var(--color-border);
   }
 }

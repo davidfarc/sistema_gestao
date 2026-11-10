@@ -20,9 +20,22 @@
       "service": "ecco-sistema"
     }
   ],
+  // Banco da central de anamneses ("Novos alunos"): pool do Cloudflare na
+  // frente do Supabase (schema `anamnese`). A senha fica na config do
+  // Hyperdrive, não aqui. Rodar local: variável
+  // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_ANAMNESE_DB.
+  "hyperdrive": [
+    {
+      "binding": "ANAMNESE_DB",
+      "id": "6b001abc51b1495dbc1d8c86f3e35b83"
+    }
+  ],
   // Variáveis não secretas (lidas em tempo de execução).
+  // Segredos da central (AUTH_SECRET, ENCRYPTION_KEY, CRON_SECRET; depois
+  // GOOGLE_CLIENT_ID/SECRET e MAIL_API_KEY) ficam só no Cloudflare.
   "vars": {
-    "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br"
+    "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
+    "APP_URL": "https://ecco-sistema.dafarc.workers.dev"
   },
   "observability": {
     "enabled": true

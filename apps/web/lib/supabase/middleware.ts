@@ -37,7 +37,16 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/login") || path.startsWith("/auth");
+  // Públicas: login e, da central de anamneses ("Novos alunos"), a página de
+  // agendamento das famílias, a política de privacidade, as consultas de
+  // horários livres e o cron (que se autentica pelo CRON_SECRET).
+  const isPublic =
+    path.startsWith("/login") ||
+    path.startsWith("/auth") ||
+    path === "/agendar" ||
+    path === "/privacidade" ||
+    path.startsWith("/api/anamnese/public/") ||
+    path === "/api/anamnese/cron/process";
 
   if (!user && !isPublic) {
     // Guarda o destino para devolver a pessoa a ele depois de entrar. Sem isso,

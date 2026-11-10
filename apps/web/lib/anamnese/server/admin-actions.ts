@@ -1,0 +1,267 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { prisma } from "@/lib/anamnese/db";
+import { ActionError, requireUserForAction } from "@/lib/anamnese/auth";
+import { audit } from "@/lib/anamnese/audit";
+import { run, bool, str, type ActionState } from "@/lib/anamnese/action";
+import { emailSchema, idSchema, nameSchema } from "@/lib/anamnese/validation";
+
+const slugify = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/* ---------------------------------------------------------------- Segmentos */
+
+const segmentSchema = z.object({
+  name: z.string().trim().min(3, "Informe o nome").max(80),
+  description: z.string().trim().max(200).optional(),
+  sortOrder: z.coerce.number().int().min(0).max(99).default(0),
+});
+
+export async function createSegmentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const d = segmentSchema.parse({ name: str(fd, "name"), description: str(fd, "description"), sortOrder: str(fd, "sortOrder") || 0 });
+    const slug = slugify(d.name);
+    if (await prisma.schoolSegment.findUnique({ where: { slug } })) throw new ActionError("Já existe um segmento com este nome.");
+    const seg = await prisma.schoolSegment.create({ data: { ...d, slug } });
+    await audit({ userId: me.id, action: "SEGMENT_CREATED", entityType: "SchoolSegment", entityId: seg.id, details: { name: seg.name } });
+    revalidatePath("/novos-alunos/segmentos");
+    return { ok: true, message: "Segmento criado." };
+  });
+}
+
+export async function updateSegmentAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    const d = segmentSchema.parse({ name: str(fd, "name"), description: str(fd, "description"), sortOrder: str(fd, "sortOrder") || 0 });
+    const active = bool(fd, "active");
+    if (!active) {
+      const future = await prisma.appointment.count({ where: { segmentId: id, status: "CONFIRMED", startsAt: { gt: new Date() } } });
+      if (future) throw new ActionError(`Há ${future} agendamento(s) futuro(s) neste segmento. Cancele ou remarque antes de desativar.`);
+    }
+    await prisma.schoolSegment.update({ where: { id }, data: { ...d, active } });
+    await audit({ userId: me.id, action: "SEGMENT_UPDATED", entityType: "SchoolSegment", entityId: id, details: { ...d, active } });
+    revalidatePath("/novos-alunos/segmentos");
+    return { ok: true, message: "Segmento atualizado." };
+  });
+}
+
+/** Define quais psicólogas atendem o segmento (sem mexer em código). */
+export async function setSegmentPsychologistsAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const segmentId = idSchema.parse(str(fd, "segmentId"));
+    const ids = fd.getAll("psychologistIds").map(String);
+    const valid = await prisma.psychologist.findMany({ where: { id: { in: ids }, active: true }, select: { id: true } });
+    const keep = new Set(valid.map((p) => p.id));
+
+    // Não remover psicóloga que ainda tem agendamentos futuros neste segmento.
+    const removing = await prisma.psychologistSegment.findMany({
+      where: { segmentId, psychologistId: { notIn: [...keep] } },
+      include: { psychologist: true },
+    });
+    for (const r of removing) {
+      const future = await prisma.appointment.count({
+        where: { segmentId, psychologistId: r.psychologistId, status: "CONFIRMED", startsAt: { gt: new Date() } },
+      });
+      if (future) throw new ActionError(`${r.psychologist.name} possui ${future} agendamento(s) futuro(s) neste segmento. Remarque antes de removê-la.`);
+    }
+    await prisma.$transaction([
+      prisma.psychologistSegment.deleteMany({ where: { segmentId, psychologistId: { notIn: [...keep] } } }),
+      prisma.psychologistSegment.createMany({ data: [...keep].map((psychologistId) => ({ psychologistId, segmentId })), skipDuplicates: true }),
+    ]);
+    await audit({ userId: me.id, action: "SEGMENT_PSYCHOLOGISTS_SET", entityType: "SchoolSegment", entityId: segmentId, details: { psychologistIds: [...keep] } });
+    revalidatePath("/novos-alunos/segmentos");
+    revalidatePath("/novos-alunos/psicologas");
+    return { ok: true, message: "Psicólogas do segmento atualizadas." };
+  });
+}
+
+/* ---------------------------------------------------------------- Psicólogas */
+
+const psyBase = z.object({
+  name: nameSchema("nome da psicóloga"),
+  email: emailSchema,
+  phone: z.string().trim().max(30).optional(),
+});
+
+export async function createPsychologistAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const d = psyBase.parse({ name: str(fd, "name"), email: str(fd, "email"), phone: str(fd, "phone") });
+    if (await prisma.user.findUnique({ where: { email: d.email } })) throw new ActionError("Já existe um usuário com este e-mail.");
+    const segmentIds = fd.getAll("segmentIds").map(String);
+
+    const psy = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { name: d.name, email: d.email, role: "PSYCHOLOGIST" },
+      });
+      return tx.psychologist.create({
+        data: {
+          userId: user.id,
+          name: d.name,
+          email: d.email,
+          phone: d.phone || null,
+          canViewOthers: bool(fd, "canViewOthers"),
+          segments: { create: segmentIds.map((segmentId) => ({ segmentId })) },
+        },
+      });
+    });
+    await audit({ userId: me.id, action: "PSYCHOLOGIST_CREATED", entityType: "Psychologist", entityId: psy.id, details: { email: d.email } });
+    revalidatePath("/novos-alunos/psicologas");
+    return { ok: true, message: "Psicóloga cadastrada. Informe a senha inicial a ela por um canal seguro." };
+  });
+}
+
+export async function updatePsychologistAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    const d = psyBase.parse({ name: str(fd, "name"), email: str(fd, "email"), phone: str(fd, "phone") });
+    const active = bool(fd, "active");
+    const psy = await prisma.psychologist.findUniqueOrThrow({ where: { id } });
+    const clash = await prisma.user.findFirst({ where: { email: d.email, NOT: { id: psy.userId } } });
+    if (clash) throw new ActionError("Este e-mail já pertence a outro usuário.");
+
+    if (!active && psy.active) {
+      const future = await prisma.appointment.count({ where: { psychologistId: id, status: "CONFIRMED", startsAt: { gt: new Date() } } });
+      if (future) throw new ActionError(`Há ${future} agendamento(s) futuro(s) com esta psicóloga. Remarque ou cancele antes de desativar.`);
+    }
+    const segmentIds = fd.getAll("segmentIds").map(String);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: psy.userId }, data: { name: d.name, email: d.email, active } });
+      await tx.psychologist.update({
+        where: { id },
+        data: { name: d.name, email: d.email, phone: d.phone || null, active, canViewOthers: bool(fd, "canViewOthers") },
+      });
+      await tx.psychologistSegment.deleteMany({ where: { psychologistId: id, segmentId: { notIn: segmentIds } } });
+      await tx.psychologistSegment.createMany({ data: segmentIds.map((segmentId) => ({ psychologistId: id, segmentId })), skipDuplicates: true });
+      if (!active) {
+        // Horários livres de quem foi desativada deixam de ser ofertados.
+        await tx.availabilitySlot.updateMany({ where: { psychologistId: id, status: "AVAILABLE", startsAt: { gt: new Date() } }, data: { status: "BLOCKED", blockReason: "Psicóloga desativada" } });
+      } else if (!psy.active) {
+        // Reativada: devolve à oferta os horários que foram bloqueados pela desativação.
+        await tx.availabilitySlot.updateMany({ where: { psychologistId: id, status: "BLOCKED", blockReason: "Psicóloga desativada", startsAt: { gt: new Date() } }, data: { status: "AVAILABLE", blockReason: null } });
+      }
+    });
+    await audit({ userId: me.id, action: "PSYCHOLOGIST_UPDATED", entityType: "Psychologist", entityId: id, details: { active, segmentIds } });
+    revalidatePath("/novos-alunos/psicologas");
+    return { ok: true, message: "Cadastro atualizado." };
+  });
+}
+
+/* ---------------------------------------------------------------- Usuários */
+
+export async function createStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const role = z.enum(["ADMIN", "COORDINATION"]).parse(str(fd, "role"));
+    const name = nameSchema("nome").parse(str(fd, "name"));
+    const email = emailSchema.parse(str(fd, "email"));
+    if (await prisma.user.findUnique({ where: { email } })) throw new ActionError("Já existe um usuário com este e-mail.");
+    const user = await prisma.user.create({ data: { name, email, role } });
+    await audit({ userId: me.id, action: "USER_CREATED", entityType: "User", entityId: user.id, details: { role, email } });
+    revalidatePath("/novos-alunos/usuarios");
+    return { ok: true, message: "Usuário criado." };
+  });
+}
+
+/** Edita nome, e-mail e perfil de administrador/atendimento. O próprio perfil não pode ser alterado. */
+export async function updateStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    const name = nameSchema("nome").parse(str(fd, "name"));
+    const email = emailSchema.parse(str(fd, "email"));
+    const user = await prisma.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new ActionError("Usuário não encontrado.");
+    if (user.role === "PSYCHOLOGIST") throw new ActionError("Gerencie psicólogas na página Psicólogas.");
+    if (await prisma.user.findFirst({ where: { email, NOT: { id } } })) throw new ActionError("Este e-mail já pertence a outro usuário.");
+
+    const role = id === me.id ? user.role : z.enum(["ADMIN", "COORDINATION"]).parse(str(fd, "role"));
+    if (user.role === "ADMIN" && role !== "ADMIN" && (await prisma.user.count({ where: { role: "ADMIN", active: true, deletedAt: null } })) <= 1) {
+      throw new ActionError("É necessário manter ao menos um administrador ativo.");
+    }
+    await prisma.user.update({ where: { id }, data: { name, email, role } });
+    await audit({ userId: me.id, action: "USER_UPDATED", entityType: "User", entityId: id, details: { role, emailChanged: email !== user.email } });
+    revalidatePath("/novos-alunos/usuarios");
+    return { ok: true, message: "Usuário atualizado." };
+  });
+}
+
+/**
+ * Exclui o usuário (exclusão lógica): o acesso é encerrado e o e-mail é liberado para novo uso,
+ * mas o registro permanece para preservar o histórico de auditoria.
+ */
+export async function deleteStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    if (id === me.id) throw new ActionError("Você não pode excluir o próprio acesso.");
+    const user = await prisma.user.findFirst({ where: { id, deletedAt: null } });
+    if (!user) throw new ActionError("Usuário não encontrado.");
+    if (user.role === "PSYCHOLOGIST") throw new ActionError("Exclua psicólogas na página Psicólogas.");
+    if (user.role === "ADMIN" && user.active && (await prisma.user.count({ where: { role: "ADMIN", active: true, deletedAt: null } })) <= 1) {
+      throw new ActionError("É necessário manter ao menos um administrador ativo.");
+    }
+    await prisma.user.update({
+      where: { id },
+      data: { active: false, deletedAt: new Date(), email: `excluido-${id}@removido.invalid` },
+    });
+    await audit({ userId: me.id, action: "USER_DELETED", entityType: "User", entityId: id, details: { role: user.role } });
+    revalidatePath("/novos-alunos/usuarios");
+    return { ok: true, message: "Usuário excluído." };
+  });
+}
+
+/** Exclui a psicóloga (exclusão lógica). Bloqueia se houver agendamentos futuros confirmados. */
+export async function deletePsychologistAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    const psy = await prisma.psychologist.findFirst({ where: { id, deletedAt: null } });
+    if (!psy) throw new ActionError("Psicóloga não encontrada.");
+    const future = await prisma.appointment.count({ where: { psychologistId: id, status: "CONFIRMED", startsAt: { gt: new Date() } } });
+    if (future) throw new ActionError(`Há ${future} agendamento(s) futuro(s) com esta psicóloga. Remarque ou cancele antes de excluir.`);
+
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: psy.userId },
+        data: { active: false, deletedAt: now, email: `excluido-${psy.userId}@removido.invalid` },
+      });
+      await tx.psychologist.update({ where: { id }, data: { active: false, deletedAt: now } });
+      await tx.availabilityRule.updateMany({ where: { psychologistId: id }, data: { active: false } });
+      await tx.availabilitySlot.deleteMany({ where: { psychologistId: id, status: "AVAILABLE", startsAt: { gt: now } } });
+      await tx.psychologistSegment.deleteMany({ where: { psychologistId: id } });
+      // remove o token de renovação do Google guardado para esta psicóloga
+      await tx.googleCalendarConnection.deleteMany({ where: { psychologistId: id } });
+    });
+    await audit({ userId: me.id, action: "PSYCHOLOGIST_DELETED", entityType: "Psychologist", entityId: id });
+    revalidatePath("/novos-alunos/psicologas");
+    revalidatePath("/novos-alunos/usuarios");
+    return { ok: true, message: "Psicóloga excluída." };
+  });
+}
+
+export async function setUserActiveAction(_p: ActionState, fd: FormData): Promise<ActionState> {
+  return run(async () => {
+    const me = await requireUserForAction(["ADMIN"]);
+    const id = idSchema.parse(str(fd, "id"));
+    const active = str(fd, "active") === "true";
+    if (id === me.id && !active) throw new ActionError("Você não pode desativar o próprio acesso.");
+    const user = await prisma.user.findUniqueOrThrow({ where: { id } });
+    if (user.role === "PSYCHOLOGIST") throw new ActionError("Gerencie psicólogas na página Psicólogas.");
+    if (user.role === "ADMIN" && !active && (await prisma.user.count({ where: { role: "ADMIN", active: true } })) <= 1) {
+      throw new ActionError("É necessário manter ao menos um administrador ativo.");
+    }
+    await prisma.user.update({ where: { id }, data: { active } });
+    await audit({ userId: me.id, action: active ? "USER_ACTIVATED" : "USER_DEACTIVATED", entityType: "User", entityId: id });
+    revalidatePath("/novos-alunos/usuarios");
+    return { ok: true };
+  });
+}
+

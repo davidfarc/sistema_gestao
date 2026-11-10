@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   School,
   Settings,
+  UserPlus,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,8 @@ const MENU: MenuItem[] = [
   // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
   // acesso fica no próprio quadro (e no badge do card).
   { Icon: School, label: "Gestão de Vila", href: "/salas" },
+  // Central de agendamento de anamneses (famílias de novos alunos).
+  { Icon: UserPlus, label: "Novos alunos", href: "/novos-alunos" },
   { Icon: MessagesSquare, label: "Conversas", href: "/canais" },
   { Icon: Settings, label: "Configurações", href: "/configuracoes" },
 ];
