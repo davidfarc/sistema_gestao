@@ -1,5 +1,19 @@
 # Deploy — Sistema de Gestão Editorial (Ecco Prime)
 
+## 🗄️ Supabase em São Paulo (desde 10/11/2026)
+
+- **Projeto:** `Gestão Ecco SP` (`rcjjwoajuvnrgeuzsgsj`, região `sa-east-1`), org Eccoprime Corp.
+  Substituiu o `njdocgzzuhhlaweqqnrq` (Ohio), que ficou parado como reserva.
+- Migrado por cópia: estrutura recriada pelas migrations (`infra/migrations` + Prisma
+  `apps/web/prisma`) e conferida contra o antigo (colunas, regras, funções, gatilhos,
+  realtime, storage); dados, `auth.users/identities` e arquivos do Storage copiados e
+  conferidos por md5 de cada tabela.
+- **Login Google:** cliente OAuth `833143786008-gmvkj1j6...` com o redirect
+  `https://rcjjwoajuvnrgeuzsgsj.supabase.co/auth/v1/callback`.
+- **Hyperdrive** (`anamnese-db-sp`): conexão DIRETA do banco (IPv6), sem cache. Pela porta
+  de transação travava; pela de sessão lotava as 15 vagas do pooler.
+- Sem `placement` fixo: Worker e banco ficam perto dos usuários (São Paulo).
+
 ## ☁️ Cloudflare Workers (migração da Vercel, iniciada em 09/11/2026)
 
 - **Worker:** `ecco-sistema` (conta Cloudflare `efdb21fc716c3157857d39c96d4cd601`),
@@ -11,7 +25,8 @@
   outros ramos `npx opennextjs-cloudflare upload` (gera versão de prévia, não publica).
 - **Variáveis:** URL e chave *publishable* do Supabase têm padrão em `next.config.ts`
   (são públicas); `INTERNAL_EMAIL_DOMAIN` em `wrangler.jsonc` → `vars`.
-  **Segredos** (só no Cloudflare): `SUPABASE_SERVICE_ROLE_KEY`; opcional `ACTIVESOFT_API_TOKEN`.
+  **Segredos** (só no Cloudflare): `SUPABASE_SECRET_KEY` (formato `sb_secret_`); `ACTIVESOFT_API_TOKEN`;
+  da central de anamneses: `AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET`, `GOOGLE_CLIENT_ID/SECRET`.
   Cadastro: `wrangler secret put <NOME> --name ecco-sistema` (dentro de `apps/web`).
 - ⚠️ **Build local no Windows não roda certo** (o OpenNext gera caminhos com `\` e o
   Worker falha com "Dynamic require of /.next/server/middleware-manifest.json").
@@ -26,6 +41,8 @@
 ---
 
 
+> ⚠️ Seção histórica (Vercel + Supabase de Ohio).
+>
 > Hospedagem na **Vercel** (Next.js) + **Supabase** já hospedado (DB/Auth/Realtime).
 > GitHub = fonte de verdade: `github.com/davidfarc/sistema_gestao`.
 
