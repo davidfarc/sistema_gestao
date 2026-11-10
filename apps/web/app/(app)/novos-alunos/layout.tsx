@@ -69,7 +69,7 @@ export default async function NovosAlunosLayout({ children }: { children: ReactN
         </p>
       </div>
       <NovosAlunosTabs items={items} />
-      <div className="anamnese mx-auto mt-6 max-w-6xl space-y-6">{children}</div>
+      <div className="mx-auto mt-6 max-w-6xl space-y-6">{children}</div>
     </div>
   );
 }

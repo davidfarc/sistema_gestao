@@ -32,8 +32,8 @@ export default async function AuditPage({ searchParams }: { searchParams: SP }) 
                 <Td>{r.user?.name ?? "Sistema"}</Td>
                 <Td className="font-mono text-xs">{r.action}</Td>
                 <Td className="text-xs">{r.entityType}{r.entityId ? ` · ${r.entityId.slice(0, 8)}` : ""}</Td>
-                <Td className="max-w-xs truncate font-mono text-xs text-muted-foreground" title={r.details ? JSON.stringify(r.details) : ""}>{r.details ? JSON.stringify(r.details) : ""}</Td>
-                <Td className="text-xs text-muted-foreground">{r.ip ?? ""}</Td>
+                <Td className="max-w-xs truncate font-mono text-xs text-secondary" title={r.details ? JSON.stringify(r.details) : ""}>{r.details ? JSON.stringify(r.details) : ""}</Td>
+                <Td className="text-xs text-secondary">{r.ip ?? ""}</Td>
               </tr>
             ))}
           </tbody>
@@ -42,7 +42,7 @@ export default async function AuditPage({ searchParams }: { searchParams: SP }) 
       {pages > 1 && (
         <nav className="flex items-center justify-center gap-3 text-sm">
           {page > 1 && <Link className="font-semibold text-primary" href={`?pg=${page - 1}`}>← Anterior</Link>}
-          <span className="text-muted-foreground">Página {page} de {pages}</span>
+          <span className="text-secondary">Página {page} de {pages}</span>
           {page < pages && <Link className="font-semibold text-primary" href={`?pg=${page + 1}`}>Próxima →</Link>}
         </nav>
       )}

@@ -1,61 +1,81 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/anamnese/utils";
+import type { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import clsx from "clsx";
 
-export const Card = ({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...p} />
+// Cartões, selos, avisos e tabelas no padrão visual do sistema.
+
+export const Card = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => (
+  <div className={clsx("rounded-2xl border border-black/5 bg-surface-lowest shadow-premium-soft", className)} {...p} />
 );
-export const CardHeader = ({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col gap-1 p-5 pb-3", className)} {...p} />
+export const CardHeader = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => (
+  <div className={clsx("flex flex-col gap-1 p-5 pb-3", className)} {...p} />
 );
-export const CardTitle = ({ className, ...p }: React.HTMLAttributes<HTMLHeadingElement>) => (
-  <h3 className={cn("text-base font-semibold leading-tight", className)} {...p} />
+export const CardTitle = ({ className, ...p }: HTMLAttributes<HTMLHeadingElement>) => (
+  <h3 className={clsx("font-headline text-base font-bold text-primary", className)} {...p} />
 );
-export const CardDescription = ({ className, ...p }: React.HTMLAttributes<HTMLParagraphElement>) => (
-  <p className={cn("text-sm text-muted-foreground", className)} {...p} />
+export const CardDescription = ({ className, ...p }: HTMLAttributes<HTMLParagraphElement>) => (
+  <p className={clsx("text-sm text-secondary", className)} {...p} />
 );
-export const CardContent = ({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("p-5 pt-2", className)} {...p} />
+export const CardContent = ({ className, ...p }: HTMLAttributes<HTMLDivElement>) => (
+  <div className={clsx("p-5 pt-2", className)} {...p} />
 );
 
-const badgeVariants = cva("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap", {
-  variants: {
-    variant: {
-      default: "bg-primary/10 text-primary",
-      success: "bg-success/15 text-success",
-      warning: "bg-amber-100 text-amber-800",
-      danger: "bg-destructive/10 text-destructive",
-      muted: "bg-muted text-muted-foreground",
-    },
-  },
-  defaultVariants: { variant: "default" },
-});
-export function Badge({ className, variant, ...p }: React.HTMLAttributes<HTMLSpanElement> & VariantProps<typeof badgeVariants>) {
-  return <span className={cn(badgeVariants({ variant }), className)} {...p} />;
+const BADGE = {
+  default: "bg-primary/5 text-primary",
+  success: "bg-success/10 text-success",
+  warning: "bg-warning/10 text-warning",
+  danger: "bg-danger/10 text-danger",
+  muted: "bg-surface-low text-secondary",
+} as const;
+
+export function Badge({
+  className,
+  variant = "default",
+  ...p
+}: HTMLAttributes<HTMLSpanElement> & { variant?: keyof typeof BADGE | null }) {
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center whitespace-nowrap rounded-xl px-2.5 py-1 text-xs font-bold",
+        BADGE[variant ?? "default"],
+        className,
+      )}
+      {...p}
+    />
+  );
 }
+
+const ALERT = {
+  info: "border-primary/10 bg-primary/5 text-primary",
+  success: "border-success/20 bg-success/5 text-success",
+  error: "border-danger/20 bg-danger/5 text-danger",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+} as const;
 
 export function Alert({
   variant = "info",
   className,
   ...p
-}: React.HTMLAttributes<HTMLDivElement> & { variant?: "info" | "success" | "error" | "warning" }) {
-  const styles = {
-    info: "border-primary/30 bg-primary/5 text-foreground",
-    success: "border-success/40 bg-success/10 text-foreground",
-    error: "border-destructive/40 bg-destructive/10 text-foreground",
-    warning: "border-amber-300 bg-amber-50 text-amber-950",
-  }[variant];
-  return <div role={variant === "error" ? "alert" : "status"} className={cn("rounded-md border p-3 text-sm", styles, className)} {...p} />;
+}: HTMLAttributes<HTMLDivElement> & { variant?: keyof typeof ALERT }) {
+  return (
+    <div
+      role={variant === "error" ? "alert" : "status"}
+      className={clsx("rounded-lg border px-3 py-2 text-sm", ALERT[variant], className)}
+      {...p}
+    />
+  );
 }
 
-export const Table = ({ className, ...p }: React.TableHTMLAttributes<HTMLTableElement>) => (
+export const Table = ({ className, ...p }: TableHTMLAttributes<HTMLTableElement>) => (
   <div className="w-full overflow-x-auto">
-    <table className={cn("w-full caption-bottom text-sm", className)} {...p} />
+    <table className={clsx("w-full text-sm", className)} {...p} />
   </div>
 );
-export const Th = ({ className, ...p }: React.ThHTMLAttributes<HTMLTableCellElement>) => (
-  <th className={cn("h-10 whitespace-nowrap border-b px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground", className)} {...p} />
+export const Th = ({ className, ...p }: ThHTMLAttributes<HTMLTableCellElement>) => (
+  <th
+    className={clsx("whitespace-nowrap bg-surface-low px-4 py-3 text-left font-semibold text-primary", className)}
+    {...p}
+  />
 );
-export const Td = ({ className, ...p }: React.TdHTMLAttributes<HTMLTableCellElement>) => (
-  <td className={cn("border-b px-3 py-2.5 align-middle", className)} {...p} />
+export const Td = ({ className, ...p }: TdHTMLAttributes<HTMLTableCellElement>) => (
+  <td className={clsx("border-t border-surface-medium px-4 py-2.5 align-middle", className)} {...p} />
 );

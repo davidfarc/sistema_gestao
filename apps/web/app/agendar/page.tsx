@@ -20,15 +20,15 @@ export default async function SchedulePage() {
   const today = todayKey();
 
   return (
-    <div className="anamnese min-h-dvh bg-gradient-to-b from-primary/[0.07] to-background">
-      <header className="bg-primary text-primary-foreground">
+    <div className="min-h-dvh bg-gradient-to-b from-primary/[0.07] to-background">
+      <header className="bg-primary text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Brand s={s} light />
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 pb-16">
-        <section className="-mt-px rounded-b-3xl bg-primary px-4 pb-10 pt-6 text-primary-foreground sm:px-8">
+        <section className="-mt-px rounded-b-3xl bg-primary px-4 pb-10 pt-6 text-white sm:px-8">
           <div className="flex items-start gap-4">
             <span className="hidden size-14 shrink-0 place-items-center rounded-2xl bg-white/15 sm:grid"><CalendarHeart className="size-7" /></span>
             <div>
@@ -38,7 +38,7 @@ export default async function SchedulePage() {
           </div>
         </section>
 
-        <div className="-mt-6 rounded-2xl border bg-card p-4 shadow-lg sm:p-8">
+        <div className="-mt-6 rounded-2xl border bg-surface-lowest p-4 shadow-lg sm:p-8 border-surface-medium">
           {segments.length === 0 ? (
             <Alert variant="info">
               O agendamento online ainda não está disponível. Por favor, entre em contato com a escola
@@ -55,7 +55,7 @@ export default async function SchedulePage() {
           )}
         </div>
 
-        <footer className="mt-8 space-y-1 text-center text-xs text-muted-foreground">
+        <footer className="mt-8 space-y-1 text-center text-xs text-secondary">
           <p>Não solicitamos informações clínicas, diagnósticos ou histórico psicológico neste formulário.</p>
           <p>
             <Link href="/privacidade" className="font-semibold underline">Política de Privacidade</Link>

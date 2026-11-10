@@ -1,4 +1,4 @@
-import type { Appointment, AvailabilitySlot, NotificationType, Psychologist, SchoolSegment } from "@/lib/anamnese/generated/client";
+import type { Appointment, AvailabilitySlot, NotificationType, Psychologist, SchoolSegment } from "@prisma/client";
 import { prisma, type Tx } from "./db";
 import { appUrl } from "./env";
 import { fmtDate, fmtLongDate, fmtTime } from "./time";

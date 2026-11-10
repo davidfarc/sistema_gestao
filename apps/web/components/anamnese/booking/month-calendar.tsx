@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/anamnese/utils";
+import clsx from "clsx";
 
 const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const DOW = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -32,19 +32,19 @@ export function MonthCalendar({
     <div className="w-full max-w-md" aria-busy={loading}>
       <div className="mb-3 flex items-center justify-between">
         <button type="button" onClick={() => shift(-1)} disabled={month <= minMonth} aria-label="Mês anterior"
-          className="grid size-11 place-items-center rounded-full border bg-card hover:bg-muted disabled:opacity-30">
+          className="grid size-11 place-items-center rounded-full border bg-surface-lowest hover:bg-surface-low disabled:opacity-30 border-surface-medium">
           <ChevronLeft className="size-5" />
         </button>
         <p className="text-lg font-bold" aria-live="polite">{MONTHS[m - 1]} de {y}</p>
         <button type="button" onClick={() => shift(1)} disabled={month >= maxMonth} aria-label="Próximo mês"
-          className="grid size-11 place-items-center rounded-full border bg-card hover:bg-muted disabled:opacity-30">
+          className="grid size-11 place-items-center rounded-full border bg-surface-lowest hover:bg-surface-low disabled:opacity-30 border-surface-medium">
           <ChevronRight className="size-5" />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-secondary">
         {DOW.map((d, i) => <div key={i} className="py-1">{d}</div>)}
       </div>
-      <div className={cn("mt-1 grid grid-cols-7 gap-1", loading && "opacity-60")}>
+      <div className={clsx("mt-1 grid grid-cols-7 gap-1", loading && "opacity-60")}>
         {cells.map((day, i) => {
           if (!day) return <div key={i} />;
           const key = `${month}-${String(day).padStart(2, "0")}`;
@@ -58,10 +58,10 @@ export function MonthCalendar({
               onClick={() => onSelect(key)}
               aria-pressed={sel}
               aria-label={`${day} de ${MONTHS[m - 1]}${ok ? ", com horários disponíveis" : ", indisponível"}`}
-              className={cn(
+              className={clsx(
                 "aspect-square rounded-lg text-sm font-semibold transition-colors",
-                ok ? "bg-accent/10 text-accent hover:bg-accent hover:text-accent-foreground" : "cursor-not-allowed text-muted-foreground/40 line-through decoration-1",
-                sel && "!bg-primary !text-primary-foreground ring-2 ring-primary ring-offset-2",
+                ok ? "bg-success/10 text-success hover:bg-success hover:text-white" : "cursor-not-allowed text-secondary/40 line-through decoration-1",
+                sel && "!bg-primary !text-white ring-2 ring-primary ring-offset-2",
               )}
             >
               {day}

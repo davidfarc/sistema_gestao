@@ -44,9 +44,9 @@ export default async function SegmentsPage() {
                 {(() => {
                   const free = freeBySegment.get(seg.id) ?? 0;
                   return free > 0 ? (
-                    <p className="text-xs text-muted-foreground">{free} horário(s) livre(s) para as famílias.</p>
+                    <p className="text-xs text-secondary">{free} horário(s) livre(s) para as famílias.</p>
                   ) : (
-                    <p className="text-xs font-medium text-destructive">
+                    <p className="text-xs font-medium text-danger">
                       Nenhum horário livre: as famílias não conseguem agendar neste segmento. Libere horários em Disponibilidade.
                     </p>
                   );
@@ -56,7 +56,7 @@ export default async function SegmentsPage() {
                 <ActionForm action={setSegmentPsychologistsAction} className="space-y-3">
                   <input type="hidden" name="segmentId" value={seg.id} />
                   <p className="text-sm font-medium">Psicólogas responsáveis</p>
-                  {psychologists.length === 0 && <p className="text-sm text-muted-foreground">Cadastre psicólogas primeiro.</p>}
+                  {psychologists.length === 0 && <p className="text-sm text-secondary">Cadastre psicólogas primeiro.</p>}
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {psychologists.map((p) => (
                       <label key={p.id} className="flex items-center gap-2 text-sm">
@@ -68,7 +68,7 @@ export default async function SegmentsPage() {
                   <SubmitButton size="sm">Salvar psicólogas</SubmitButton>
                 </ActionForm>
 
-                <details className="border-t pt-4">
+                <details className="border-t pt-4 border-surface-medium">
                   <summary className="cursor-pointer text-sm font-medium text-primary">Editar segmento</summary>
                   <ActionForm action={updateSegmentAction} className="mt-3 space-y-3">
                     <input type="hidden" name="id" value={seg.id} />

@@ -19,7 +19,7 @@ export type TabItem = { href: string; label: string; icon: keyof typeof ICONS };
 export default function NovosAlunosTabs({ items }: { items: TabItem[] }) {
   const path = usePathname();
   return (
-    <nav className="no-print flex flex-wrap gap-1.5" aria-label="Módulos de Novos alunos">
+    <nav className="flex flex-wrap gap-1.5" aria-label="Módulos de Novos alunos">
       {items.map(({ href, label, icon }) => {
         const Icon = ICONS[icon];
         const active = href === "/novos-alunos" ? path === href : path.startsWith(href);

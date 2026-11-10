@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import type { Role } from "@/lib/anamnese/generated/client";
+import type { Role } from "@prisma/client";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "./db";
 import { ActionError } from "./errors";

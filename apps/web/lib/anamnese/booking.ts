@@ -1,4 +1,4 @@
-import { Prisma, type Appointment } from "@/lib/anamnese/generated/client";
+import { Prisma, type Appointment } from "@prisma/client";
 import { prisma, type Tx } from "./db";
 import { generateAppointmentCode, googleEventId } from "./crypto";
 import { getSettings, PRIVACY_VERSION } from "./settings";

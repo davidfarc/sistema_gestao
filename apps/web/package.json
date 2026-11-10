@@ -21,8 +21,6 @@
     "@opennextjs/cloudflare": "^1.20.16",
     "@prisma/adapter-pg": "6.19.3",
     "@prisma/client": "6.19.3",
-    "@radix-ui/react-label": "^2.1.17",
-    "@radix-ui/react-slot": "^1.5.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-table": "^8.21.3",
@@ -30,7 +28,6 @@
     "@tiptap/extension-list": "^3.29.1",
     "@tiptap/react": "^3.29.1",
     "@tiptap/starter-kit": "^3.29.1",
-    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
@@ -41,7 +38,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
-    "tailwind-merge": "^3.7.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

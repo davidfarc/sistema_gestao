@@ -14,13 +14,13 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 
 function Bars({ items, empty }: { items: { id: string; name: string; count: number }[]; empty: string }) {
   const max = Math.max(1, ...items.map((i) => i.count));
-  if (!items.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  if (!items.length) return <p className="text-sm text-secondary">{empty}</p>;
   return (
     <ul className="space-y-3">
       {items.map((i) => (
         <li key={i.id}>
           <div className="mb-1 flex justify-between text-sm"><span>{i.name}</span><strong className="tabular-nums">{i.count}</strong></div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted" role="presentation">
+          <div className="h-2 overflow-hidden rounded-full bg-surface-low" role="presentation">
             <div className="h-full rounded-full bg-primary" style={{ width: `${(i.count / max) * 100}%` }} />
           </div>
         </li>
@@ -81,15 +81,15 @@ export default async function DashboardPage({ searchParams }: { searchParams: SP
           {s.upcoming.length === 0 ? (
             <EmptyState>Nenhum atendimento futuro agendado.</EmptyState>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-surface-medium">
               {s.upcoming.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 text-sm">
                   <span className="w-28 font-semibold tabular-nums">{fmtDate(a.startsAt)} · {fmtTime(a.startsAt)}</span>
                   <span className="min-w-0 flex-1">
                     <Link href={`/novos-alunos/agendamentos?ver=${a.id}`} className="font-medium hover:underline">{a.studentName}</Link>
-                    <span className="text-muted-foreground"> · resp. {a.guardianName}</span>
+                    <span className="text-secondary"> · resp. {a.guardianName}</span>
                   </span>
-                  <span className="text-muted-foreground">{a.segment.name}{mine ? "" : ` · ${a.psychologist.name}`}</span>
+                  <span className="text-secondary">{a.segment.name}{mine ? "" : ` · ${a.psychologist.name}`}</span>
                   <AppointmentStatusBadge status={a.status} />
                 </li>
               ))}

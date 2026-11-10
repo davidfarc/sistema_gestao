@@ -7,7 +7,7 @@ import { Input, Label } from "@/components/anamnese/ui/form";
 import { Alert } from "@/components/anamnese/ui/card";
 import { MonthCalendar } from "./month-calendar";
 import { createBookingAction } from "@/lib/anamnese/server/booking-actions";
-import { cn } from "@/lib/anamnese/utils";
+import clsx from "clsx";
 import { classSuggestions } from "@/lib/anamnese/classes";
 
 type Segment = { id: string; slug: string; name: string; description: string | null };
@@ -155,17 +155,17 @@ export function BookingWizard({
           const done = n < step;
           return (
             <li key={label} className="flex min-w-fit flex-1 items-center gap-2" aria-current={n === step ? "step" : undefined}>
-              <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold",
-                done ? "bg-success text-success-foreground" : n === step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+              <span className={clsx("grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold",
+                done ? "bg-success text-white" : n === step ? "bg-primary text-white" : "bg-surface-low text-secondary")}>
                 {done ? "✓" : n}
               </span>
-              <span className={cn("hidden text-xs font-semibold sm:block", n === step ? "text-foreground" : "text-muted-foreground")}>{label}</span>
-              {n < STEPS.length && <span className="h-px flex-1 bg-border" />}
+              <span className={clsx("hidden text-xs font-semibold sm:block", n === step ? "text-primary" : "text-secondary")}>{label}</span>
+              {n < STEPS.length && <span className="h-px flex-1 bg-surface-medium" />}
             </li>
           );
         })}
       </ol>
-      <p className="text-sm font-semibold text-muted-foreground sm:hidden">Etapa {step} de 5 — {STEPS[step - 1]}</p>
+      <p className="text-sm font-semibold text-secondary sm:hidden">Etapa {step} de 5 — {STEPS[step - 1]}</p>
 
       {notice && <Alert variant="warning">{notice}</Alert>}
       {state.error && !state.fieldErrors && step === 5 && <Alert variant="error">{state.error}</Alert>}
@@ -182,13 +182,13 @@ export function BookingWizard({
               const Icon = ICONS[i % ICONS.length]!;
               return (
                 <button key={s.id} type="button" onClick={() => chooseSegment(s)}
-                  className="group flex items-center gap-4 rounded-xl border-2 bg-card p-5 text-left shadow-sm transition hover:border-primary hover:shadow-md">
-                  <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+                  className="group flex items-center gap-4 rounded-xl border-2 bg-surface-lowest p-5 text-left shadow-premium-soft transition hover:border-primary hover:shadow-md">
+                  <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-white">
                     <Icon className="size-7" />
                   </span>
                   <span>
                     <span className="block text-lg font-bold">{s.name}</span>
-                    {s.description && <span className="block text-sm text-muted-foreground">{s.description}</span>}
+                    {s.description && <span className="block text-sm text-secondary">{s.description}</span>}
                   </span>
                 </button>
               );
@@ -208,25 +208,25 @@ export function BookingWizard({
               {contactPhone ? <> ou fale com a escola: <strong>{contactPhone}</strong></> : null}.
             </Alert>
           )}
-          <p className="text-xs text-muted-foreground">Datas riscadas não possuem horários disponíveis.</p>
+          <p className="text-xs text-secondary">Datas riscadas não possuem horários disponíveis.</p>
         </section>
       )}
 
       {step === 3 && segment && date && (
         <section aria-labelledby="s3" className="space-y-4">
           <h2 id="s3" className="text-xl font-bold first-letter:uppercase">{longDate(date)}</h2>
-          <p className="text-sm text-muted-foreground">Escolha o horário da anamnese:</p>
+          <p className="text-sm text-secondary">Escolha o horário da anamnese:</p>
           {loadingSlots ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Carregando horários…</div>
+            <div className="flex items-center gap-2 text-sm text-secondary"><Loader2 className="size-4 animate-spin" /> Carregando horários…</div>
           ) : slots.length === 0 ? (
             <Alert variant="info">Todos os horários desta data foram preenchidos. Volte e escolha outra data.</Alert>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
               {slots.map((s) => (
                 <button key={s.id} type="button" onClick={() => { setSlot(s); setNotice(null); setStep(4); }}
-                  className="rounded-xl border-2 bg-card px-3 py-4 text-center transition hover:border-primary hover:bg-primary/5">
+                  className="rounded-xl border-2 bg-surface-lowest px-3 py-4 text-center transition hover:border-primary hover:bg-primary/5">
                   <span className="block text-xl font-bold tabular-nums">{s.start}</span>
-                  <span className="block text-xs text-muted-foreground">até {s.end}</span>
+                  <span className="block text-xs text-secondary">até {s.end}</span>
                 </button>
               ))}
             </div>
@@ -257,9 +257,9 @@ export function BookingWizard({
             <Fld id="email" label="E-mail" error={errors.email}>
               <Input id="email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="h-12 text-base" />
             </Fld>
-            <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+            <div className="rounded-lg border bg-surface-low p-3 text-sm border-surface-medium">
               <p className="flex items-center gap-2 font-semibold"><ShieldCheck className="size-4 text-primary" /> Seus dados e a LGPD</p>
-              <p className="mt-1 text-muted-foreground">
+              <p className="mt-1 text-secondary">
                 Usamos estas informações apenas para organizar o atendimento e confirmar o agendamento.
                 Não pedimos nem registramos informações clínicas neste formulário.
               </p>
@@ -271,7 +271,7 @@ export function BookingWizard({
                   <a href="/privacidade" target="_blank" rel="noopener" className="font-semibold text-primary underline">Política de Privacidade</a>.
                 </span>
               </label>
-              {errors.consent && <p role="alert" className="mt-1 text-xs font-medium text-destructive">{errors.consent}</p>}
+              {errors.consent && <p role="alert" className="mt-1 text-xs font-medium text-danger">{errors.consent}</p>}
             </div>
             <Button type="submit" size="lg" className="w-full">Continuar</Button>
           </form>
@@ -281,7 +281,7 @@ export function BookingWizard({
       {step === 5 && segment && slot && date && (
         <section aria-labelledby="s5" className="space-y-5">
           <h2 id="s5" className="text-xl font-bold">Confira e confirme</h2>
-          <dl className="divide-y rounded-xl border bg-card">
+          <dl className="divide-y rounded-xl border bg-surface-lowest border-surface-medium">
             {[
               ["Responsável", form.guardianName],
               ["Aluno(a)", form.studentName],
@@ -292,7 +292,7 @@ export function BookingWizard({
               ["Psicóloga responsável", slot.psychologist],
             ].map(([k, v]) => (
               <div key={k} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:justify-between">
-                <dt className="text-sm text-muted-foreground">{k}</dt>
+                <dt className="text-sm text-secondary">{k}</dt>
                 <dd className="font-semibold">{v}</dd>
               </div>
             ))}
@@ -327,7 +327,7 @@ function Fld({ id, label, error, children }: { id: string; label: string; error?
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-base">{label}</Label>
       {children}
-      {error && <p role="alert" className="text-sm font-medium text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-sm font-medium text-danger">{error}</p>}
     </div>
   );
 }
@@ -338,17 +338,17 @@ function Success({ r, contactPhone, instructions }: { r: Result; contactPhone: s
       <div className="rounded-2xl border-2 border-success/40 bg-success/10 p-6 text-center">
         <CheckCircle2 className="mx-auto size-14 text-success" />
         <h2 className="mt-3 text-2xl font-bold">Agendamento confirmado!</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-secondary">
           {r.emailEnabled ? (
             <>Enviamos a confirmação para <strong>{r.email}</strong>. Confira também a caixa de spam.</>
           ) : (
             <>Guarde o código abaixo ou use o botão de imprimir. Seu agendamento está registrado.</>
           )}
         </p>
-        <p className="mt-4 text-xs uppercase tracking-wider text-muted-foreground">Código do agendamento</p>
+        <p className="mt-4 text-xs uppercase tracking-wider text-secondary">Código do agendamento</p>
         <p className="text-3xl font-extrabold tracking-wider text-primary">{r.code}</p>
       </div>
-      <dl className="divide-y rounded-xl border bg-card">
+      <dl className="divide-y rounded-xl border bg-surface-lowest border-surface-medium">
         {[
           ["Aluno(a)", r.studentName],
           ["Turma / série", r.studentClass],
@@ -360,13 +360,13 @@ function Success({ r, contactPhone, instructions }: { r: Result; contactPhone: s
           ["Psicóloga responsável", r.psychologist],
         ].map(([k, v]) => (
           <div key={k} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:justify-between">
-            <dt className="text-sm text-muted-foreground">{k}</dt>
+            <dt className="text-sm text-secondary">{k}</dt>
             <dd className="font-semibold">{v}</dd>
           </div>
         ))}
       </dl>
       <Alert variant="info"><strong>Orientações:</strong> {instructions}{contactPhone ? <> Contato da escola: <strong>{contactPhone}</strong>.</> : null}</Alert>
-      <Button type="button" variant="outline" className="no-print w-full" onClick={() => window.print()}><Printer /> Imprimir / salvar comprovante</Button>
+      <Button type="button" variant="outline" className="w-full" onClick={() => window.print()}><Printer /> Imprimir / salvar comprovante</Button>
     </section>
   );
 }

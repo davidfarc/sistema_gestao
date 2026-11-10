@@ -3,15 +3,11 @@
 
 // Integrado ao sistema de gestão (seção "Novos alunos") em 09/11/2026.
 // As tabelas ficam no schema Postgres `anamnese` do Supabase (fora do `public`,
-// portanto invisíveis à API pública do Supabase). O cliente roda no Cloudflare
-// Workers sem motor nativo (engineType "client" + adaptador pg).
+// portanto invisíveis à API pública do Supabase). No Cloudflare Workers o
+// cliente usa o adaptador pg (driverAdapters), como no guia do OpenNext.
 
 generator client {
-  provider   = "prisma-client"
-  output     = "../lib/anamnese/generated"
-  runtime    = "workerd"
-  engineType = "client"
-  moduleFormat = "esm"
+  provider        = "prisma-client-js"
 }
 
 datasource db {

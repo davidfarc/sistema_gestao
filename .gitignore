@@ -44,5 +44,3 @@ supabase/.temp/
 .wrangler/
 .dev.vars*
 
-# Cliente Prisma gerado (Novos alunos) — recriado no install/build
-apps/web/lib/anamnese/generated/

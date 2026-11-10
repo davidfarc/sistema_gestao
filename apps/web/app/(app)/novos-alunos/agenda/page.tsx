@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/anamnese/auth";
 import { prisma } from "@/lib/anamnese/db";
 import { visibleToUser } from "@/lib/anamnese/rbac";
 import { DATE_KEY_RE, addDaysKey, dateKey, endOfLocalDay, fmtTime, startOfLocalDay, todayKey, weekdayOf } from "@/lib/anamnese/time";
-import { cn } from "@/lib/anamnese/utils";
+import clsx from "clsx";
 import { PageHeader } from "@/components/anamnese/page-header";
 import { Card } from "@/components/anamnese/ui/card";
 import { Button } from "@/components/anamnese/ui/button";
@@ -76,9 +76,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: SP })
 
   const chip = (s: (typeof slots)[number]) => {
     const a = s.appointments[0];
-    return cn(
+    return clsx(
       "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs",
-      s.status === "BOOKED" ? "bg-primary/15 text-primary" : s.status === "AVAILABLE" ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
+      s.status === "BOOKED" ? "bg-primary/15 text-primary" : s.status === "AVAILABLE" ? "bg-success/10 text-success" : "bg-surface-low text-secondary",
       !a && s.status === "BOOKED" && "opacity-70",
     );
   };
@@ -119,12 +119,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: SP })
       <div className="flex flex-wrap gap-4 text-xs">
         <span className="flex items-center gap-1.5"><i className="size-3 rounded bg-success/30" /> Livre</span>
         <span className="flex items-center gap-1.5"><i className="size-3 rounded bg-primary/30" /> Agendado</span>
-        <span className="flex items-center gap-1.5"><i className="size-3 rounded bg-muted-foreground/30" /> Bloqueado</span>
+        <span className="flex items-center gap-1.5"><i className="size-3 rounded bg-surface-low-foreground/30" /> Bloqueado</span>
       </div>
 
       {view === "mes" ? (
         <Card className="overflow-hidden">
-          <div className="grid grid-cols-7 border-b bg-muted/50 text-center text-xs font-semibold text-muted-foreground">
+          <div className="grid grid-cols-7 border-b bg-surface-low text-center text-xs font-semibold text-secondary border-surface-medium">
             {DOW.map((d) => <div key={d} className="py-2">{d}</div>)}
           </div>
           <div className="grid grid-cols-7">
@@ -135,8 +135,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: SP })
               const inMonth = d.slice(0, 7) === anchor.slice(0, 7);
               return (
                 <Link key={d} href={link({ v: "semana", d })}
-                  className={cn("min-h-24 border-b border-r p-1.5 text-xs transition-colors hover:bg-muted/60 sm:min-h-28", !inMonth && "bg-muted/40 text-muted-foreground", d === today && "ring-2 ring-inset ring-primary")}>
-                  <span className={cn("mb-1 block text-sm font-semibold", d === today && "text-primary")}>{Number(d.slice(8))}</span>
+                  className={clsx("min-h-24 border-b border-r p-1.5 text-xs transition-colors hover:bg-surface-low sm:min-h-28 border-surface-medium", !inMonth && "bg-surface-low text-secondary", d === today && "ring-2 ring-inset ring-primary")}>
+                  <span className={clsx("mb-1 block text-sm font-semibold", d === today && "text-primary")}>{Number(d.slice(8))}</span>
                   {list.length > 0 && (
                     <>
                       <span className="hidden gap-1 sm:flex"><span className="font-semibold text-success">{free} livres</span><span className="text-primary">· {booked.length} ocup.</span></span>
@@ -148,7 +148,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: SP })
                         {booked.slice(0, 2).map((s) => (
                           <span key={s.id} className="block truncate rounded bg-primary/15 px-1 py-0.5 text-primary">{fmtTime(s.startsAt)} {s.appointments[0]?.studentName.split(" ")[0]}</span>
                         ))}
-                        {booked.length > 2 && <span className="block text-muted-foreground">+{booked.length - 2}</span>}
+                        {booked.length > 2 && <span className="block text-secondary">+{booked.length - 2}</span>}
                       </span>
                     </>
                   )}
@@ -162,10 +162,10 @@ export default async function AgendaPage({ searchParams }: { searchParams: SP })
           {days.map((d) => {
             const list = byDay.get(d) ?? [];
             return (
-              <Card key={d} className={cn("p-3", d === today && "ring-2 ring-primary")}>
-                <p className="mb-2 text-sm font-bold">{DOW[weekdayOf(d)]} <span className="font-normal text-muted-foreground">{d.slice(8)}/{d.slice(5, 7)}</span></p>
+              <Card key={d} className={clsx("p-3", d === today && "ring-2 ring-primary")}>
+                <p className="mb-2 text-sm font-bold">{DOW[weekdayOf(d)]} <span className="font-normal text-secondary">{d.slice(8)}/{d.slice(5, 7)}</span></p>
                 {list.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Sem horários</p>
+                  <p className="text-xs text-secondary">Sem horários</p>
                 ) : (
                   <ul className="space-y-1">
                     {list.map((s) => {

@@ -116,7 +116,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 ["Aceite da política", `${fmtDateTime(detail.consentAt)} (v${detail.consentVersion})`],
                 ...(detail.cancelledAt ? [["Cancelado em", `${fmtDateTime(detail.cancelledAt)}${detail.cancelReason ? ` — ${detail.cancelReason}` : ""}`]] : []),
               ].map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-3 border-b py-1.5"><dt className="text-muted-foreground">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
+                <div key={k} className="flex justify-between gap-3 border-b py-1.5 border-surface-medium"><dt className="text-secondary">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
               ))}
             </dl>
 
@@ -124,10 +124,10 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
               <h3 className="mb-2 text-sm font-semibold">Google Agenda</h3>
               <ul className="space-y-2">
                 {detail.events.map((e) => (
-                  <li key={e.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
+                  <li key={e.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2 text-sm border-surface-medium">
                     <span className="w-44 font-medium">{e.target === "TEAM" ? "Agenda geral da equipe" : "Agenda da psicóloga"}</span>
                     <SyncBadge status={e.status} />
-                    {e.lastError && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={e.lastError}>{e.lastError}</span>}
+                    {e.lastError && <span className="min-w-0 flex-1 truncate text-xs text-secondary" title={e.lastError}>{e.lastError}</span>}
                     {e.status !== "SYNCED" && e.status !== "CANCELLED" && (
                       <ActionForm action={retrySyncAction} className="ml-auto">
                         <input type="hidden" name="eventId" value={e.id} />
@@ -170,7 +170,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 </ActionForm>
 
                 <ActionForm action={cancelAppointmentAction} className="space-y-3">
-                  <h3 className="text-sm font-semibold text-destructive">Cancelar agendamento</h3>
+                  <h3 className="text-sm font-semibold text-danger">Cancelar agendamento</h3>
                   <input type="hidden" name="appointmentId" value={detail.id} />
                   <Field label="Motivo (opcional)"><Textarea name="reason" maxLength={300} /></Field>
                   <SubmitButton size="sm" variant="destructive">Cancelar e liberar horário</SubmitButton>
@@ -215,7 +215,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
       {pages > 1 && (
         <nav className="flex items-center justify-center gap-3 text-sm" aria-label="Paginação">
           {page > 1 && <Link className="font-semibold text-primary" href={`?${qs({ pg: String(page - 1) })}`}>← Anterior</Link>}
-          <span className="text-muted-foreground">Página {page} de {pages}</span>
+          <span className="text-secondary">Página {page} de {pages}</span>
           {page < pages && <Link className="font-semibold text-primary" href={`?${qs({ pg: String(page + 1) })}`}>Próxima →</Link>}
         </nav>
       )}

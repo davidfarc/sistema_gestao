@@ -1,7 +1,7 @@
 import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/client";
+import { PrismaClient } from "@prisma/client";
 
 // Banco da central de anamneses: schema `anamnese` no Postgres do Supabase.
 //

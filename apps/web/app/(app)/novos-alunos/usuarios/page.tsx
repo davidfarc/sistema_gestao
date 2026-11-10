@@ -34,7 +34,7 @@ export default async function UsersPage() {
                 <option value="ADMIN">Administrador</option>
               </Select>
             </Field>
-            <p className="text-xs text-muted-foreground">O acesso é pelo login Google do sistema, com este e-mail. Não há senha.</p>
+            <p className="text-xs text-secondary">O acesso é pelo login Google do sistema, com este e-mail. Não há senha.</p>
             <SubmitButton className="sm:w-fit">Criar usuário</SubmitButton>
           </ActionForm>
         </CardContent>
@@ -49,8 +49,8 @@ export default async function UsersPage() {
               <details>
                 <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-5">
                   <div>
-                    <p className="font-semibold">{u.name}{isMe && <span className="ml-2 text-xs font-normal text-muted-foreground">(você)</span>}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="font-semibold">{u.name}{isMe && <span className="ml-2 text-xs font-normal text-secondary">(você)</span>}</p>
+                    <p className="text-sm text-secondary">
                       {u.email} · {u.lastLoginAt ? `último acesso ${fmtDateTime(u.lastLoginAt)}` : "nunca acessou"}
                     </p>
                   </div>
@@ -61,7 +61,7 @@ export default async function UsersPage() {
                   </div>
                 </summary>
                 {editable ? (
-                  <div className="grid gap-6 border-t p-5 lg:grid-cols-3">
+                  <div className="grid gap-6 border-t p-5 lg:grid-cols-3 border-surface-medium">
                     <ActionForm action={updateStaffUserAction} className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
                       <input type="hidden" name="id" value={u.id} />
                       <Field label="Nome"><Input name="name" defaultValue={u.name} required /></Field>
@@ -80,17 +80,17 @@ export default async function UsersPage() {
                     <div className="space-y-4">
 
                       {!isMe && (
-                        <div className="space-y-3 rounded-md bg-muted/50 p-4">
+                        <div className="space-y-3 rounded-lg bg-surface-low p-4">
                           <ActionForm action={setUserActiveAction}>
                             <input type="hidden" name="id" value={u.id} />
                             <input type="hidden" name="active" value={String(!u.active)} />
                             <SubmitButton size="sm" variant="outline">{u.active ? "Desativar acesso" : "Reativar acesso"}</SubmitButton>
                           </ActionForm>
                           <details>
-                            <summary className="cursor-pointer text-xs font-medium text-destructive">Excluir usuário</summary>
+                            <summary className="cursor-pointer text-xs font-medium text-danger">Excluir usuário</summary>
                             <ActionForm action={deleteStaffUserAction} className="mt-2 space-y-2">
                               <input type="hidden" name="id" value={u.id} />
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-secondary">
                                 O acesso é encerrado e o usuário some desta lista. O histórico de auditoria é mantido.
                               </p>
                               <SubmitButton size="sm" variant="destructive" pendingText="Excluindo…">Confirmar exclusão</SubmitButton>
@@ -105,7 +105,7 @@ export default async function UsersPage() {
             </Card>
           );
         })}
-        {users.length === 0 && <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>}
+        {users.length === 0 && <p className="text-sm text-secondary">Nenhum usuário cadastrado.</p>}
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-import type { Prisma } from "@/lib/anamnese/generated/client";
+import type { Prisma } from "@prisma/client";
 import { prisma, type Tx } from "./db";
 import { clientIp } from "./rate-limit";
 

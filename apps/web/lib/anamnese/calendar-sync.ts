@@ -1,4 +1,4 @@
-import type { Appointment, GoogleCalendarEvent, Psychologist, SchoolSegment } from "@/lib/anamnese/generated/client";
+import type { Appointment, GoogleCalendarEvent, Psychologist, SchoolSegment } from "@prisma/client";
 import { prisma } from "./db";
 import { TZ } from "./time";
 import { GoogleApiError, deleteEvent, upsertEvent, type EventBody } from "./google";

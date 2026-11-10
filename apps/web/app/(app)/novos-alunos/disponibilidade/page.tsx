@@ -166,15 +166,15 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
         <CardHeader><CardTitle>Regras recorrentes ativas</CardTitle></CardHeader>
         <CardContent>
           {rules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma regra ativa.</p>
+            <p className="text-sm text-secondary">Nenhuma regra ativa.</p>
           ) : (
-            <ul className="divide-y">
+            <ul className="divide-y divide-surface-medium">
               {rules.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
                   <span>
                     <strong>{r.weekdays.map((d) => WEEKDAY_LABELS[d]).join(", ")}</strong> · {minutesToHHmm(r.startMinute)}–{minutesToHHmm(r.endMinute)} · {r.durationMinutes} min
                     {r.gapMinutes ? ` (+${r.gapMinutes} min)` : ""} · {r.segment.name}
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="block text-xs text-secondary">
                       {r.startDate.toISOString().slice(0, 10).split("-").reverse().join("/")} a {r.endDate.toISOString().slice(0, 10).split("-").reverse().join("/")}
                     </span>
                   </span>
@@ -205,13 +205,13 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
           {[...byDay.entries()].map(([day, list]) => (
             <div key={day}>
               <h3 className="mb-2 text-sm font-semibold capitalize">{fmtLongDate(list[0]!.startsAt)}</h3>
-              <ul className="divide-y rounded-md border">
+              <ul className="divide-y rounded-lg border border-surface-medium">
                 {list.map((s) => {
                   const appt = s.appointments[0];
                   return (
                     <li key={s.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
                       <span className="w-24 font-mono font-semibold tabular-nums">{fmtTime(s.startsAt)}–{fmtTime(s.endsAt)}</span>
-                      <span className="text-muted-foreground">{s.segment.name}</span>
+                      <span className="text-secondary">{s.segment.name}</span>
                       <Badge variant={s.status === "AVAILABLE" ? "success" : s.status === "BOOKED" ? "default" : "muted"}>
                         {s.status === "AVAILABLE" ? "Livre" : s.status === "BOOKED" ? "Agendado" : "Bloqueado"}
                       </Badge>

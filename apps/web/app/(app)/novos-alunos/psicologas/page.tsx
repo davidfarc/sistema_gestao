@@ -32,7 +32,7 @@ export default async function PsychologistsPage() {
             <Field label="Nome completo"><Input name="name" required /></Field>
             <Field label="E-mail (login e notificações)"><Input name="email" type="email" required /></Field>
             <Field label="Telefone (opcional)"><Input name="phone" /></Field>
-            <p className="text-xs text-muted-foreground sm:col-span-2">O acesso é pelo login Google do sistema, com este e-mail. Não há senha.</p>
+            <p className="text-xs text-secondary sm:col-span-2">O acesso é pelo login Google do sistema, com este e-mail. Não há senha.</p>
             <fieldset className="sm:col-span-2">
               <legend className="mb-2 text-sm font-medium">Segmentos atendidos</legend>
               <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -61,7 +61,7 @@ export default async function PsychologistsPage() {
                 <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 p-5">
                   <div>
                     <p className="font-semibold">{p.name}</p>
-                    <p className="text-sm text-muted-foreground">{p.email}</p>
+                    <p className="text-sm text-secondary">{p.email}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {segments.filter((s) => mine.has(s.id)).map((s) => (
@@ -70,7 +70,7 @@ export default async function PsychologistsPage() {
                     <Badge variant={p.active ? "success" : "muted"}>{p.active ? "Ativa" : "Inativa"}</Badge>
                   </div>
                 </summary>
-                <div className="grid gap-6 border-t p-5 lg:grid-cols-3">
+                <div className="grid gap-6 border-t p-5 lg:grid-cols-3 border-surface-medium">
                   <ActionForm action={updatePsychologistAction} className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
                     <input type="hidden" name="id" value={p.id} />
                     <Field label="Nome"><Input name="name" defaultValue={p.name} required /></Field>
@@ -95,11 +95,11 @@ export default async function PsychologistsPage() {
                     </label>
                     <SubmitButton size="sm" className="sm:w-fit">Salvar alterações</SubmitButton>
                   </ActionForm>
-                  <details className="rounded-md bg-muted/50 p-4 lg:col-start-3">
-                    <summary className="cursor-pointer text-sm font-medium text-destructive">Excluir psicóloga</summary>
+                  <details className="rounded-lg bg-surface-low p-4 lg:col-start-3">
+                    <summary className="cursor-pointer text-sm font-medium text-danger">Excluir psicóloga</summary>
                     <ActionForm action={deletePsychologistAction} className="mt-3 space-y-2">
                       <input type="hidden" name="id" value={p.id} />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-secondary">
                         O acesso é encerrado, horários livres futuros são removidos e a conexão com o Google é apagada.
                         Só é possível se não houver agendamentos futuros. O histórico é mantido.
                       </p>
@@ -111,7 +111,7 @@ export default async function PsychologistsPage() {
             </Card>
           );
         })}
-        {list.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma psicóloga cadastrada.</p>}
+        {list.length === 0 && <p className="text-sm text-secondary">Nenhuma psicóloga cadastrada.</p>}
       </div>
     </>
   );

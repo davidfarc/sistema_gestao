@@ -35,7 +35,7 @@ function ConnectionCard({ title, description, conn, connectHref, canEdit, extra 
       <CardContent className="space-y-4">
         {conn && (
           <p className="flex items-center gap-2 text-sm">
-            {ok ? <CheckCircle2 className="size-4 text-success" /> : <XCircle className="size-4 text-destructive" />}
+            {ok ? <CheckCircle2 className="size-4 text-success" /> : <XCircle className="size-4 text-danger" />}
             Conta: <strong>{conn.googleEmail}</strong> · desde {fmtDateTime(conn.createdAt)}
           </p>
         )}
@@ -119,13 +119,13 @@ export default async function GooglePage({ searchParams }: { searchParams: SP })
         <Card>
           <CardHeader><CardTitle>Psicólogas conectadas</CardTitle></CardHeader>
           <CardContent>
-            <ul className="divide-y text-sm">
+            <ul className="divide-y text-sm divide-surface-medium">
               {psychologists.map((p) => {
                 const c = p.connections[0];
                 return (
                   <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
                     <span className="font-medium">{p.name}</span>
-                    <span className="flex items-center gap-2 text-muted-foreground">
+                    <span className="flex items-center gap-2 text-secondary">
                       {c ? c.googleEmail : "—"}
                       <Badge variant={c?.active ? "success" : c ? "danger" : "muted"}>{c?.active ? "Conectada" : c ? "Reconectar" : "Não conectada"}</Badge>
                     </span>
@@ -144,15 +144,15 @@ export default async function GooglePage({ searchParams }: { searchParams: SP })
         </CardHeader>
         <CardContent>
           {problems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma pendência. Tudo sincronizado.</p>
+            <p className="text-sm text-secondary">Nenhuma pendência. Tudo sincronizado.</p>
           ) : (
-            <ul className="divide-y text-sm">
+            <ul className="divide-y text-sm divide-surface-medium">
               {problems.map((e) => (
                 <li key={e.id} className="flex flex-wrap items-center gap-3 py-2.5">
                   <span className="w-36 font-medium">{e.appointment.code}</span>
-                  <span className="text-muted-foreground">{e.target === "TEAM" ? "Equipe" : e.appointment.psychologist.name}</span>
+                  <span className="text-secondary">{e.target === "TEAM" ? "Equipe" : e.appointment.psychologist.name}</span>
                   <SyncBadge status={e.status} />
-                  <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={e.lastError ?? ""}>{e.lastError}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs text-secondary" title={e.lastError ?? ""}>{e.lastError}</span>
                   <ActionForm action={retrySyncAction}>
                     <input type="hidden" name="eventId" value={e.id} />
                     <SubmitButton size="sm" variant="outline" pendingText="…">Tentar novamente</SubmitButton>

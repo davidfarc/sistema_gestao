@@ -1,4 +1,4 @@
-import type { AppointmentStatus, Prisma } from "@/lib/anamnese/generated/client";
+import type { AppointmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import type { SessionUser } from "./auth";
 import { visibleToUser } from "./rbac";

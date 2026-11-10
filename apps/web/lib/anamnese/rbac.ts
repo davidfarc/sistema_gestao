@@ -1,4 +1,4 @@
-import type { Prisma } from "@/lib/anamnese/generated/client";
+import type { Prisma } from "@prisma/client";
 import type { SessionUser } from "./auth";
 import { ActionError } from "./errors";
 import type { AppSettings } from "./settings";

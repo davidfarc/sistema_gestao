@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify, decodeJwt } from "jose";
-import type { ConnectionKind, GoogleCalendarConnection } from "@/lib/anamnese/generated/client";
+import type { ConnectionKind, GoogleCalendarConnection } from "@prisma/client";
 import { prisma } from "./db";
 import { authSecret, googleConfig } from "./env";
 import { decrypt, encrypt } from "./crypto";

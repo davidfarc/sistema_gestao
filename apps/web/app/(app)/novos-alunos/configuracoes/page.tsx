@@ -86,11 +86,11 @@ export default async function SettingsPage() {
           <CardDescription>{pending} e-mail(s) na fila. {smtp.configured ? `Remetente: ${smtp.from}` : "O envio de e-mails ainda não foi configurado (MAIL_API_KEY / MAIL_FROM). Os e-mails ficam na fila e são enviados quando for ativado."}</CardDescription>
         </CardHeader>
         <CardContent>
-          {failed.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum e-mail com falha definitiva.</p> : (
-            <ul className="divide-y text-sm">
+          {failed.length === 0 ? <p className="text-sm text-secondary">Nenhum e-mail com falha definitiva.</p> : (
+            <ul className="divide-y text-sm divide-surface-medium">
               {failed.map((n) => (
                 <li key={n.id} className="flex flex-wrap items-center gap-3 py-2">
-                  <span className="min-w-0 flex-1"><strong>{n.toAddress}</strong> — {n.subject}<span className="block truncate text-xs text-muted-foreground">{n.lastError} · {fmtDateTime(n.updatedAt)}</span></span>
+                  <span className="min-w-0 flex-1"><strong>{n.toAddress}</strong> — {n.subject}<span className="block truncate text-xs text-secondary">{n.lastError} · {fmtDateTime(n.updatedAt)}</span></span>
                   <ActionForm action={retryNotificationAction}><input type="hidden" name="notificationId" value={n.id} /><SubmitButton size="sm" variant="outline">Reenviar</SubmitButton></ActionForm>
                 </li>
               ))}

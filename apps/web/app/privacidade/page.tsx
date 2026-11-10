@@ -4,12 +4,15 @@ import { Brand } from "@/components/anamnese/brand";
 
 export const metadata = { title: "Política de Privacidade" };
 
+// Lê configurações do banco a cada acesso (não pode ser gerada no build).
+export const dynamic = "force-dynamic";
+
 export default async function PrivacyPage() {
   const s = await getSettings();
   const contact = s.privacyContactEmail || "o canal de atendimento da escola";
   return (
-    <div className="anamnese min-h-dvh bg-background">
-      <header className="border-b bg-card">
+    <div className="min-h-dvh bg-background">
+      <header className="border-b bg-surface-lowest border-surface-medium">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <Brand s={s} />
           <Link href="/agendar" className="text-sm font-semibold text-primary underline">Voltar ao agendamento</Link>
@@ -18,7 +21,7 @@ export default async function PrivacyPage() {
       <main className="prose-sm mx-auto max-w-3xl space-y-6 px-4 py-10 leading-relaxed [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_li]:ml-5 [&_li]:list-disc">
         <div>
           <h1 className="text-3xl font-extrabold">Política de Privacidade</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Central de Agendamento de Anamneses · versão {PRIVACY_VERSION}</p>
+          <p className="mt-1 text-sm text-secondary">Central de Agendamento de Anamneses · versão {PRIVACY_VERSION}</p>
         </div>
 
         <section>

@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // @ecco/core é consumido como código-fonte TS (imports com extensão .ts),
   // então o Next transpila o pacote em vez de exigir build separado.
   transpilePackages: ["@ecco/core"],
+  // Prisma (Novos alunos): fica fora do bundle do Next; o OpenNext empacota a
+  // versão para Workers (guia "Prisma ORM" do @opennextjs/cloudflare).
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL_PADRAO,
     NEXT_PUBLIC_SUPABASE_ANON_KEY:
@@ -20,5 +23,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 
 // Permite usar recursos do Cloudflare no `next dev` (hospedagem: Cloudflare Workers via OpenNext).
+// Só no `next dev`: no build ele exigiria um Postgres local para emular o
+// Hyperdrive (binding ANAMNESE_DB) e derrubava o build do Cloudflare.
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-initOpenNextCloudflareForDev();
+if (process.env.NODE_ENV === "development") initOpenNextCloudflareForDev();

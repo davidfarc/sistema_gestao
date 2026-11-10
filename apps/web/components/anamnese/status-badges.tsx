@@ -1,4 +1,4 @@
-import type { AppointmentStatus, SyncStatus } from "@/lib/anamnese/generated/client";
+import type { AppointmentStatus, SyncStatus } from "@prisma/client";
 import { Badge } from "@/components/anamnese/ui/card";
 
 const APPT: Record<AppointmentStatus, [string, "default" | "success" | "danger" | "warning" | "muted"]> = {
