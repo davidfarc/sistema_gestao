@@ -63,6 +63,8 @@ export const ACTIONS = [
   "workflow:manage",
   "plan:manage", // planejamento de gastos (quanto se pretende gastar por mês)
   "salas:manage", // editar a Gestão de Vila (sem ela, o módulo é só leitura)
+  "novos:access", // Novos alunos: agenda, agendamentos e relatórios (atendimento/coordenação)
+  "novos:manage", // Novos alunos: também psicólogas, segmentos, configurações e auditoria
   "user:manage", // convidar usuários / trocar papéis comuns
   "role:manage", // editar papéis e conceder papéis administrativos (Gestor Master)
 ] as const;

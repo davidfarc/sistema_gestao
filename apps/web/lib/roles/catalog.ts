@@ -66,6 +66,21 @@ export const ACTION_GROUPS: ActionGroup[] = [
     ],
   },
   {
+    title: "Novos alunos (anamneses)",
+    items: [
+      {
+        action: "novos:access",
+        label: "Acessar Novos alunos",
+        hint: "Agenda, agendamentos e relatórios das anamneses (perfil de atendimento/coordenação). Psicólogas entram pelo cadastro de Psicólogas.",
+      },
+      {
+        action: "novos:manage",
+        label: "Administrar Novos alunos",
+        hint: "Tudo do acesso, mais psicólogas, segmentos, configurações e auditoria da central.",
+      },
+    ],
+  },
+  {
     title: "Módulos e administração",
     items: [
       {
@@ -83,7 +98,14 @@ export const ACTION_GROUPS: ActionGroup[] = [
 ];
 
 /** Ações que caracterizam poder de gestão — vedadas a usuário externo. */
-export const ACOES_DE_GESTAO: Action[] = ["user:manage", "board:configure", "role:manage"];
+export const ACOES_DE_GESTAO: Action[] = [
+  "user:manage",
+  "board:configure",
+  "role:manage",
+  // Dados pessoais de famílias (LGPD): nunca para usuário externo.
+  "novos:access",
+  "novos:manage",
+];
 
 /**
  * Papel administrativo: conceder um destes é conceder controle sobre o próprio

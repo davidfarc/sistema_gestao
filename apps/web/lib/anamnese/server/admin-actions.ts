@@ -153,70 +153,6 @@ export async function updatePsychologistAction(_p: ActionState, fd: FormData): P
   });
 }
 
-/* ---------------------------------------------------------------- Usuários */
-
-export async function createStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
-  return run(async () => {
-    const me = await requireUserForAction(["ADMIN"]);
-    const role = z.enum(["ADMIN", "COORDINATION"]).parse(str(fd, "role"));
-    const name = nameSchema("nome").parse(str(fd, "name"));
-    const email = emailSchema.parse(str(fd, "email"));
-    if (await prisma.user.findUnique({ where: { email } })) throw new ActionError("Já existe um usuário com este e-mail.");
-    const user = await prisma.user.create({ data: { name, email, role } });
-    await audit({ userId: me.id, action: "USER_CREATED", entityType: "User", entityId: user.id, details: { role, email } });
-    revalidatePath("/novos-alunos/usuarios");
-    return { ok: true, message: "Usuário criado." };
-  });
-}
-
-/** Edita nome, e-mail e perfil de administrador/atendimento. O próprio perfil não pode ser alterado. */
-export async function updateStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
-  return run(async () => {
-    const me = await requireUserForAction(["ADMIN"]);
-    const id = idSchema.parse(str(fd, "id"));
-    const name = nameSchema("nome").parse(str(fd, "name"));
-    const email = emailSchema.parse(str(fd, "email"));
-    const user = await prisma.user.findFirst({ where: { id, deletedAt: null } });
-    if (!user) throw new ActionError("Usuário não encontrado.");
-    if (user.role === "PSYCHOLOGIST") throw new ActionError("Gerencie psicólogas na página Psicólogas.");
-    if (await prisma.user.findFirst({ where: { email, NOT: { id } } })) throw new ActionError("Este e-mail já pertence a outro usuário.");
-
-    const role = id === me.id ? user.role : z.enum(["ADMIN", "COORDINATION"]).parse(str(fd, "role"));
-    if (user.role === "ADMIN" && role !== "ADMIN" && (await prisma.user.count({ where: { role: "ADMIN", active: true, deletedAt: null } })) <= 1) {
-      throw new ActionError("É necessário manter ao menos um administrador ativo.");
-    }
-    await prisma.user.update({ where: { id }, data: { name, email, role } });
-    await audit({ userId: me.id, action: "USER_UPDATED", entityType: "User", entityId: id, details: { role, emailChanged: email !== user.email } });
-    revalidatePath("/novos-alunos/usuarios");
-    return { ok: true, message: "Usuário atualizado." };
-  });
-}
-
-/**
- * Exclui o usuário (exclusão lógica): o acesso é encerrado e o e-mail é liberado para novo uso,
- * mas o registro permanece para preservar o histórico de auditoria.
- */
-export async function deleteStaffUserAction(_p: ActionState, fd: FormData): Promise<ActionState> {
-  return run(async () => {
-    const me = await requireUserForAction(["ADMIN"]);
-    const id = idSchema.parse(str(fd, "id"));
-    if (id === me.id) throw new ActionError("Você não pode excluir o próprio acesso.");
-    const user = await prisma.user.findFirst({ where: { id, deletedAt: null } });
-    if (!user) throw new ActionError("Usuário não encontrado.");
-    if (user.role === "PSYCHOLOGIST") throw new ActionError("Exclua psicólogas na página Psicólogas.");
-    if (user.role === "ADMIN" && user.active && (await prisma.user.count({ where: { role: "ADMIN", active: true, deletedAt: null } })) <= 1) {
-      throw new ActionError("É necessário manter ao menos um administrador ativo.");
-    }
-    await prisma.user.update({
-      where: { id },
-      data: { active: false, deletedAt: new Date(), email: `excluido-${id}@removido.invalid` },
-    });
-    await audit({ userId: me.id, action: "USER_DELETED", entityType: "User", entityId: id, details: { role: user.role } });
-    revalidatePath("/novos-alunos/usuarios");
-    return { ok: true, message: "Usuário excluído." };
-  });
-}
-
 /** Exclui a psicóloga (exclusão lógica). Bloqueia se houver agendamentos futuros confirmados. */
 export async function deletePsychologistAction(_p: ActionState, fd: FormData): Promise<ActionState> {
   return run(async () => {
@@ -242,26 +178,7 @@ export async function deletePsychologistAction(_p: ActionState, fd: FormData): P
     });
     await audit({ userId: me.id, action: "PSYCHOLOGIST_DELETED", entityType: "Psychologist", entityId: id });
     revalidatePath("/novos-alunos/psicologas");
-    revalidatePath("/novos-alunos/usuarios");
     return { ok: true, message: "Psicóloga excluída." };
-  });
-}
-
-export async function setUserActiveAction(_p: ActionState, fd: FormData): Promise<ActionState> {
-  return run(async () => {
-    const me = await requireUserForAction(["ADMIN"]);
-    const id = idSchema.parse(str(fd, "id"));
-    const active = str(fd, "active") === "true";
-    if (id === me.id && !active) throw new ActionError("Você não pode desativar o próprio acesso.");
-    const user = await prisma.user.findUniqueOrThrow({ where: { id } });
-    if (user.role === "PSYCHOLOGIST") throw new ActionError("Gerencie psicólogas na página Psicólogas.");
-    if (user.role === "ADMIN" && !active && (await prisma.user.count({ where: { role: "ADMIN", active: true } })) <= 1) {
-      throw new ActionError("É necessário manter ao menos um administrador ativo.");
-    }
-    await prisma.user.update({ where: { id }, data: { active } });
-    await audit({ userId: me.id, action: active ? "USER_ACTIVATED" : "USER_DEACTIVATED", entityType: "User", entityId: id });
-    revalidatePath("/novos-alunos/usuarios");
-    return { ok: true };
   });
 }
 
