@@ -1,7 +1,7 @@
 # SPEC — Sistema de Gestão Ecco Prime
 
 > Especificação do sistema **como ele está hoje**, reconstruída a partir do código
-> (ramo `novos-alunos`, commit `f1b0e58`), das migrations e dos documentos do repositório.
+> (ramo `main`, commit `7d2baa3`), das migrations e dos documentos do repositório.
 > Atualizada em **10/11/2026**.
 >
 > - O plano original (julho/2026) está em [`PLANO.md`](./PLANO.md). Parte dele foi
@@ -42,8 +42,11 @@ Navegador ──► Cloudflare Worker "ecco-sistema" (Next.js 15 via OpenNext)
                  │                        acessado pelo Hyperdrive (binding ANAMNESE_DB)
                  │
                  ├─► Activesoft / SIGA (ERP da escola) — importação de alunos
-                 ├─► Google Agenda (OAuth) — eventos das anamneses       [pendente]
-                 └─► Resend (e-mail) — confirmações e lembretes          [pendente]
+                 ├─► Google Agenda (OAuth) — eventos das anamneses
+                 └─► Cloudflare Email Service — confirmações e lembretes
+                     (remetente nao-responder@msg.eccoprime.com.br)
+
+  Cron Trigger do Worker (a cada 5 min) ─► rotina de Novos alunos (§6.6)
 ```
 
 ### 2.1 Stack
@@ -53,8 +56,8 @@ Navegador ──► Cloudflare Worker "ecco-sistema" (Next.js 15 via OpenNext)
 | App | Next.js 15 (App Router, Server Actions), React 19, TypeScript |
 | Monorepo | pnpm workspaces: `apps/web` + `packages/core` (`@ecco/core`) |
 | Hospedagem | **Cloudflare Workers** (adaptador `@opennextjs/cloudflare`); build automático pelo Workers Builds ligado ao GitHub |
-| Banco/Auth | **Supabase** (projeto `njdocgzzuhhlaweqqnrq`, São Paulo) — Postgres com RLS, Auth Google, Realtime, Storage |
-| ORM (só Novos alunos) | Prisma 6 + `@prisma/adapter-pg`, conexão pelo **Hyperdrive** (cache desligado) |
+| Banco/Auth | **Supabase** — projeto `Gestão Ecco SP` (`rcjjwoajuvnrgeuzsgsj`, São Paulo/`sa-east-1`, desde 10/11/2026). Postgres com RLS, Auth Google, Realtime, Storage. O antigo `njdocgzzuhhlaweqqnrq` (Ohio) ficou parado como reserva |
+| ORM (só Novos alunos) | Prisma 6 + `@prisma/adapter-pg`, conexão pelo **Hyperdrive** `anamnese-db-sp` (conexão direta ao banco, cache desligado) |
 | UI | Tailwind, lucide, dnd-kit (Kanban), TanStack Table (lista), Tiptap (descrição rica) |
 
 ### 2.2 Estrutura de pastas
@@ -69,6 +72,7 @@ apps/web/
   components/       por módulo (board, salas, anamnese, shell…)
   lib/              lógica de servidor por módulo (board, demandas, salas, anamnese…)
   prisma/           schema e migrations da central de anamneses
+  worker.ts         entrada do Worker: app Next (OpenNext) + rotina agendada
   wrangler.jsonc    configuração do Worker
 packages/core/      regras puras, sem Next/banco: domínio, permissões, gates,
                     ranking (índice fracionário), alçadas + RICE, SLA — com testes
@@ -120,7 +124,7 @@ Outros papéis podem ser criados na tela (`/configuracoes/papeis`). O sistema im
 mudanças que deixariam a organização sem nenhum Gestor Master ativo ou sem ninguém
 com `user:manage`.
 
-**Catálogo de permissões** (`packages/core/src/domain/index.ts`):
+**Catálogo de permissões** (19) (`packages/core/src/domain/index.ts`):
 
 | Permissão | Libera |
 |---|---|
@@ -133,6 +137,8 @@ com `user:manage`.
 | `workflow:manage` | Editar regras de fluxo (gates) |
 | `plan:manage` | Planejamento de gastos |
 | `salas:manage` | Editar a Gestão de Vila (sem ela, o módulo é só leitura) |
+| `novos:access` | Novos alunos: agenda, agendamentos e relatórios (atendimento/coordenação) |
+| `novos:manage` | Novos alunos: também psicólogas, segmentos, configurações e auditoria |
 | `user:manage` | Convidar usuários e trocar papéis comuns |
 | `role:manage` | Editar papéis e conceder papéis administrativos |
 
@@ -145,7 +151,7 @@ com `user:manage`.
   que constam em `board_member`.
 - Externo vê apenas cards com `assignment` dele.
 - Quem **solicitou** um card enxerga aquele card, mesmo sem ser membro do pipeline.
-- **Novos alunos** tem perfis próprios (§6.4): ter acesso ao sistema não dá acesso à central.
+- **Novos alunos** depende das permissões `novos:*` ou do cadastro como psicóloga (§6.4).
 
 ---
 
@@ -262,7 +268,7 @@ da escola. Veio de um sistema separado e foi integrado em 09/11/2026.
 1. Acessa **`/agendar`**, escolhe o **segmento escolar**, a data e um horário livre.
 2. Informa responsável, aluno, turma (opcional), telefone e e-mail, e aceita a política de
    privacidade (`/privacidade`). O aceite é registrado com data, versão e IP.
-3. Recebe um **código de agendamento**. *(O e-mail de confirmação depende da etapa 5, §11.)*
+3. Recebe um **código de agendamento** e um **e-mail de confirmação**; 24 h antes, um lembrete.
 
 Regras: antecedência mínima de **12 h**, no máximo **90 dias** à frente, duração padrão
 de **50 min**. Os três valores são configuráveis. Quando duas psicólogas oferecem o mesmo
@@ -285,7 +291,6 @@ Hyperdrive fica desligado**: a agenda não pode mostrar como livre um horário j
 | `disponibilidade` | Regras de horário por psicóloga e segmento (período, dias da semana, início e fim, duração, intervalo) que geram os horários; bloqueios |
 | `psicologas` | Cadastro e vínculo com os segmentos |
 | `segmentos` | Segmentos escolares oferecidos (ordem, ativo) |
-| `usuarios` | Quem acessa a central e com qual perfil |
 | `google` | Conectar o Google Agenda da equipe e de cada psicóloga |
 | `relatorios` | Indicadores de agendamentos |
 | `auditoria` | Registro de todas as ações |
@@ -293,14 +298,17 @@ Hyperdrive fica desligado**: a agenda não pode mostrar como livre um horário j
 
 ### 6.4 Perfis da central
 
-O acesso usa o **mesmo login Google** do sistema. O perfil vem da tabela `anamnese."User"`,
-ligada pelo e-mail. Sem cadastro ali, a pessoa vê "acesso negado" nessa seção.
+O acesso usa o **mesmo login Google** e segue o **gerenciador de papéis** do sistema
+(Configurações → Papéis). O perfil na central é calculado a cada acesso, nesta ordem:
 
-| Perfil | Pode |
-|---|---|
-| **ADMIN** | Tudo na central |
-| **PSYCHOLOGIST** | A própria agenda e os próprios atendimentos (vê os das outras só com `canViewOthers`) |
-| **COORDINATION** | Atendimento: ver e gerenciar agendamentos; cancelar só se `coordinationCanCancel` estiver ligado |
+| Perfil | Quem recebe | Pode |
+|---|---|---|
+| **ADMIN** | Papel com `novos:manage` (Gestor Master e Gestor, por padrão) | Tudo na central |
+| **PSYCHOLOGIST** | Quem está cadastrada e ativa em **Psicólogas** | A própria agenda e os próprios atendimentos (vê os das outras só com `canViewOthers`) |
+| **COORDINATION** | Papel com `novos:access` | Atendimento: ver e gerenciar agendamentos; cancelar só se `coordinationCanCancel` estiver ligado |
+
+Sem nenhum dos três, a seção fica fechada. O registro em `anamnese."User"` é criado e
+atualizado sozinho (por e-mail), só para auditoria e vínculos. Não existe mais a tela de usuários da central.
 
 ### 6.5 LGPD
 
@@ -311,9 +319,10 @@ ligada pelo e-mail. Sem cadastro ali, a pessoa vê "acesso negado" nessa seção
 
 ### 6.6 Rotina periódica
 
-`POST /api/anamnese/cron/process` (com `Authorization: Bearer CRON_SECRET`) cria lembretes
+A cada **5 minutos** o Cron Trigger do Worker (`worker.ts`) chama internamente
+`POST /api/anamnese/cron/process` (autenticado com `CRON_SECRET`), que cria lembretes
 (24 h antes), envia os e-mails pendentes, repete sincronizações do Google que falharam,
-limpa tentativas antigas e aplica a retenção. **Ainda não está agendada no Cloudflare** (§11).
+limpa tentativas antigas e aplica a retenção.
 
 ### 6.7 Modelo de dados (schema `anamnese`, Prisma)
 
@@ -374,7 +383,7 @@ Gestão do dia a dia da escola, dividida em duas vilas (`vila1`, `vila2`) e dois
 | `GET /api/anamnese/public/slots` | público | Horários livres de uma data |
 | `GET /api/anamnese/export/appointments` | perfil da central | CSV de agendamentos |
 | `GET /api/anamnese/google/connect` / `callback` | ADMIN / psicóloga | Conexão OAuth com o Google Agenda |
-| `POST /api/anamnese/cron/process` | `CRON_SECRET` | Rotina periódica (§6.6) |
+| `POST /api/anamnese/cron/process` | `CRON_SECRET` | Rotina periódica (§6.6), chamada pelo cron do Worker |
 
 O resto das escritas usa Server Actions (`lib/**/actions.ts`).
 A API REST pública `/api/v1` e o servidor MCP previstos no plano **não foram feitos**.
@@ -383,7 +392,7 @@ A API REST pública `/api/v1` e o servidor MCP previstos no plano **não foram f
 
 ## 10. Banco de dados (schema `public`)
 
-Migrations em `infra/migrations` (0001 → 0033; **não rodam no deploy**, são aplicadas à
+Migrations em `infra/migrations` (0001 → 0034; **não rodam no deploy**, são aplicadas à
 parte com `infra/apply.mjs` / `run-sql.mjs`).
 
 | Grupo | Tabelas |
@@ -405,22 +414,25 @@ Storage: bucket público para imagens da descrição dos cards.
 ## 11. Configuração e segredos
 
 **Variáveis públicas** (`wrangler.jsonc` → `vars`, ou padrão em `next.config.ts`):
-`INTERNAL_EMAIL_DOMAIN`, `APP_URL`, URL e chave *publishable* do Supabase.
+`INTERNAL_EMAIL_DOMAIN`, `APP_URL`, `MAIL_FROM`, `GOOGLE_CLIENT_ID`, URL e chave *publishable* do Supabase.
 
 **Segredos** (só no painel do Cloudflare, *runtime*, nunca no repositório):
 
 | Segredo | Uso | Situação |
 |---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Escritas do servidor | ✅ |
+| `SUPABASE_SECRET_KEY` (formato `sb_secret_`) | Escritas do servidor | ✅ |
 | `ACTIVESOFT_API_TOKEN` | Importação de alunos | ✅ — **trocar** (ver §13) |
 | `AUTH_SECRET`, `ENCRYPTION_KEY`, `CRON_SECRET` | Central de anamneses | ✅ |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Agenda | ⏳ etapa 5 |
-| `MAIL_API_KEY`, `MAIL_FROM` | E-mails (Resend) | ⏳ etapa 5 |
+| `GOOGLE_CLIENT_SECRET` | Google Agenda | ✅ |
 
-**Bindings do Worker:** `ANAMNESE_DB` (Hyperdrive → Supabase, cache desligado),
-`ASSETS`, `WORKER_SELF_REFERENCE`.
+E-mail não usa chave: sai pelo binding `EMAIL` (Cloudflare Email Service), com o
+subdomínio `msg.eccoprime.com.br` habilitado em Email Sending.
 
-**Supabase Auth:** endereços liberados em URL Configuration:
+**Bindings do Worker:** `ANAMNESE_DB` (Hyperdrive → Supabase SP, cache desligado),
+`EMAIL` (envio de e-mail), `ASSETS`, `WORKER_SELF_REFERENCE`. **Cron:** `*/5 * * * *`.
+
+**Supabase Auth** (projeto SP): cliente OAuth Google com redirect
+`https://rcjjwoajuvnrgeuzsgsj.supabase.co/auth/v1/callback`; endereços liberados em URL Configuration:
 `https://ecco-sistema.dafarc.workers.dev/**` e `https://*-ecco-sistema.dafarc.workers.dev/**` (prévias).
 
 **Publicação:** push no `main` publica; outros ramos geram **prévia** (`upload`), sem
@@ -435,8 +447,9 @@ publicar. Detalhes em `DEPLOY.md`.
 | Migração Vercel → Cloudflare | ✅ Concluída em 09/11/2026 |
 | Quadro, Demandas, Prioridades, Planejamento, Conversas, Configurações | ✅ Em produção |
 | Gestão de Vila + Ver Alunos + Activesoft | ✅ Em produção (dados de 29/07) |
-| Novos alunos — etapas 1 a 4 (banco, login, telas, página pública) | 🟡 Ramo `novos-alunos`; build local OK, prévia no Cloudflare falhou (causa a confirmar no log) |
-| Novos alunos — etapa 5 (Google Agenda + e-mail + agendar a rotina periódica) | ⏳ Não iniciada |
+| Banco no Supabase de São Paulo | ✅ Migrado em 10/11/2026 (o de Ohio ficou parado como reserva) |
+| Novos alunos — central integrada, acesso por papéis, página pública | ✅ Em produção |
+| Novos alunos — e-mail, Google Agenda e rotina a cada 5 min | ✅ Em produção (conferir um ciclo completo: agendar → e-mail → evento na agenda → lembrete) |
 | Domínio próprio (ex.: `sistema.eccoprime.com.br`) | ⏳ A decidir |
 | Atualizar a Vila com os dados posteriores a julho e desligar o Firebase | ⏳ |
 | API REST `/api/v1`, MCP, WhatsApp, tela de volumes, emendas por página | 💤 Fora do escopo atual |
@@ -444,8 +457,8 @@ publicar. Detalhes em `DEPLOY.md`.
 **Pontos de atenção técnicos**
 - O Worker tem **~2,8 MiB comprimido**, perto do limite de 3 MiB do plano gratuito do
   Cloudflare. O próximo módulo pode exigir o plano pago (limite de 10 MiB) ou reduzir o pacote.
-- Agendar a rotina de §6.6 (Cron Trigger do Cloudflare ou serviço externo); o comentário
-  no código ainda cita o Render.
+- Prévias de ramos antigos (gerados antes de 10/11) apontam para o Supabase de Ohio e não
+  fazem login. Testar sempre a partir do `main` atual.
 - Build local no Windows não gera um Worker válido: o build que vale é o do Cloudflare (Linux).
 
 ---
