@@ -213,6 +213,12 @@ model Appointment {
   phone          String
   email          String
 
+  /// Vínculo com o cadastro da família (chave = e-mail). Os campos acima ficam
+  /// como retrato do que foi informado no agendamento.
+  familyId       String?
+  guardianId     String?
+  studentId      String?
+
   consentAt      DateTime
   consentVersion String
   consentIp      String?
@@ -233,6 +239,9 @@ model Appointment {
   segment      SchoolSegment    @relation(fields: [segmentId], references: [id], onDelete: Restrict)
   events       GoogleCalendarEvent[]
   notifications Notification[]
+  family       Family?          @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  guardian     Guardian?        @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  student      Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
 
   // Índice único PARCIAL (slotId WHERE status IN ('CONFIRMED','COMPLETED','NO_SHOW'))
   // é criado na migration SQL – o Prisma não expressa índices parciais.
@@ -241,6 +250,66 @@ model Appointment {
   @@index([segmentId, startsAt])
   @@index([status, startsAt])
   @@index([email])
+  @@index([familyId])
+}
+
+// ─── Cadastro de famílias (jornada do cliente) ─────────────────────────────
+// O e-mail de quem agenda é a chave da família em toda a jornada:
+// agendamento → anamnese → (cadastro completo) → matrícula no Activesoft.
+// Cada agendamento cria ou reaproveita a família pelo e-mail e vincula o
+// responsável e o aluno (por nome, dentro da família). Ver lib/anamnese/family.ts.
+
+model Family {
+  id           String    @id @default(cuid())
+  /// Chave da jornada: e-mail de contato da família (sempre minúsculo)
+  email        String    @unique
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  guardians    Guardian[]
+  students     Student[]
+  appointments Appointment[]
+}
+
+model Guardian {
+  id           String    @id @default(cuid())
+  familyId     String
+  name         String
+  phone        String?
+  email        String?
+  /// Parentesco com o(s) aluno(s): mãe, pai, avó…
+  relationship String?
+  /// Responsável principal (quem agendou primeiro / recebe os e-mails)
+  isPrimary    Boolean   @default(false)
+  /// Código do responsável no Activesoft, depois da matrícula
+  activesoftId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  family       Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([familyId])
+}
+
+model Student {
+  id           String    @id @default(cuid())
+  familyId     String
+  name         String
+  /// Turma/série pretendida
+  studentClass String?
+  birthDate    DateTime? @db.Date
+  /// Código do aluno no Activesoft e data da matrícula (preenchidos pelo botão Matricular)
+  activesoftId String?
+  enrolledAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  family       Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([familyId])
 }
 
 model GoogleCalendarConnection {

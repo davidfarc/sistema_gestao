@@ -8,6 +8,7 @@ import { ActionError, requireUserForAction } from "@/lib/anamnese/auth";
 import { audit } from "@/lib/anamnese/audit";
 import { run, str, type ActionState } from "@/lib/anamnese/action";
 import { bookSlot, cancelAppointment, rescheduleAppointment } from "@/lib/anamnese/booking";
+import { linkFamily, pruneFamily } from "@/lib/anamnese/family";
 import { assertCanManageAppointment } from "@/lib/anamnese/rbac";
 import { getSettings } from "@/lib/anamnese/settings";
 import { retryEvent, syncAppointmentNow } from "@/lib/anamnese/calendar-sync";
@@ -15,7 +16,7 @@ import { processNotifications } from "@/lib/anamnese/notifications";
 import { emailSchema, idSchema, nameSchema, optionalClassSchema, phoneSchema } from "@/lib/anamnese/validation";
 
 function refresh() {
-  for (const p of ["/novos-alunos", "/novos-alunos/agendamentos", "/novos-alunos/agenda", "/novos-alunos/disponibilidade"]) revalidatePath(p);
+  for (const p of ["/novos-alunos", "/novos-alunos/agendamentos", "/novos-alunos/familias", "/novos-alunos/agenda", "/novos-alunos/disponibilidade"]) revalidatePath(p);
 }
 
 /** Sincroniza com o Google e envia e-mails após a resposta; falhas ficam na fila para o cron. */
@@ -79,11 +80,15 @@ export async function updateAppointmentAction(_p: ActionState, fd: FormData): Pr
       guardianName: str(fd, "guardianName"), studentName: str(fd, "studentName"), studentClass: str(fd, "studentClass"),
       phone: str(fd, "phone"), email: str(fd, "email"), status: str(fd, "status"),
     });
-    await prisma.$transaction([
-      prisma.appointment.update({ where: { id: appt.id }, data: d }),
+    await prisma.$transaction(async (tx) => {
+      // E-mail ou nomes podem ter mudado: refaz o vínculo com o cadastro da
+      // família e limpa o que ficou sem uso na família anterior.
+      const link = await linkFamily(tx, d);
+      await tx.appointment.update({ where: { id: appt.id }, data: { ...d, ...link } });
+      if (appt.familyId) await pruneFamily(tx, appt.familyId);
       // os dados administrativos do evento no Google mudaram: reenviar
-      prisma.googleCalendarEvent.updateMany({ where: { appointmentId: appt.id }, data: { status: "PENDING", attempts: 0, nextAttemptAt: null } }),
-    ]);
+      await tx.googleCalendarEvent.updateMany({ where: { appointmentId: appt.id }, data: { status: "PENDING", attempts: 0, nextAttemptAt: null } });
+    });
     await audit({ userId: me.id, action: "APPOINTMENT_UPDATED", entityType: "Appointment", entityId: appt.id, details: { code: appt.code, status: d.status } });
     background(appt.id);
     refresh();

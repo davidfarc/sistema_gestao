@@ -104,7 +104,12 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
         <Card className="border-primary/40">
           <CardHeader className="sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Agendamento {detail.code}</CardTitle>
-            <Button asChild variant="ghost" size="sm"><Link href={`?${qs({})}`}>Fechar</Link></Button>
+            <div className="flex items-center gap-2">
+              {staff && detail.familyId && (
+                <Button asChild variant="outline" size="sm"><Link href={`/novos-alunos/familias?ver=${detail.familyId}`}>Ver família</Link></Button>
+              )}
+              <Button asChild variant="ghost" size="sm"><Link href={`?${qs({})}`}>Fechar</Link></Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">

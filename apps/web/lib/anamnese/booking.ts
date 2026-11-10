@@ -3,6 +3,7 @@ import { prisma, type Tx } from "./db";
 import { generateAppointmentCode, googleEventId } from "./crypto";
 import { getSettings, PRIVACY_VERSION } from "./settings";
 import { queueBookingNotifications, queueCancellationNotifications, queueRescheduleNotifications } from "./notifications";
+import { linkFamily } from "./family";
 
 export type BookingErrorCode =
   | "SLOT_UNAVAILABLE"
@@ -94,7 +95,9 @@ export async function bookSlot(input: BookInput): Promise<Appointment> {
         if (dup) throw fail("DUPLICATE_FAMILY");
       }
 
-      // 2) Cria o agendamento. O índice único parcial é a rede de segurança final.
+      // 2) Cria o agendamento, já ligado ao cadastro da família (chave = e-mail).
+      //    O índice único parcial é a rede de segurança final.
+      const link = await linkFamily(tx, input);
       const appointment = await tx.appointment.create({
         data: {
           code: generateAppointmentCode(),
@@ -111,6 +114,7 @@ export async function bookSlot(input: BookInput): Promise<Appointment> {
           consentAt: now,
           consentVersion: PRIVACY_VERSION,
           consentIp: input.consentIp ?? null,
+          ...link,
         },
       });
 

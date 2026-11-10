@@ -34,6 +34,7 @@ export default async function NovosAlunosLayout({ children }: { children: ReactN
     { href: "/novos-alunos", label: "Início", icon: "home" },
     { href: "/novos-alunos/agenda", label: "Agenda", icon: "agenda" },
     { href: "/novos-alunos/agendamentos", label: "Agendamentos", icon: "list" },
+    ...(admin || coord ? [{ href: "/novos-alunos/familias", label: "Famílias", icon: "family" } as TabItem] : []),
     ...(admin || psy ? [{ href: "/novos-alunos/disponibilidade", label: "Disponibilidade", icon: "avail" } as TabItem] : []),
     ...(admin || coord ? [{ href: "/novos-alunos/relatorios", label: "Relatórios", icon: "report" } as TabItem] : []),
     ...(admin

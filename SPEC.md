@@ -287,6 +287,7 @@ Hyperdrive fica desligado**: a agenda não pode mostrar como livre um horário j
 |---|---|
 | Início | Resumo do dia e próximos atendimentos |
 | `agenda` | Calendário de atendimentos |
+| `familias` | **Cadastro de famílias** (§6.8): responsáveis, alunos, anamneses e etapa da jornada |
 | `agendamentos` | Lista com filtros; cancelar, remarcar (até para outra psicóloga ou segmento), concluir, falta; exportar CSV |
 | `disponibilidade` | Regras de horário por psicóloga e segmento (período, dias da semana, início e fim, duração, intervalo) que geram os horários; bloqueios |
 | `psicologas` | Cadastro e vínculo com os segmentos |
@@ -329,8 +330,32 @@ limpa tentativas antigas e aplica a retenção.
 `User`, `Psychologist`, `SchoolSegment`, `PsychologistSegment`, `AvailabilityRule`,
 `AvailabilitySlot` (AVAILABLE/BOOKED/BLOCKED), `Appointment`
 (CONFIRMED/CANCELLED/COMPLETED/NO_SHOW), `GoogleCalendarConnection`, `GoogleCalendarEvent`,
-`Notification` (EMAIL; WHATSAPP previsto e hoje ignorado), `AuditLog`, `SystemSetting`,
+`Notification` (EMAIL; WHATSAPP previsto e hoje ignorado), `Family`, `Guardian`, `Student` (§6.8), `AuditLog`, `SystemSetting`,
 `LoginAttempt`.
+
+### 6.8 Cadastro de famílias (jornada do cliente)
+
+O **e-mail de quem agenda é a chave da família** em toda a jornada:
+*anamnese agendada → anamnese realizada → (cadastro completo) → matriculada*.
+
+- A cada agendamento (pela família ou pela equipe), o sistema **cria ou reaproveita a família
+  pelo e-mail** e vincula o **responsável** e o **aluno** pelo nome dentro dela (sem diferença
+  de maiúsculas e espaços). Telefone e turma são atualizados com o último informado.
+  Irmãos e segundo responsável ficam na mesma família.
+- O agendamento guarda também o retrato do que foi digitado (`guardianName`, `studentName`…).
+- Se a equipe corrige e-mail ou nome num agendamento, o vínculo é refeito, e o que ficou sem
+  uso na família anterior é apagado.
+- **Etapa** calculada (não armazenada): *Matriculada* (algum aluno com matrícula) ›
+  *Anamnese realizada* (algum agendamento `COMPLETED`) › *Anamnese agendada* (algum
+  `CONFIRMED`) › *Sem agendamento ativo*.
+- **Aba Famílias** (Administração e Atendimento/Coordenação): busca por e-mail/nome, filtro
+  por etapa, editar responsáveis (parentesco, telefone, e-mail, principal), adicionar
+  responsável, editar aluno (turma pretendida, nascimento) e observações. Tudo vai para a auditoria.
+- **LGPD:** família sem matrícula é apagada quando todos os agendamentos dela já foram
+  anonimizados (§6.5). Quem se matriculou é preservado.
+- **Matrícula no Activesoft:** a API do Activesoft **não grava** cadastros (só leitura, salvo
+  casos específicos). O botão "Matricular" está em definição (§12). Os campos
+  `activesoftId`/`enrolledAt` já existem para registrar o vínculo.
 
 ---
 
@@ -449,6 +474,8 @@ publicar. Detalhes em `DEPLOY.md`.
 | Gestão de Vila + Ver Alunos + Activesoft | ✅ Em produção (dados de 29/07) |
 | Banco no Supabase de São Paulo | ✅ Migrado em 10/11/2026 (o de Ohio ficou parado como reserva) |
 | Novos alunos — central integrada, acesso por papéis, página pública | ✅ Em produção |
+| Cadastro de famílias (e-mail como chave) | 🟡 Ramo `familias`; aplicar a migration `20261110180000_families` antes de publicar |
+| Matricular → Activesoft | ⏳ API não grava; definir alternativa |
 | Novos alunos — e-mail, Google Agenda e rotina a cada 5 min | ✅ Em produção (conferir um ciclo completo: agendar → e-mail → evento na agenda → lembrete) |
 | Domínio próprio (ex.: `sistema.eccoprime.com.br`) | ⏳ A decidir |
 | Atualizar a Vila com os dados posteriores a julho e desligar o Firebase | ⏳ |
