@@ -32,7 +32,7 @@ export default async function SchedulePage() {
           <div className="flex items-start gap-4">
             <span className="hidden size-14 shrink-0 place-items-center rounded-2xl bg-white/15 sm:grid"><CalendarHeart className="size-7" /></span>
             <div>
-              <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">Central de Agendamento de Anamneses</h1>
+              <h1 className="font-headline text-2xl font-extrabold leading-tight text-white sm:text-3xl">Central de Agendamento de Anamneses</h1>
               <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/90">{s.welcomeText}</p>
             </div>
           </div>
