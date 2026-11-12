@@ -274,6 +274,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
 | `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
+| `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço; antes eram executáveis direto pelo navegador | **A aplicar (segurança, prioridade)** |
 
 ### Bloco A — Quadro (código completo)
 
@@ -330,8 +331,23 @@ Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
 - **Antes de cada envio:** `pnpm typecheck` e `pnpm -r test`; o que é de tela é conferido num
   navegador local com dados de exemplo quando não depende de login.
 
+### Segurança (achados durante a fase)
+
+- **Conversas sem checagem de participação (corrigido no ramo, 12/11).** `postMessage` aceitava
+  qualquer canal; `setChannelMember`, `loadChannelMembers` e `renameChannel` aceitavam conversas
+  diretas e canais de outra organização (quem tem `channel:manage` podia se incluir numa DM
+  alheia). Agora: postar exige ser membro; gestão vale só para grupos da própria organização.
+  **O `main` (produção) continua com a falha até este ramo ser publicado.**
+- **Funções `security definer` abertas (migration 0038).** `conversation_list(p_user)` e
+  `sala_state_set(p_org, …)` confiam num parâmetro de quem chama e eram executáveis por
+  `authenticated`/`anon` via `/rest/v1/rpc`. A 0038 restringe a `service_role`; vale para
+  produção assim que aplicada, sem depender de publicar o ramo.
+- Regra daqui para frente: toda função `security definer` nasce com
+  `revoke all … from public, anon, authenticated` e só recebe o `grant` de quem precisa.
+
 ### Pendências com o David
 
+0. **Aplicar a migration 0038** (segurança).
 1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
 3. Enviar o logo oficial para os ícones do aplicativo.

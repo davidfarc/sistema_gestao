@@ -1,5 +1,6 @@
 "use server";
 
+import { NotFoundError, type Actor } from "@ecco/core";
 import { revalidatePath } from "next/cache";
 
 import { requireActor } from "@/lib/actor";
@@ -14,6 +15,52 @@ import { ensureDmChannel } from "@/lib/comms/dm";
 import { sendPush } from "@/lib/push/send";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+
+type AdminDb = ReturnType<typeof createAdminClient>;
+
+/**
+ * As actions deste arquivo gravam com a chave de serviço, que ignora o RLS.
+ * Por isso QUEM pode mexer em QUAL canal é conferido aqui, à mão. A permissão
+ * (`channel:post`, `channel:manage`) diz o que a pessoa pode fazer; estas
+ * funções dizem se pode fazer NESTE canal. Canal fora do alcance responde
+ * como inexistente (SPEC §2.3: não revelar que existe).
+ */
+
+/** Canal da organização do ator, ou erro de "não encontrado". */
+async function channelInOrg(db: AdminDb, channelId: string, actor: Actor) {
+  const { data } = await db
+    .from("channel")
+    .select("id, organization_id, kind")
+    .eq("id", channelId)
+    .eq("organization_id", actor.organizationId as string)
+    .maybeSingle();
+  if (!data) throw new NotFoundError("Conversa não encontrada.");
+  return data as { id: string; organization_id: string; kind: "group" | "dm" };
+}
+
+/** Canal em que o ator PARTICIPA (grupo ou conversa direta). */
+async function channelAsMember(db: AdminDb, channelId: string, actor: Actor) {
+  const channel = await channelInOrg(db, channelId, actor);
+  const { data: membership } = await db
+    .from("channel_member")
+    .select("user_id")
+    .eq("channel_id", channelId)
+    .eq("user_id", actor.userId as string)
+    .maybeSingle();
+  if (!membership) throw new NotFoundError("Conversa não encontrada.");
+  return channel;
+}
+
+/**
+ * GRUPO da organização do ator, para as ações de gestão. Conversa direta fica
+ * de fora de propósito: ninguém gerencia (nem lista, nem entra em) a conversa
+ * particular de outras duas pessoas.
+ */
+async function groupForManager(db: AdminDb, channelId: string, actor: Actor) {
+  const channel = await channelInOrg(db, channelId, actor);
+  if (channel.kind !== "group") throw new NotFoundError("Conversa não encontrada.");
+  return channel;
+}
 
 function initialsOf(text: string): string {
   const t = text.trim();
@@ -96,8 +143,9 @@ export async function createChannel(name: string): Promise<void> {
 
 /** Renomeia um grupo (só canais de grupo). */
 export async function renameChannel(channelId: string, name: string): Promise<void> {
-  await requireActor("channel:manage");
+  const actor = await requireActor("channel:manage");
   const db = createAdminClient();
+  await groupForManager(db, channelId, actor);
   const { error } = await db
     .from("channel")
     .update({ name: name.trim() || "Grupo" })
@@ -111,11 +159,17 @@ export async function renameChannel(channelId: string, name: string): Promise<vo
 export async function loadChannelMembers(
   channelId: string,
 ): Promise<{ memberIds: string[]; users: MemberOption[] }> {
-  await requireActor("channel:manage");
+  const actor = await requireActor("channel:manage");
   const db = createAdminClient();
+  await groupForManager(db, channelId, actor);
   const [memRes, usersRes] = await Promise.all([
     db.from("channel_member").select("user_id").eq("channel_id", channelId),
-    db.from("app_user").select("id, name, email").eq("is_internal", true).order("name"),
+    db
+      .from("app_user")
+      .select("id, name, email")
+      .eq("organization_id", actor.organizationId as string)
+      .eq("is_internal", true)
+      .order("name"),
   ]);
   return {
     memberIds: (memRes.data ?? []).map((m) => m.user_id),
@@ -129,9 +183,18 @@ export async function setChannelMember(
   userId: string,
   member: boolean,
 ): Promise<void> {
-  await requireActor("channel:manage");
+  const actor = await requireActor("channel:manage");
   const db = createAdminClient();
+  await groupForManager(db, channelId, actor);
   if (member) {
+    // Só entra quem é da mesma organização.
+    const { data: user } = await db
+      .from("app_user")
+      .select("id")
+      .eq("id", userId)
+      .eq("organization_id", actor.organizationId as string)
+      .maybeSingle();
+    if (!user) throw new NotFoundError("Usuário não encontrado.");
     await db
       .from("channel_member")
       .upsert({ channel_id: channelId, user_id: userId }, { onConflict: "channel_id,user_id" });
@@ -207,12 +270,8 @@ export async function postMessage(channelId: string, body: string): Promise<void
   if (!text) return;
   const actor = await requireActor("channel:post");
   const db = createAdminClient();
-  const { data: ch } = await db
-    .from("channel")
-    .select("organization_id, kind")
-    .eq("id", channelId)
-    .single();
-  if (!ch) throw new Error("Canal não encontrado.");
+  // Só quem participa da conversa escreve nela.
+  const ch = await channelAsMember(db, channelId, actor);
   const { error } = await db.from("message").insert({
     organization_id: ch.organization_id,
     channel_id: channelId,
