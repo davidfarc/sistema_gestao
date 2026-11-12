@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { placementIndex, type Placement } from "@ecco/core";
+
 import { BoardProvider } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
@@ -154,18 +156,31 @@ export function BoardView({
 
   const refreshBoard = useCallback(() => router.refresh(), [router]);
 
-  function move(cardId: string, toStageId: string) {
+  function move(cardId: string, toStageId: string, placement: Placement) {
     setMoveError(null);
-    // Otimista: move na hora; se um gate barrar no servidor, reverte.
-    setCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, stageId: toStageId } : c)),
-    );
-    moveCard(cardId, toStageId).then((res) => {
-      if (!res.ok) {
-        setMoveError(res.reason);
-        router.refresh(); // reverte para o estado real do servidor
-      }
+    // Otimista: muda de etapa e de lugar na hora (a ordem da lista É a ordem
+    // na coluna); se um gate barrar no servidor, reverte.
+    setCards((prev) => {
+      const moving = prev.find((c) => c.id === cardId);
+      if (!moving) return prev;
+      const rest = prev.filter((c) => c.id !== cardId);
+      const column = rest.filter((c) => c.stageId === toStageId).map((c) => c.id);
+      // Card que fica logo abaixo na coluna de destino (undefined = vai para o fim).
+      const nextId = column[placementIndex(column, placement)];
+      const at = nextId ? rest.findIndex((c) => c.id === nextId) : rest.length;
+      return [...rest.slice(0, at), { ...moving, stageId: toStageId }, ...rest.slice(at)];
     });
+    moveCard(cardId, toStageId, placement)
+      .then((res) => {
+        if (!res.ok) {
+          setMoveError(res.reason);
+          router.refresh(); // reverte para o estado real do servidor
+        }
+      })
+      .catch(() => {
+        setMoveError("Não foi possível mover o card. Tente de novo.");
+        router.refresh();
+      });
   }
 
   return (

@@ -4,8 +4,12 @@ import {
   CardService,
   ForbiddenError,
   GateBlockedError,
+  firstPosition,
+  placeInColumn,
+  positionAfter,
   validateThresholds,
   type Action,
+  type Placement,
   type RuleViolation,
   type Thresholds,
 } from "@ecco/core";
@@ -62,6 +66,65 @@ async function recordActivity(
 
 // ── Cards ────────────────────────────────────────────────────────────────────
 
+type AdminDb = ReturnType<typeof createAdminClient>;
+
+/** Posição para um card entrar no FIM da etapa (card novo vai para o pé da coluna). */
+async function endOfStagePosition(db: AdminDb, stageId: string): Promise<number> {
+  const { data } = await db
+    .from("card")
+    .select("position")
+    .eq("stage_id", stageId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? positionAfter(Number(data.position)) : firstPosition();
+}
+
+/**
+ * Grava a ordem do card dentro da etapa em que ele JÁ está (a troca de etapa é
+ * sempre do CardService.move). Sem `placement`, vai para o fim da coluna.
+ */
+async function placeCardInStage(
+  db: AdminDb,
+  cardId: string,
+  stageId: string,
+  placement: Placement | undefined,
+): Promise<void> {
+  if (!placement) {
+    const { error } = await db
+      .from("card")
+      .update({ position: await endOfStagePosition(db, stageId) })
+      .eq("id", cardId)
+      .eq("stage_id", stageId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  // Mesma ordem que o quadro mostra (loadBoard): posição e, no empate, número.
+  const { data: column, error: readError } = await db
+    .from("card")
+    .select("id, position")
+    .eq("stage_id", stageId)
+    .order("position")
+    .order("number");
+  if (readError) throw new Error(readError.message);
+
+  const current = (column ?? []).map((c) => ({ id: c.id, position: Number(c.position) }));
+  const result = placeInColumn(current, cardId, placement);
+  const writes =
+    result.kind === "single"
+      ? [{ id: cardId, position: result.position }]
+      : result.positions.filter(
+          (p) => current.find((c) => c.id === p.id)?.position !== p.position,
+        );
+  const results = await Promise.all(
+    writes.map((w) =>
+      db.from("card").update({ position: w.position }).eq("id", w.id).eq("stage_id", stageId),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+}
+
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
 export async function createCard(boardId: string, title: string): Promise<string> {
   const actor = await requireActor("card:create");
@@ -91,6 +154,7 @@ export async function createCard(boardId: string, title: string): Promise<string
       board_id: board.id,
       stage_id: firstStage.id,
       title: title.trim() || "Novo card",
+      position: await endOfStagePosition(db, firstStage.id),
       requester_id: actor.userId as string, // solicitante = quem abriu
     })
     .select("id")
@@ -151,6 +215,7 @@ export async function createCardWithFields(
       board_id: board.id,
       stage_id: firstStage.id,
       title: title.trim() || "Novo card",
+      position: await endOfStagePosition(db, firstStage.id),
       requester_id: actor.userId as string, // solicitante = quem abriu
     })
     .select("id")
@@ -301,10 +366,15 @@ export async function setBoardAlcadaThresholds(
 /**
  * Move um card de etapa PELO CardService — avalia os gates (workflow_rules) no
  * servidor. Se um gate block barrar, retorna { ok:false, reason } (não move).
+ *
+ * `placement` diz onde o card foi solto dentro da coluna (vizinho de cima e de
+ * baixo). Também serve para só reordenar na mesma etapa: aí o CardService
+ * confere a permissão, não há troca de etapa e só a posição é gravada.
  */
 export async function moveCard(
   cardId: string,
   toStageId: string,
+  placement?: Placement,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const actor = await provisionAndGetActor();
   if (!actor) return { ok: false, reason: "Sessão expirada. Entre novamente." };
@@ -327,6 +397,18 @@ export async function moveCard(
           ? Math.max(0, Math.round((Date.now() - new Date(before.stage_entered_at).getTime()) / 1000))
           : null,
       });
+    }
+    // Trocou de etapa sem dizer onde (ex.: pela Lista) → fim da coluna.
+    if (res.moved || placement) {
+      await placeCardInStage(
+        createAdminClient(),
+        cardId,
+        toStageId,
+        placement && {
+          beforeId: typeof placement.beforeId === "string" ? placement.beforeId : null,
+          afterId: typeof placement.afterId === "string" ? placement.afterId : null,
+        },
+      );
     }
     revalidatePath("/board");
     return { ok: true };

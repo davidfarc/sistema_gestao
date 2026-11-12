@@ -269,4 +269,5 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | A1 tempo real · A2 busca e "Meus cards" · A5 face do card · A6 etapas · A7 visão lembrada · A10 · A11 | Código pronto no ramo `claude/fase2-quadro`; **falta aplicar a migration 0035 e testar com dados reais** |
 | Histórico enriquecido (`card_created`, origem e tempo na etapa, `completed_at`) | Idem |
 | A3 card com link (`?card=<id>`, painel lateral = mesmo componente da página `/card/[id]`) | Código pronto no ramo; **falta testar na prévia** |
-| A4 ordem na coluna · A8 criar na coluna · A9 atualização local | A fazer |
+| A4 ordem na coluna (`@dnd-kit/sortable` + `placeInColumn` em `core/ranking.ts`; card novo entra no fim da coluna) | Código pronto no ramo; arrasto testado em navegador com dados de mentira; **falta testar na prévia com o banco**. Sem migration |
+| A8 criar na coluna · A9 atualização local | A fazer |
