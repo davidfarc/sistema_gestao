@@ -264,25 +264,76 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 
 ## Andamento
 
-| Item | Situação |
-|---|---|
-| A1 tempo real · A2 busca e "Meus cards" · A5 face do card · A6 etapas · A7 visão lembrada · A10 · A11 | Código pronto no ramo `claude/fase2-quadro`; **falta aplicar a migration 0035 e testar com dados reais** |
-| Histórico enriquecido (`card_created`, origem e tempo na etapa, `completed_at`) | Idem |
-| A3 card com link (`?card=<id>`, painel lateral = mesmo componente da página `/card/[id]`) | Código pronto no ramo; **falta testar na prévia** |
-| A4 ordem na coluna (`@dnd-kit/sortable` + `placeInColumn` em `core/ranking.ts`; card novo entra no fim da coluna) | Código pronto no ramo; arrasto testado em navegador com dados de mentira; **falta testar na prévia com o banco**. Sem migration |
-| A8 "+ Adicionar card" no pé da coluna (formulário `simple`; nasce na 1ª etapa e vai à coluna pelo `CardService.move`) | Código pronto no ramo; **falta testar na prévia**. Sem migration |
-| A9 atualização local (mover, criar na coluna, editar no painel e na Lista mudam a tela na hora; o Realtime é aplicado sem ir ao servidor; `router.refresh()` só em erro, card novo de terceiros sem nome conhecido, etapas e dados velhos; a Lista abre com 1 ida ao servidor em vez de 4) | Código pronto no ramo; **falta testar na prévia**. Sem migration |
+> Atualizado em **12/11/2026**. Tudo abaixo está no ramo `claude/fase2-quadro` (prévia do
+> Cloudflare); **nada foi para o `main`** ainda.
 
-**Bloco A: código completo.** Pendências para fechar: aplicar a migration 0035 (se ainda não foi) e
-validar na prévia do ramo. Próximo bloco: **B (mobile/PWA)**.
+### Banco
 
-| Bloco B | Situação |
-|---|---|
-| Manifesto, ícones, instalação, barra inferior (Início, Quadros, Conversas, Avisos + **Menu**, que abre a barra lateral completa) e tela `/avisos` | Código pronto no ramo; **falta testar no celular pela prévia**. Sem migration. Os ícones são provisórios (livro branco sobre o azul da marca): trocar pelo logo oficial quando houver |
-| Quadro e card no celular (uma etapa por vez com abas e deslizar; sem arrastar e sem Lista; "Mover para…" no topo do card, também no computador; comentários por último com campo fixo no rodapé) | Código pronto no ramo; conferido em navegador com dados de mentira; **falta testar no celular pela prévia**. Sem migration |
-| Conversas no celular (lista → conversa, uma tela por vez; conversa aberta em `/canais?conversa=<id>`; botão voltar; campos de 16 px e alvos de toque maiores) | Código pronto no ramo; passa em typecheck e build, **não foi exercitado em navegador** (depende de login e dados): testar no celular pela prévia. Sem migration |
-| Painel (`/painel`): por pipeline, cards em aberto, atrasados, parados (+7 dias na etapa), concluídos e criados em 7 dias, "meus" e contagem por etapa; função `report_pipeline_overview` (migration **0036**, security invoker = RLS de quem chama) | Código pronto no ramo; função testada em Postgres local e tela conferida com dados de exemplo; **falta aplicar a 0036 e testar na prévia** |
-| Push · Passada de acessibilidade | A fazer |
+| Migration | O que faz | Situação |
+|---|---|---|
+| `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
+| `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
+| `0037_push_subscription.sql` | Inscrições de notificação push por aparelho | Em preparo (bloco B, push) |
 
-Nota: a barra inferior ganhou um 5º item, **Menu**, além dos 4 previstos em B.3. Sem ele, Gestão
-de Vila, Novos alunos, Configurações e "Sair" ficariam sem caminho no celular.
+### Bloco A — Quadro (código completo)
+
+| Item | O que ficou | Situação |
+|---|---|---|
+| A1 tempo real | Cards e etapas em canais Realtime separados; mudança em card conhecido é aplicada direto na tela. Plano B: se o canal falhar, recarrega a cada 20 s | ✅ Confirmado na prévia (duas janelas, ~1 s) |
+| A2 busca e "Meus cards" · A5 face do card · A6 etapas · A7 visão lembrada · A10 · A11 | Como descrito na tabela da seção A | Na prévia; falta conferência item a item |
+| Histórico enriquecido | `card_created`, `card_moved` com origem e tempo na etapa, `completed_at` | Na prévia; será validado pelos relatórios (bloco D) |
+| A3 card com link | `?card=<id>` na URL; painel lateral largo (tela cheia no celular) com o mesmo `CardContent` da página `/card/[id]`; o modal antigo (`CardDetail`) saiu | Na prévia |
+| A4 ordem na coluna | `@dnd-kit/sortable`; posição calculada por `placeInColumn` (`core/ranking.ts`) no navegador e no servidor; cards antigos empatados em 1000 são renumerados na primeira reordenação; card novo entra no fim | ✅ Arrastar grava (confirmado após F5) e chega às outras janelas |
+| A8 "+ Adicionar card" | Pé de cada coluna, só no formulário `simple`; nasce na 1ª etapa e vai à coluna pelo `CardService.move` | Na prévia |
+| A9 atualização local | As actions de card do dia a dia não chamam mais `revalidatePath`; a tela muda na hora (`lib/board/localState.ts`); `router.refresh()` só em erro, card novo cujo solicitante a tela não conhece, etapas e dados velhos; a Lista abre com 1 ida ao servidor em vez de 4 | Na prévia |
+
+### Bloco B — Mobile (PWA)
+
+| Item | O que ficou | Situação |
+|---|---|---|
+| Instalação e navegação | Manifesto e ícones; barra inferior (Início, Quadros, Conversas, Avisos + **Menu**); tela `/avisos`; convite de instalação com passo a passo do iPhone | Na prévia; falta testar no celular |
+| Quadro e card no celular | Uma etapa por vez (abas + deslizar), sem arrastar e sem Lista; "Mover para" no topo do card (também no computador); comentários por último com campo fixo no rodapé | Na prévia; falta testar no celular |
+| Conversas no celular | Lista → conversa, uma tela por vez; `/canais?conversa=<id>`; botão voltar | Na prévia; **não foi exercitado em navegador antes do envio**: testar com atenção |
+| Painel (`/painel`) | Por pipeline: em aberto, atrasados, parados (+7 dias na etapa), concluídos e criados em 7 dias, "meus" e contagem por etapa. Atalho no menu lateral e no Início | Na prévia (0036 aplicada); falta conferir os números com os quadros |
+| Push | Menção, atribuição e mensagem direta | **Em andamento** (criptografia Web Push pronta em `core/webpush.ts`, com testes) |
+| Passada de acessibilidade | B.5 | A fazer |
+
+Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
+
+### Decisões e ajustes tomados durante a execução
+
+- **Barra inferior com 5 itens**, não 4: o item **Menu** abre a barra lateral completa. Sem ele,
+  Gestão de Vila, Novos alunos, Configurações e "Sair" ficariam sem caminho no celular.
+- **"Mover para" é um seletor nativo no topo do card**, em vez de um botão no card do quadro. Atende
+  o celular (B.3) e o teclado (B.5) com um controle só.
+- **Criar numa coluna não pula regra de fluxo**: o card nasce na 1ª etapa e é movido pelo
+  `CardService.move`; se um gate barrar, fica na 1ª etapa e a tela avisa.
+- **Ícones provisórios** (livro branco sobre o azul da marca), a trocar pelo logo oficial.
+- **Relatórios com `security invoker`**: `report_*` rodam com o RLS de quem chama. Para o MCP
+  (token, sem sessão do Supabase) será preciso definir como o usuário é informado à função (D.3).
+- **Web Push sem biblioteca**: implementado sobre WebCrypto em `packages/core`, para não aumentar
+  o Worker (perto do limite de 3 MiB).
+
+### Como trabalhamos (operação)
+
+- **Migrations pelo SQL Editor do Supabase.** O computador de trabalho não tem `.env` com
+  `DATABASE_URL`, e as chaves do Cloudflare não são legíveis de volta. O SQL de cada migration é
+  colado no editor do projeto **Gestão Ecco SP**; todas são idempotentes.
+- **O banco não é compartilhado com o assistente** (decisão de 12/11): diagnósticos são feitos com
+  consultas que o David roda e devolve.
+- **Testar sempre na prévia do ramo**, não em produção: o endereço normal mostra o `main`, sem
+  nada desta fase. Sinal de que é a prévia: campo "Buscar card…" e "Meus cards" no topo do quadro.
+- **Lição do tempo real (12/11):** o quadro não atualizava entre janelas até `card` e `stage`
+  constarem em `pg_publication_tables` para `supabase_realtime`. O Supabase recusa o canal
+  inteiro quando uma tabela assinada não está publicada. Conferência:
+  `select tablename from pg_publication_tables where pubname = 'supabase_realtime';`
+- **Antes de cada envio:** `pnpm typecheck` e `pnpm -r test`; o que é de tela é conferido num
+  navegador local com dados de exemplo quando não depende de login.
+
+### Pendências com o David
+
+1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
+2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
+3. Enviar o logo oficial para os ícones do aplicativo.
+4. Push: gerar o par de chaves e cadastrá-lo no Cloudflare (instruções virão com o item).
+5. Pendências antigas da seção "Resumo": provedor do VPS do WhatsApp; quem recebe `report:read`.
