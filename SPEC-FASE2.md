@@ -281,7 +281,8 @@ validar na prévia do ramo. Próximo bloco: **B (mobile/PWA)**.
 | Manifesto, ícones, instalação, barra inferior (Início, Quadros, Conversas, Avisos + **Menu**, que abre a barra lateral completa) e tela `/avisos` | Código pronto no ramo; **falta testar no celular pela prévia**. Sem migration. Os ícones são provisórios (livro branco sobre o azul da marca): trocar pelo logo oficial quando houver |
 | Quadro e card no celular (uma etapa por vez com abas e deslizar; sem arrastar e sem Lista; "Mover para…" no topo do card, também no computador; comentários por último com campo fixo no rodapé) | Código pronto no ramo; conferido em navegador com dados de mentira; **falta testar no celular pela prévia**. Sem migration |
 | Conversas no celular (lista → conversa, uma tela por vez; conversa aberta em `/canais?conversa=<id>`; botão voltar; campos de 16 px e alvos de toque maiores) | Código pronto no ramo; passa em typecheck e build, **não foi exercitado em navegador** (depende de login e dados): testar no celular pela prévia. Sem migration |
-| Painel · Push · Passada de acessibilidade | A fazer |
+| Painel (`/painel`): por pipeline, cards em aberto, atrasados, parados (+7 dias na etapa), concluídos e criados em 7 dias, "meus" e contagem por etapa; função `report_pipeline_overview` (migration **0036**, security invoker = RLS de quem chama) | Código pronto no ramo; função testada em Postgres local e tela conferida com dados de exemplo; **falta aplicar a 0036 e testar na prévia** |
+| Push · Passada de acessibilidade | A fazer |
 
 Nota: a barra inferior ganhou um 5º item, **Menu**, além dos 4 previstos em B.3. Sem ele, Gestão
 de Vila, Novos alunos, Configurações e "Sair" ficariam sem caminho no celular.

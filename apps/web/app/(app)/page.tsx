@@ -1,4 +1,4 @@
-import { KanbanSquare } from "lucide-react";
+import { BarChart3, KanbanSquare } from "lucide-react";
 import Link from "next/link";
 
 import { InstallHint } from "@/components/shell/InstallHint";
@@ -30,10 +30,10 @@ export default async function Home() {
         gráfica.
       </p>
 
-      <div className="mt-8">
+      <div className="mt-8 grid gap-3 sm:grid-cols-2">
         <Link
           href="/board"
-          className="group flex max-w-sm items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
+          className="group flex items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
         >
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
             <KanbanSquare className="h-5 w-5" />
@@ -41,6 +41,18 @@ export default async function Home() {
           <div>
             <h3 className="text-base">Quadro de produção</h3>
             <p className="text-sm text-secondary">Kanban + lista, cards e checklists</p>
+          </div>
+        </Link>
+        <Link
+          href="/painel"
+          className="group flex items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
+            <BarChart3 className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-base">Painel</h3>
+            <p className="text-sm text-secondary">Atrasados, parados e concluídos por pipeline</p>
           </div>
         </Link>
       </div>
