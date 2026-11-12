@@ -282,17 +282,17 @@ termos de uso.
 |---|---|
 | Cronômetro no card | O colaborador clica em **Iniciar** no card em que vai trabalhar, **Pausar** quando para e **Retomar** depois, inclusive em outro dia. O sistema soma os períodos |
 | Uma tarefa por vez | Iniciar outra tarefa pausa a anterior sozinho. Mover o card para análise também pausa |
-| Esquecimento | Cronômetro ligado sem a tela aberta por mais de N minutos é encerrado no último sinal recebido (N a definir; sugestão 15) |
+| Esquecimento | **Sem encerramento automático** (decidido em 12/11). O contador mostra há quanto tempo está ligado; se a pessoa percebe o erro (ex.: 23 h na tarefa), ela **edita a hora em que parou** antes de encerrar e depois retoma. O sistema avisa quando um cronômetro passa de um limite (sugestão: 10 h seguidas), sem parar sozinho. Toda correção fica no histórico do card |
 | Dados | Tabela `time_entry` (card, pessoa, início, fim). Total do card = soma dos períodos |
 | Quem vê | **Só a gestão** vê o bloco "Equipe agora" (em que cada um está trabalhando) e os relatórios. Cada pessoa vê apenas o próprio tempo |
 | Relatórios (Painéis) | No que cada um trabalhou e por quanto tempo; horas médias por tipo de material e por segmento, para planejar; horas registradas por dia |
+| Exportação | **Planilha (CSV) por período**, em lote: uma linha por período trabalhado (pessoa, card, pipeline, início, fim, duração) e uma versão resumida por card. Só para a gestão |
 
 Pontos em aberto:
 
 1. Texto dos termos de uso (finalidade: medir tempo de tarefa, não jornada) e aviso à equipe no
    primeiro acesso. Vale uma conferida de quem cuida do jurídico/RH.
-2. Permite corrigir tempo à mão (esqueceu de pausar)? Sugestão: sim, pelo próprio colaborador, com
-   registro no histórico do card.
+2. ~~Corrigir tempo à mão~~ — decidido: sim, pelo próprio colaborador (ver "Esquecimento").
 3. Tempo de guarda dos períodos detalhados (sugestão: 12 meses; os totais por card ficam).
 
 ### E.2b "Minhas demandas": a visão do colaborador
@@ -305,10 +305,14 @@ No nosso sistema entra como **terceira visão do pipeline**, ao lado de Kanban e
 
 - mostra os cards em que a pessoa é responsável, com os devolvidos no topo e depois por prazo;
 - cada card traz o cronômetro, "Abrir card" e "Finalizar e enviar para análise";
-- é a visão padrão de quem não gerencia o pipeline; gestores abrem na Lista;
+- **é ligada por pipeline**: na criação ou na edição do pipeline escolhe-se quais visões ele oferece (Kanban, Lista, Minhas demandas), qual abre primeiro e se o controle de tempo está ativo. Kanban e Lista não mudam de funcionamento;
+- onde estiver ligada, é a visão padrão de quem não gerencia o pipeline; gestores abrem na Lista;
 - na tela Início, um resumo "Minhas demandas" junta os cards da pessoa em todos os pipelines.
 
 ### E.3 Ordem sugerida
+
+**Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
+O visual novo mexe em todas as telas e deve partir de uma base já validada.
 
 1. Visual novo no sistema todo (tokens e componentes) — maior, mexe em todas as telas.
 2. Lista nova (resumo, filtros rápidos, ordenação, planilha), mantendo o que já existe.
