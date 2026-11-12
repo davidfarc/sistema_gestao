@@ -11,6 +11,7 @@ import type {
   UserSearchResult,
 } from "@/lib/board/types";
 import { ensureDmChannel } from "@/lib/comms/dm";
+import { sendPush } from "@/lib/push/send";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -208,7 +209,7 @@ export async function postMessage(channelId: string, body: string): Promise<void
   const db = createAdminClient();
   const { data: ch } = await db
     .from("channel")
-    .select("organization_id")
+    .select("organization_id, kind")
     .eq("id", channelId)
     .single();
   if (!ch) throw new Error("Canal não encontrado.");
@@ -220,6 +221,23 @@ export async function postMessage(channelId: string, body: string): Promise<void
     mentions: [],
   });
   if (error) throw new Error(error.message);
+
+  // Push só em conversa direta (grupo movimentado viraria enxurrada de avisos).
+  if (ch.kind === "dm") {
+    const [{ data: others }, { data: me }] = await Promise.all([
+      db.from("channel_member").select("user_id").eq("channel_id", channelId),
+      db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
+    ]);
+    await sendPush(
+      (others ?? []).map((m) => m.user_id).filter((id) => id !== (actor.userId as string)),
+      {
+        title: me?.name || me?.email || "Nova mensagem",
+        body: text.slice(0, 140),
+        url: `/canais?conversa=${channelId}`,
+        tag: `conversa-${channelId}`,
+      },
+    );
+  }
 }
 
 /** Marca a conversa como lida (last_read_at = agora) para o usuário atual. */

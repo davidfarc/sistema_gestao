@@ -273,7 +273,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 |---|---|---|
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
-| `0037_push_subscription.sql` | Inscrições de notificação push por aparelho | Em preparo (bloco B, push) |
+| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 
@@ -295,7 +295,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | Quadro e card no celular | Uma etapa por vez (abas + deslizar), sem arrastar e sem Lista; "Mover para" no topo do card (também no computador); comentários por último com campo fixo no rodapé | Na prévia; falta testar no celular |
 | Conversas no celular | Lista → conversa, uma tela por vez; `/canais?conversa=<id>`; botão voltar | Na prévia; **não foi exercitado em navegador antes do envio**: testar com atenção |
 | Painel (`/painel`) | Por pipeline: em aberto, atrasados, parados (+7 dias na etapa), concluídos e criados em 7 dias, "meus" e contagem por etapa. Atalho no menu lateral e no Início | Na prévia (0036 aplicada); falta conferir os números com os quadros |
-| Push | Menção, atribuição e mensagem direta | **Em andamento** (criptografia Web Push pronta em `core/webpush.ts`, com testes) |
+| Push | Menção, card atribuído e mensagem direta (grupos não). Web Push sem biblioteca (`core/webpush.ts`), envio em `lib/push/send.ts`, service worker `public/sw.js` (só push, sem cache), botão de ativar por aparelho em `/avisos` | Código pronto; criptografia e migration testadas localmente; **entrega real não testada**. Falta: aplicar a 0037 e cadastrar `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` como segredos no Cloudflare (`node infra/gen-vapid.mjs`). Sem as chaves, o botão não aparece e nada é enviado |
 | Passada de acessibilidade | B.5 | A fazer |
 
 Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
@@ -335,5 +335,5 @@ Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
 1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
 3. Enviar o logo oficial para os ícones do aplicativo.
-4. Push: gerar o par de chaves e cadastrá-lo no Cloudflare (instruções virão com o item).
+4. Push: aplicar a migration 0037; rodar `node infra/gen-vapid.mjs` e cadastrar os dois valores como segredos do Worker (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`); testar em Avisos → "Ativar notificações".
 5. Pendências antigas da seção "Resumo": provedor do VPS do WhatsApp; quem recebe `report:read`.

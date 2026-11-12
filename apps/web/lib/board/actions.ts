@@ -22,6 +22,7 @@ import { assertCanCreateInBoard } from "@/lib/board/intake";
 import { parseIntake } from "@/lib/board/types";
 import { ACOES_DE_GESTAO, ehPapelAdministrativo } from "@/lib/roles/catalog";
 import { ensureDmChannel } from "@/lib/comms/dm";
+import { sendPush } from "@/lib/push/send";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -832,6 +833,12 @@ export async function setCardResponsible(
           cardTitle: card.title,
         },
       });
+      await sendPush([userId], {
+        title: `${meU?.name || meU?.email || "Alguém"} atribuiu um card a você`,
+        body: `#${card.number} ${card.title}`,
+        url: `/board?card=${cardId}`,
+        tag: `card-${cardId}`,
+      });
     }
   }
   revalidatePath("/board");
@@ -1250,6 +1257,12 @@ export async function addComment(
       },
     })),
   );
+  await sendPush(validIds, {
+    title: `${actorName} mencionou você`,
+    body: `#${card.number} ${card.title}: ${text.slice(0, 120)}`,
+    url: `/board?card=${cardId}`,
+    tag: `card-${cardId}`,
+  });
 }
 
 // ── Propriedades customizadas (campos) ───────────────────────────────────────

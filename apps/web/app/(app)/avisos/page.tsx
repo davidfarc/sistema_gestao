@@ -1,3 +1,4 @@
+import { PushToggle } from "@/components/avisos/PushToggle";
 import { NotificationsList } from "@/components/avisos/NotificationsList";
 import { InstallHint } from "@/components/shell/InstallHint";
 
@@ -11,6 +12,7 @@ export default function AvisosPage() {
       <p className="mt-1 text-sm text-secondary">Menções e cards atribuídos a você.</p>
       <div className="mt-5 grid gap-4">
         <InstallHint dismissible={false} />
+        <PushToggle />
         <NotificationsList />
       </div>
     </main>
