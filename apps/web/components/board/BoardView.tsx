@@ -119,10 +119,33 @@ export function BoardView({
   // das gravações desta própria tela. Só o que a tela não resolve sozinha
   // (card novo de outra pessoa, solicitante trocado, etapas) recarrega.
   // O RLS filtra o que cada pessoa recebe.
+  //
+  // Cards e etapas vão em canais SEPARADOS: se uma das tabelas não estiver
+  // publicada no Realtime, o Supabase recusa o canal inteiro, e juntas uma
+  // derrubaria a outra. Se um canal falhar, a tela cai para um plano B:
+  // recarrega do servidor a cada 20 s enquanto estiver visível.
   useEffect(() => {
     const supabase = createClient();
-    const channel = supabase
-      .channel(`board-${board.id}`)
+    const failed = new Set<string>();
+    let poll: ReturnType<typeof setInterval> | null = null;
+    const watch = (name: string) => (status: string) => {
+      if (status === "SUBSCRIBED") failed.delete(name);
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        if (!failed.has(name)) console.warn(`[quadro] tempo real indisponível para "${name}" (${status})`);
+        failed.add(name);
+      }
+      if (failed.size > 0 && !poll) {
+        poll = setInterval(() => {
+          if (document.visibilityState === "visible") router.refresh();
+        }, 20_000);
+      } else if (failed.size === 0 && poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+    };
+
+    const cardChannel = supabase
+      .channel(`board-cards-${board.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "card", filter: `board_id=eq.${board.id}` },
@@ -150,16 +173,21 @@ export function BoardView({
           });
         },
       )
+      .subscribe(watch("card"));
+    const stageChannel = supabase
+      .channel(`board-stages-${board.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "stage", filter: `board_id=eq.${board.id}` },
         refreshSoon,
       )
-      .subscribe();
+      .subscribe(watch("stage"));
     return () => {
-      supabase.removeChannel(channel);
+      if (poll) clearInterval(poll);
+      supabase.removeChannel(cardChannel);
+      supabase.removeChannel(stageChannel);
     };
-  }, [board.id, refreshSoon]);
+  }, [board.id, refreshSoon, router]);
 
   // Dados velhos. (1) Ao voltar pelo "voltar" do navegador o Next remonta a
   // tela com a página que tinha guardado: se estes mesmos dados já foram
