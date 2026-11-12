@@ -35,8 +35,11 @@ export default async function BoardPage({
   }
   if (!board) {
     return (
-      <div className="p-8 text-neutral-500">
-        Nenhum quadro encontrado — aplique o seed (<code>infra/apply.mjs</code>).
+      <div className="mx-auto max-w-md p-8 text-center">
+        <h1 className="text-lg">Nenhum pipeline por aqui</h1>
+        <p className="mt-2 text-sm text-secondary">
+          Você ainda não participa de nenhum pipeline. Peça à gestão para incluir você em um.
+        </p>
       </div>
     );
   }

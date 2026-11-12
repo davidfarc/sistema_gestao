@@ -41,6 +41,9 @@ export interface CardView {
   dueDate: string | null; // ISO
   status: StatusValue | null;
   fields: FieldChip[]; // campos customizados marcados "mostrar no card"
+  /** Itens de checklist concluídos / total (null = card sem checklist). */
+  checklist?: { done: number; total: number } | null;
+  commentCount?: number;
   /** Está numa etapa cuja saída exige priorização (e ainda não foi priorizada). */
   awaitingPrioritization?: boolean;
 }
@@ -132,6 +135,8 @@ export interface StageView {
   id: string;
   name: string;
   category: StageCategory;
+  /** Limite de cards em andamento na etapa (null = sem limite). */
+  wipLimit?: number | null;
 }
 
 export interface BoardData {

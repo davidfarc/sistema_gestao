@@ -3,7 +3,9 @@
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
   rectIntersection,
   useDraggable,
   useDroppable,
@@ -28,10 +30,25 @@ function DraggableCard({ card, onOpen }: { card: CardView; onOpen: () => void })
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
-      className={"cursor-grab touch-none active:cursor-grabbing " + (isDragging ? "opacity-40" : "")}
+      // `touch-manipulation` (e não `touch-none`): no celular o dedo sobre um
+      // card continua rolando a tela; arrastar só começa ao segurar (TouchSensor).
+      className={
+        "cursor-grab touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing " +
+        (isDragging ? "opacity-40" : "")
+      }
       onClick={onOpen}
       {...listeners}
       {...attributes}
+      aria-label={`Card #${card.number}: ${card.title}`}
+      onKeyDown={(e) => {
+        // Enter abre o card; Espaço fica com o dnd-kit (pegar/soltar pelo teclado).
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpen();
+          return;
+        }
+        listeners?.onKeyDown?.(e);
+      }}
     >
       <CardTile card={card} />
     </div>
@@ -43,6 +60,7 @@ function Column({
   cards,
   onOpenCard,
   canConfigure,
+  onError,
   isFirst,
   isLast,
 }: {
@@ -50,6 +68,7 @@ function Column({
   cards: CardView[];
   onOpenCard: (id: string) => void;
   canConfigure: boolean;
+  onError: (message: string) => void;
   isFirst: boolean;
   isLast: boolean;
 }) {
@@ -60,6 +79,7 @@ function Column({
         stage={stage}
         count={cards.length}
         canConfigure={canConfigure}
+        onError={onError}
         isFirst={isFirst}
         isLast={isLast}
       />
@@ -84,16 +104,21 @@ export function KanbanBoard({
   onMove,
   onOpenCard,
   canConfigure,
+  onError,
 }: {
   stages: StageView[];
   cards: CardView[];
   onMove: (cardId: string, toStageId: string) => void;
   onOpenCard: (id: string) => void;
   canConfigure: boolean;
+  onError: (message: string) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Toque: segurar 200 ms para arrastar; um toque curto abre, deslizar rola.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
   );
 
   const activeCard = cards.find((c) => c.id === activeId) ?? null;
@@ -126,6 +151,7 @@ export function KanbanBoard({
             cards={cards.filter((c) => c.stageId === stage.id)}
             onOpenCard={onOpenCard}
             canConfigure={canConfigure}
+            onError={onError}
             isFirst={i === 0}
             isLast={i === stages.length - 1}
           />

@@ -15,7 +15,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!actor) redirect("/sem-acesso");
   const sessionUser = await getSessionUser();
   const user = sessionUser?.email
-    ? { email: sessionUser.email, internal: isInternalEmail(sessionUser.email) }
+    ? {
+        email: sessionUser.email,
+        name:
+          (sessionUser.user_metadata.full_name as string | undefined) ||
+          (sessionUser.user_metadata.name as string | undefined) ||
+          null,
+        internal: isInternalEmail(sessionUser.email),
+      }
     : null;
 
   return (

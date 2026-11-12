@@ -43,7 +43,7 @@ const MENU: MenuItem[] = [
   { Icon: Settings, label: "Configurações", href: "/configuracoes" },
 ];
 
-export function Sidebar({ user }: { user: { email: string; internal: boolean } | null }) {
+export function Sidebar({ user }: { user: { email: string; name?: string | null; internal: boolean } | null }) {
   const pathname = usePathname();
   const { collapsed, toggle } = useSidebar();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -52,7 +52,8 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
 
   const showLabels = mobileOpen || !collapsed;
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
+  const displayName = user?.name?.trim() || user?.email || "";
+  const initials = displayName.slice(0, 2).toUpperCase() || "??";
 
   return (
     <>
@@ -153,7 +154,7 @@ export function Sidebar({ user }: { user: { email: string; internal: boolean } |
                   <>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold" title={user.email}>
-                        {user.email}
+                        {displayName}
                       </p>
                       <p className="text-[10px] opacity-70">{user.internal ? "interno" : "externo"}</p>
                     </div>

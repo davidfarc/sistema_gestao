@@ -96,6 +96,9 @@ export async function createCard(boardId: string, title: string): Promise<string
     .select("id")
     .single();
   if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  await recordActivity(card.id, actor.userId as string, "card_created", {
+    stageId: firstStage.id,
+  });
   revalidatePath("/board");
   return card.id;
 }
@@ -153,6 +156,9 @@ export async function createCardWithFields(
     .select("id")
     .single();
   if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  await recordActivity(card.id, actor.userId as string, "card_created", {
+    stageId: firstStage.id,
+  });
 
   for (const v of values) {
     if (v.value === null || v.value === "") continue;
@@ -304,9 +310,24 @@ export async function moveCard(
   if (!actor) return { ok: false, reason: "Sessão expirada. Entre novamente." };
 
   const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
+  // Etapa de origem e tempo de permanência: lidos ANTES do movimento, porque o
+  // `applyMove` sobrescreve `stage_entered_at`. Base dos relatórios por etapa.
+  const { data: before } = await createAdminClient()
+    .from("card")
+    .select("stage_id, stage_entered_at")
+    .eq("id", cardId)
+    .maybeSingle();
   try {
-    await service.move(actor, cardId, toStageId);
-    await recordActivity(cardId, actor.userId, "card_moved", { toStageId });
+    const res = await service.move(actor, cardId, toStageId);
+    if (res.moved) {
+      await recordActivity(cardId, actor.userId, "card_moved", {
+        toStageId,
+        fromStageId: before?.stage_id ?? null,
+        secondsInStage: before?.stage_entered_at
+          ? Math.max(0, Math.round((Date.now() - new Date(before.stage_entered_at).getTime()) / 1000))
+          : null,
+      });
+    }
     revalidatePath("/board");
     return { ok: true };
   } catch (e) {
@@ -1473,6 +1494,16 @@ export async function setStageCategory(stageId: string, category: string): Promi
   await requireActor("stage:manage");
   const db = createAdminClient();
   const { error } = await db.from("stage").update({ category }).eq("id", stageId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/** Define (ou remove, com null) o limite de cards em andamento da etapa. */
+export async function setStageWipLimit(stageId: string, limit: number | null): Promise<void> {
+  await requireActor("stage:manage");
+  const value = limit != null && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
+  const db = createAdminClient();
+  const { error } = await db.from("stage").update({ wip_limit: value }).eq("id", stageId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
 }

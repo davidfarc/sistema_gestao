@@ -1,24 +1,51 @@
-import { ListOrdered } from "lucide-react";
+import { CheckSquare, Clock, ListOrdered, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 import type { CardView } from "@/lib/board/types";
 
-function Avatar({ initials, colorClass }: { initials: string; colorClass: string }) {
+function Avatar({
+  initials,
+  colorClass,
+  name,
+}: {
+  initials: string;
+  colorClass: string;
+  name: string;
+}) {
   return (
     <span
       className={
         "inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white " +
         colorClass
       }
-      title={initials}
+      title={`Responsável: ${name}`}
     >
       {initials}
     </span>
   );
 }
 
+/**
+ * Situação do prazo. `due_date` é só data (AAAA-MM-DD): comparar como texto com
+ * o dia local evita o deslize de fuso de `new Date("2026-11-12")` (meia-noite UTC).
+ */
+function dueInfo(due: string): { label: string; cls: string; hint: string } {
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const day = due.slice(0, 10);
+  const [y, m, d] = day.split("-").map(Number);
+  const label = new Date(y!, (m ?? 1) - 1, d ?? 1).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  });
+  if (day < today) return { label, cls: "bg-red-50 text-red-700", hint: "Prazo vencido" };
+  if (day === today) return { label, cls: "bg-amber-50 text-amber-800", hint: "Vence hoje" };
+  return { label, cls: "text-neutral-500", hint: "Prazo" };
+}
+
 /** Face do card (modelo Trello atual). Puro — sem lógica de drag. */
 export function CardTile({ card }: { card: CardView }) {
+  const due = card.dueDate ? dueInfo(card.dueDate) : null;
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
       <div className="text-[11px] font-medium text-neutral-500">#{card.number}</div>
@@ -83,17 +110,41 @@ export function CardTile({ card }: { card: CardView }) {
               {card.status.label}
             </span>
           )}
-          {card.dueDate && (
-            <span className="text-[11px] text-neutral-400">
-              {new Date(card.dueDate).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "short",
-              })}
+          {due && (
+            <span
+              title={due.hint}
+              className={"inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium " + due.cls}
+            >
+              <Clock className="h-3 w-3" aria-hidden="true" />
+              <span className="sr-only">{due.hint}: </span>
+              {due.label}
+            </span>
+          )}
+          {card.checklist && card.checklist.total > 0 && (
+            <span
+              title="Itens de checklist concluídos"
+              className={
+                "inline-flex items-center gap-1 text-[11px] " +
+                (card.checklist.done === card.checklist.total ? "text-emerald-700" : "text-neutral-500")
+              }
+            >
+              <CheckSquare className="h-3 w-3" aria-hidden="true" />
+              {card.checklist.done}/{card.checklist.total}
+            </span>
+          )}
+          {!!card.commentCount && (
+            <span title="Comentários" className="inline-flex items-center gap-1 text-[11px] text-neutral-500">
+              <MessageSquare className="h-3 w-3" aria-hidden="true" />
+              {card.commentCount}
             </span>
           )}
         </div>
         {card.assignee && (
-          <Avatar initials={card.assignee.initials} colorClass={card.assignee.colorClass} />
+          <Avatar
+            initials={card.assignee.initials}
+            colorClass={card.assignee.colorClass}
+            name={card.assignee.name}
+          />
         )}
       </div>
     </div>
