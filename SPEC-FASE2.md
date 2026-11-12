@@ -270,4 +270,5 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | Histórico enriquecido (`card_created`, origem e tempo na etapa, `completed_at`) | Idem |
 | A3 card com link (`?card=<id>`, painel lateral = mesmo componente da página `/card/[id]`) | Código pronto no ramo; **falta testar na prévia** |
 | A4 ordem na coluna (`@dnd-kit/sortable` + `placeInColumn` em `core/ranking.ts`; card novo entra no fim da coluna) | Código pronto no ramo; arrasto testado em navegador com dados de mentira; **falta testar na prévia com o banco**. Sem migration |
-| A8 criar na coluna · A9 atualização local | A fazer |
+| A8 "+ Adicionar card" no pé da coluna (formulário `simple`; nasce na 1ª etapa e vai à coluna pelo `CardService.move`) | Código pronto no ramo; **falta testar na prévia**. Sem migration |
+| A9 atualização local | A fazer |

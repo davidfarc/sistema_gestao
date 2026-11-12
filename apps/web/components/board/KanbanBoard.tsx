@@ -24,7 +24,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Placement } from "@ecco/core";
-import { useMemo, useState } from "react";
+import { Plus, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import { CardTile } from "./CardTile";
 import { NewStageButton } from "./NewStageButton";
@@ -80,12 +81,106 @@ function SortableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) 
   );
 }
 
+/** "+ Adicionar card" no pé da coluna: digita o título, Enter cria e já abre o próximo. */
+function AddCard({
+  stageName,
+  onAdd,
+}: {
+  stageName: string;
+  onAdd: (title: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  async function submit() {
+    const next = title.trim();
+    if (!next || saving) return;
+    setSaving(true);
+    try {
+      await onAdd(next);
+      setTitle("");
+    } finally {
+      setSaving(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 flex min-h-11 w-full items-center gap-1.5 rounded-lg px-2 text-sm text-neutral-600 hover:bg-neutral-200/60 hover:text-neutral-900"
+      >
+        <Plus className="h-4 w-4" aria-hidden="true" /> Adicionar card
+      </button>
+    );
+  }
+  return (
+    <form
+      className="mt-1 grid gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <textarea
+        ref={inputRef}
+        autoFocus
+        rows={2}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            setOpen(false);
+            setTitle("");
+          }
+        }}
+        onBlur={() => !title.trim() && !saving && setOpen(false)}
+        aria-label={`Título do novo card em ${stageName}`}
+        placeholder="Título do card…"
+        className="w-full resize-none rounded-lg border border-neutral-300 bg-white px-3 py-2 text-base shadow-sm outline-none focus:border-neutral-500 sm:text-sm"
+      />
+      <div className="flex items-center gap-1">
+        <button
+          type="submit"
+          disabled={!title.trim() || saving}
+          className="min-h-9 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+        >
+          {saving ? "Criando…" : "Adicionar"}
+        </button>
+        <button
+          type="button"
+          // mousedown: fecha antes do blur do campo, sem piscar.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            setOpen(false);
+            setTitle("");
+          }}
+          aria-label="Cancelar"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-200/60"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function Column({
   stage,
   cards,
   onOpenCard,
   canConfigure,
   onError,
+  onAddCard,
   isFirst,
   isLast,
 }: {
@@ -94,6 +189,7 @@ function Column({
   onOpenCard: (id: string) => void;
   canConfigure: boolean;
   onError: (message: string) => void;
+  onAddCard?: (stageId: string, title: string) => Promise<void>;
   isFirst: boolean;
   isLast: boolean;
 }) {
@@ -121,6 +217,9 @@ function Column({
           ))}
         </SortableContext>
       </div>
+      {onAddCard && (
+        <AddCard stageName={stage.name} onAdd={(title) => onAddCard(stage.id, title)} />
+      )}
     </div>
   );
 }
@@ -132,6 +231,7 @@ export function KanbanBoard({
   onOpenCard,
   canConfigure,
   onError,
+  onAddCard,
 }: {
   stages: StageView[];
   /** Na ordem de exibição: dentro de cada etapa vale a ordem desta lista. */
@@ -140,6 +240,8 @@ export function KanbanBoard({
   onOpenCard: (id: string) => void;
   canConfigure: boolean;
   onError: (message: string) => void;
+  /** Presente só quando a pessoa pode criar e o pipeline usa o formulário simples. */
+  onAddCard?: (stageId: string, title: string) => Promise<void>;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   // Cópia da lista enquanto um card está sendo arrastado: é nela que o card
@@ -256,6 +358,7 @@ export function KanbanBoard({
             onOpenCard={onOpenCard}
             canConfigure={canConfigure}
             onError={onError}
+            onAddCard={onAddCard}
             isFirst={i === 0}
             isLast={i === stages.length - 1}
           />

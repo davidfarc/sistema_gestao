@@ -48,6 +48,18 @@ export interface CardView {
   awaitingPrioritization?: boolean;
 }
 
+/** Resultado de "+ Adicionar card" no pé de uma coluna. */
+export interface CreatedCard {
+  id: string;
+  number: number;
+  title: string;
+  /** Etapa em que o card ficou (a 1ª, se uma regra de fluxo barrou a pedida). */
+  stageId: string;
+  position: number;
+  /** Preenchido quando o card foi criado mas não pôde ir para a etapa pedida. */
+  blockedReason?: string;
+}
+
 // ── Propriedades customizadas (campos) ──────────────────────────────────────
 
 export type FieldType =

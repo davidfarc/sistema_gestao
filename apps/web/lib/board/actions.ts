@@ -30,6 +30,7 @@ import type {
   CardDetailData,
   CardPageData,
   ChecklistItemView,
+  CreatedCard,
   ChecklistView,
   CommentView,
   FieldDef,
@@ -125,19 +126,40 @@ async function placeCardInStage(
   if (failed?.error) throw new Error(failed.error.message);
 }
 
-/** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(boardId: string, title: string): Promise<string> {
-  const actor = await requireActor("card:create");
-  await assertCanCreateInBoard(boardId);
-  const db = createAdminClient();
+/** Insere o card no fim da etapa e registra `card_created`. Sem checagens: é de quem chama. */
+async function insertCard(
+  db: AdminDb,
+  actorId: string,
+  board: { id: string; organization_id: string },
+  stageId: string,
+  title: string,
+): Promise<{ id: string; number: number; title: string; position: number }> {
+  const position = await endOfStagePosition(db, stageId);
+  const { data: card, error } = await db
+    .from("card")
+    .insert({
+      organization_id: board.organization_id,
+      board_id: board.id,
+      stage_id: stageId,
+      title: title.trim() || "Novo card",
+      position,
+      requester_id: actorId, // solicitante = quem abriu
+    })
+    .select("id, number, title")
+    .single();
+  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  await recordActivity(card.id, actorId, "card_created", { stageId });
+  return { id: card.id, number: Number(card.number), title: card.title, position };
+}
 
+/** Pipeline + primeira etapa, para as actions de criação. */
+async function boardAndFirstStage(db: AdminDb, boardId: string) {
   const { data: board } = await db
     .from("board")
-    .select("id, organization_id")
+    .select("id, organization_id, creation_form")
     .eq("id", boardId)
     .maybeSingle();
   if (!board) throw new Error("Pipeline não encontrado.");
-
   const { data: firstStage } = await db
     .from("stage")
     .select("id")
@@ -146,25 +168,64 @@ export async function createCard(boardId: string, title: string): Promise<string
     .limit(1)
     .maybeSingle();
   if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
+  return { board, firstStageId: firstStage.id as string };
+}
 
-  const { data: card, error } = await db
-    .from("card")
-    .insert({
-      organization_id: board.organization_id,
-      board_id: board.id,
-      stage_id: firstStage.id,
-      title: title.trim() || "Novo card",
-      position: await endOfStagePosition(db, firstStage.id),
-      requester_id: actor.userId as string, // solicitante = quem abriu
-    })
-    .select("id")
-    .single();
-  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
-  await recordActivity(card.id, actor.userId as string, "card_created", {
-    stageId: firstStage.id,
-  });
+/** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
+export async function createCard(boardId: string, title: string): Promise<string> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
+  const db = createAdminClient();
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
   revalidatePath("/board");
   return card.id;
+}
+
+/**
+ * "+ Adicionar card" no pé de uma coluna (só pipelines de formulário `simple`).
+ *
+ * O card SEMPRE nasce na 1ª etapa; se a coluna escolhida for outra, ele é
+ * levado até lá pelo CardService.move, como qualquer movimentação. Assim criar
+ * direto numa etapa adiantada não vira atalho para pular regras de fluxo.
+ */
+export async function createCardInStage(
+  boardId: string,
+  title: string,
+  stageId: string,
+): Promise<CreatedCard> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
+  const db = createAdminClient();
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  if ((board.creation_form ?? "simple") !== "simple") {
+    throw new Error("Este pipeline pede o formulário completo. Use o botão “Novo card”.");
+  }
+
+  if (stageId !== firstStageId) {
+    const { data: stage } = await db
+      .from("stage")
+      .select("id")
+      .eq("id", stageId)
+      .eq("board_id", board.id)
+      .maybeSingle();
+    if (!stage) throw new Error("Etapa não encontrada neste pipeline.");
+  }
+
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
+  const created: CreatedCard = { ...card, stageId: firstStageId };
+  if (stageId !== firstStageId) {
+    const res = await moveCard(card.id, stageId);
+    if (res.ok) {
+      const { data } = await db.from("card").select("position").eq("id", card.id).maybeSingle();
+      created.stageId = stageId;
+      created.position = data ? Number(data.position) : created.position;
+    } else {
+      created.blockedReason = `Card criado na primeira etapa. ${res.reason}`;
+    }
+  }
+  revalidatePath("/board");
+  return created;
 }
 
 /** Troca o solicitante do card (nativo, ao lado do responsável). */
@@ -192,38 +253,8 @@ export async function createCardWithFields(
   await assertCanCreateInBoard(boardId);
   const db = createAdminClient();
 
-  const { data: board } = await db
-    .from("board")
-    .select("id, organization_id")
-    .eq("id", boardId)
-    .maybeSingle();
-  if (!board) throw new Error("Pipeline não encontrado.");
-
-  const { data: firstStage } = await db
-    .from("stage")
-    .select("id")
-    .eq("board_id", board.id)
-    .order("position")
-    .limit(1)
-    .maybeSingle();
-  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
-
-  const { data: card, error } = await db
-    .from("card")
-    .insert({
-      organization_id: board.organization_id,
-      board_id: board.id,
-      stage_id: firstStage.id,
-      title: title.trim() || "Novo card",
-      position: await endOfStagePosition(db, firstStage.id),
-      requester_id: actor.userId as string, // solicitante = quem abriu
-    })
-    .select("id")
-    .single();
-  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
-  await recordActivity(card.id, actor.userId as string, "card_created", {
-    stageId: firstStage.id,
-  });
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
 
   for (const v of values) {
     if (v.value === null || v.value === "") continue;

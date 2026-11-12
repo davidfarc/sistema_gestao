@@ -13,7 +13,7 @@ import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { PipelineSelector } from "./PipelineSelector";
-import { moveCard } from "@/lib/board/actions";
+import { createCardInStage, moveCard } from "@/lib/board/actions";
 import { createClient } from "@/lib/supabase/client";
 import { LAST_BOARD_COOKIE, type BoardData, type BoardSummary } from "@/lib/board/types";
 
@@ -183,6 +183,21 @@ export function BoardView({
       });
   }
 
+  // "+ Adicionar card" no pé da coluna: só no formulário simples (os outros
+  // pedem campos que o campo de título sozinho não coleta).
+  async function addCard(stageId: string, title: string) {
+    setMoveError(null);
+    try {
+      const created = await createCardInStage(board.id, title, stageId);
+      if (created.blockedReason) setMoveError(created.blockedReason);
+      router.refresh();
+    } catch {
+      // Em produção o Next esconde o texto do erro do servidor; a mensagem é genérica.
+      setMoveError("Não foi possível criar o card. Recarregue a página e tente de novo.");
+    }
+  }
+  const canAddInColumn = caps.create && board.creationForm === "simple";
+
   return (
     <BoardProvider
       boardId={board.id}
@@ -294,6 +309,7 @@ export function BoardView({
             onError={setMoveError}
             onOpenCard={openCard}
             canConfigure={caps.stages}
+            onAddCard={canAddInColumn ? addCard : undefined}
           />
         ) : (
           <ListView
