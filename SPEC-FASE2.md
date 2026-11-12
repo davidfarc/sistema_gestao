@@ -246,6 +246,65 @@ plano original previa, sobre as mesmas funções.
 
 ---
 
+## E. Produção Pedagógica, visual novo e presença (planejado em 12/11/2026)
+
+> Demanda do setor pedagógico da editora, que hoje usa um sistema próprio (site estático +
+> Supabase separado). Simulação navegável aprovada como direção; **nada implementado ainda**.
+
+### E.1 Decidido
+
+- **Entra como um pipeline** do nosso sistema ("Produção Pedagógica"), com as etapas Em produção →
+  Aguardando análise → Em emenda → Aprovado. Segmento, tipo, início, prazo, finalização e link do
+  autor viram propriedades; o número de emendas sobe a cada devolução para "Em emenda".
+- **Mensagens, avisos, comentários e histórico seguem os nossos.** O "parecer" da coordenação passa
+  a ser comentário + mudança de etapa.
+- **Visual:** o do sistema da Produção Pedagógica (cores, fontes Literata/Figtree/IBM Plex Mono,
+  componentes) aplicado ao sistema **todo**, exceto o menu lateral, que continua o nosso.
+- **Lista:** o modelo novo substitui o visual da Lista atual em todos os pipelines, **sem perder**
+  o que ela faz hoje (edição na célula, colunas por propriedade, filtro por qualquer propriedade,
+  RICE e estrela no pipeline de demandas). Ganha: resumo clicável, filtros rápidos lado a lado,
+  ordenação por qualquer coluna, planilha (CSV) e destaque de atrasado/parado. Clicar no nome abre
+  o card; a célula edita.
+- **Relatórios separados:** o item "Painel" do menu vira **Painéis**, com um painel por área. O
+  primeiro específico é o da Produção Pedagógica (por responsável, por segmento, emendas por tipo,
+  tempo do início à aprovação, atrasados). A "Visão geral" atual continua sendo um dos painéis.
+- **Dados:** o setor começa do zero. Importação de materiais antigos (CSV) fica para depois, se
+  for pedida.
+- **Login:** Google, como o resto do sistema (o e-mail e senha do sistema antigo não vêm).
+
+### E.2 Presença: quem está online, entrada e saída
+
+Considerado muito importante pelo setor. No sistema de origem existe a hora do "registro do dia" e
+do último login; **não existe hora de saída nem indicador de online** no código recebido, então
+essa parte é nova.
+
+| Peça | Como |
+|---|---|
+| Online agora | Supabase Realtime Presence (efêmero, sem tabela): bolinha verde no bloco "Equipe hoje" |
+| Entrada e saída | Tabela `presence_session` (pessoa, início, última atividade). A tela manda um sinal a cada ~2 min enquanto está aberta e visível; mais de 15 min sem sinal encerra a sessão. Entrada do dia = início da primeira sessão; saída = fim da última. Guarda os intervalos (saiu para o almoço e voltou) |
+| Quem vê | Cada pessoa vê o próprio registro; a equipe inteira só para quem tiver a permissão nova `presence:read` (Gestor Master e Gestor de início) |
+| Onde aparece | Bloco "Equipe hoje" na Lista do pipeline e um painel "Presença" em Painéis (por dia e por pessoa) |
+| Guarda | 12 meses, depois apaga (ajustável) |
+
+Pontos de atenção, para decidir antes de implementar:
+
+1. **Não é ponto eletrônico.** Registra uso do sistema, não jornada: quem trabalha fora do sistema
+   aparece como ausente. Controle de jornada com valor legal tem regras próprias.
+2. **Transparência (LGPD):** a equipe precisa saber que a presença é registrada, quem vê e por
+   quanto tempo fica guardada. Texto de aviso no primeiro acesso.
+3. **Celular:** com o aplicativo fechado a pessoa aparece como offline, mesmo trabalhando.
+4. **Registro do dia em texto** (o que a pessoa fez), que existe no sistema de origem: manter como
+   campo opcional ou deixar só o histórico dos cards? A decidir com o setor.
+
+### E.3 Ordem sugerida
+
+1. Visual novo no sistema todo (tokens e componentes) — maior, mexe em todas as telas.
+2. Lista nova (resumo, filtros rápidos, ordenação, planilha), mantendo o que já existe.
+3. Pipeline "Produção Pedagógica" (propriedades, contador de emendas) e o painel dele em Painéis.
+4. Presença (migration + sinal + bloco "Equipe hoje" + painel).
+
+---
+
 ## Resumo
 
 | Bloco | Dias | Custo mensal novo |
