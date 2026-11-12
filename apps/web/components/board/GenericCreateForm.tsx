@@ -87,6 +87,8 @@ export function GenericCreateForm({
       onClick={() => !pending && onClose()}
     >
       <form
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         className="w-full max-w-lg rounded-xl bg-white shadow-xl"

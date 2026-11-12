@@ -53,13 +53,15 @@ export function MemberManagerDialog({
       className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 pt-24"
       onClick={onClose}
     >
-      <div className="w-full max-w-sm rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm rounded-xl bg-white shadow-xl" role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
           <h3 className="text-sm font-semibold text-neutral-800">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
@@ -93,7 +95,7 @@ export function MemberManagerDialog({
             );
           })}
           {users.length === 0 && (
-            <li className="px-2 py-3 text-xs text-neutral-400">Nenhum usuário interno.</li>
+            <li className="px-2 py-3 text-xs text-neutral-600">Nenhum usuário interno.</li>
           )}
         </ul>
       </div>

@@ -115,6 +115,8 @@ function SemPermissao({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
       >
@@ -172,12 +174,14 @@ export function SimpleCreate({
       onClick={() => !pending && onClose()}
     >
       <form
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
       >
         <h2 className="text-base font-semibold text-neutral-800">Novo card</h2>
-        <p className="mt-0.5 text-xs text-neutral-400">
+        <p className="mt-0.5 text-xs text-neutral-600">
           Só o nome. O #ID é automático; as propriedades você preenche depois.
         </p>
 

@@ -130,7 +130,7 @@ export function Shortcuts({
                   <span className="min-w-0">
                     <span className="flex items-center gap-1 text-base font-medium text-neutral-800">
                       <span className="truncate">{s.label}</span>
-                      {external && <ExternalLink className="h-3 w-3 shrink-0 text-neutral-400" />}
+                      {external && <ExternalLink className="h-3 w-3 shrink-0 text-neutral-600" />}
                     </span>
                     {s.description && (
                       <span className="mt-0.5 block text-sm text-secondary">{s.description}</span>
@@ -139,7 +139,7 @@ export function Shortcuts({
                 </NextLink>
 
                 {canManage && (
-                  <div className="absolute right-1.5 top-1.5 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute right-1.5 top-1.5 flex gap-0.5 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
                     <IconBtn label="Subir" onClick={() => move(s.id, "up")} disabled={busy === s.id || i === 0}>
                       <ArrowUp className="h-3.5 w-3.5" />
                     </IconBtn>
@@ -201,7 +201,7 @@ function IconBtn({
       aria-label={label}
       className={
         "rounded bg-white/90 p-1 shadow-sm disabled:opacity-30 " +
-        (danger ? "text-neutral-400 hover:text-red-600" : "text-neutral-400 hover:text-neutral-700")
+        (danger ? "text-neutral-600 hover:text-red-600" : "text-neutral-600 hover:text-neutral-700")
       }
     >
       {children}
@@ -275,6 +275,8 @@ function ShortcutForm({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20" onClick={onClose}>
       <form
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
@@ -283,7 +285,7 @@ function ShortcutForm({
           <h3 className="text-sm font-semibold text-neutral-800">
             {initial ? "Editar atalho" : "Novo atalho"}
           </h3>
-          <button type="button" onClick={onClose} className="rounded p-1 text-neutral-400 hover:bg-neutral-100">
+          <button type="button" onClick={onClose} className="rounded p-1 text-neutral-600 hover:bg-neutral-100">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -330,7 +332,7 @@ function ShortcutForm({
                 ))}
               </select>
               {mode === "novo" && (
-                <span className="text-xs text-neutral-400">
+                <span className="text-xs text-neutral-600">
                   Abre direto o formulário de criação deste pipeline — o simples, o genérico
                   ou o especializado, conforme a configuração dele.
                 </span>

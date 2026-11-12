@@ -198,6 +198,8 @@ export function DemandasCreateForm({
       onClick={() => !pending && onClose()}
     >
       <form
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
         className="grid w-full max-w-3xl gap-0 rounded-xl bg-white shadow-xl lg:grid-cols-[1fr_16rem]"
@@ -241,7 +243,7 @@ export function DemandasCreateForm({
                       {meta && (
                         <span
                           className={clsx(
-                            "text-[11px] leading-tight",
+                            "text-xs leading-tight",
                             sel ? "text-white/80" : "text-neutral-500",
                           )}
                         >
@@ -289,13 +291,13 @@ export function DemandasCreateForm({
             )}
             <Check label="É uma lista de compras" checked={isList} onChange={setIsList} />
 
-            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-400">Gatilhos de elevação</p>
+            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-600">Gatilhos de elevação</p>
             <Check label="Fornecedor único / dispensa de cotação" checked={fornecedorUnico} onChange={setFornecedorUnico} />
             <Check label="Fora do orçamento planejado do período" checked={foraOrcamento} onChange={setForaOrcamento} />
             <Check label="Reversibilidade baixa (contrato longo, migração…)" checked={reversibilidade} onChange={setReversibilidade} />
             <Check label="Compras similares (30 dias) já ultrapassam o limite" checked={fracionamento} onChange={setFracionamento} />
 
-            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-400">RICE</p>
+            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-600">RICE</p>
             <div className="grid grid-cols-2 gap-3">
               <Label t="Alcance"><input type="number" value={riceAlcance} onChange={(e) => setRiceAlcance(e.target.value)} className={inputCls} /></Label>
               <Label t="Impacto">
@@ -307,7 +309,7 @@ export function DemandasCreateForm({
               <Label t="Confiança (%)"><input type="number" value={riceConfianca} onChange={(e) => setRiceConfianca(e.target.value)} placeholder="0 a 100" className={inputCls} /></Label>
             </div>
 
-            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-600">
               Esforço
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -351,7 +353,7 @@ export function DemandasCreateForm({
 
             {alcada.requiresEvidences && (
               <>
-                <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-400">
+                <p className="pt-1 text-xs font-medium uppercase tracking-wide text-neutral-600">
                   Evidências (Faixa {alcada.bracket})
                 </p>
                 <Label t="Justificativa *">
@@ -378,7 +380,7 @@ export function DemandasCreateForm({
 
         {/* Painel de alçada em tempo real */}
         <aside className="bg-surface-low p-4 text-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Trilha de aprovação</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-600">Trilha de aprovação</p>
           <p className="mt-1 text-lg font-semibold text-neutral-800">{BRACKET_LABEL[alcada.bracket]}</p>
           <p className="text-neutral-600">{TRACK_LABEL[alcada.track]}</p>
           <p className="mt-2 text-xs text-neutral-500">
@@ -401,7 +403,7 @@ export function DemandasCreateForm({
           {alcada.triggers.length > 0 && (
             <>
               <p className="mt-3 text-xs font-medium text-neutral-500">Por quê:</p>
-              <ul className="space-y-1 text-[11px] text-neutral-500">
+              <ul className="space-y-1 text-xs text-neutral-500">
                 {alcada.triggers.map((t) => (
                   <li key={t.kind}>• {t.message}</li>
                 ))}

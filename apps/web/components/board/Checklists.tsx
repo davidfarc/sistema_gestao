@@ -51,7 +51,7 @@ export function Checklists({
           <div key={list.id}>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-neutral-700">{list.name}</span>
-              <span className="text-xs text-neutral-400">
+              <span className="text-xs text-neutral-600">
                 {done}/{total}
               </span>
               <button
@@ -60,7 +60,7 @@ export function Checklists({
                   await deleteChecklist(list.id);
                   onChanged();
                 }}
-                className="ml-auto text-xs text-neutral-400 hover:text-red-600"
+                className="ml-auto text-xs text-neutral-600 hover:text-red-600"
               >
                 remover
               </button>
@@ -82,7 +82,7 @@ export function Checklists({
                   <span
                     className={
                       "flex-1 text-sm " +
-                      (item.done ? "text-neutral-400 line-through" : "text-neutral-700")
+                      (item.done ? "text-neutral-600 line-through" : "text-neutral-700")
                     }
                   >
                     {item.text}
@@ -93,7 +93,7 @@ export function Checklists({
                       await deleteChecklistItem(item.id);
                       onChanged();
                     }}
-                    className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
+                    className="-m-2 p-2 text-sm text-neutral-500 hover:text-red-600 md:text-xs md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                     aria-label="Remover item"
                   >
                     ✕

@@ -26,7 +26,7 @@ export function CardPageView({
         >
           <ArrowLeft className="h-4 w-4" /> {data.boardName || "Quadro"}
         </Link>
-        <span className="text-neutral-300">/</span>
+        <span className="text-neutral-500">/</span>
         <span className="font-medium text-neutral-500">#{data.number}</span>
         {data.stageName && (
           <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-500">

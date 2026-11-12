@@ -45,7 +45,7 @@ function Count({ n, label }: { n: number; label: string }) {
   return (
     <span
       aria-label={`${n} ${label}`}
-      className="absolute left-1/2 top-1 ml-1.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-danger px-1 text-[11px] font-bold leading-none text-white"
+      className="absolute left-1/2 top-1 ml-1.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-danger px-1 text-xs font-bold leading-none text-white"
     >
       {n > 99 ? "99+" : n}
     </span>

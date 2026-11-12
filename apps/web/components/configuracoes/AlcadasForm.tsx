@@ -87,7 +87,7 @@ export function AlcadasForm({ boardId, initial }: { boardId: string; initial: Th
               onChange={(e) => set(f.key, e.target.value)}
               className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
             />
-            <span className="text-[11px] leading-tight text-neutral-400">{f.help}</span>
+            <span className="text-xs leading-tight text-neutral-600">{f.help}</span>
           </label>
         ))}
       </div>

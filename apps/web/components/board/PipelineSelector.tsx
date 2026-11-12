@@ -113,12 +113,12 @@ export function PipelineSelector({
         className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-left hover:bg-neutral-100"
       >
         <span className="text-lg font-semibold text-neutral-800">{current?.name ?? "Pipeline"}</span>
-        <ChevronDown className="h-4 w-4 text-neutral-400" />
+        <ChevronDown className="h-4 w-4 text-neutral-600" />
       </button>
 
       {open && (
         <div className="absolute left-0 z-50 mt-1 w-72 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
-          <div className="border-b border-neutral-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-neutral-400">
+          <div className="border-b border-neutral-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-neutral-600">
             Pipelines
           </div>
 
@@ -137,7 +137,7 @@ export function PipelineSelector({
                     <button type="button" onClick={() => submitRename(b.id)} className="p-1 text-primary" aria-label="Salvar">
                       <Check className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => setEditingId(null)} className="p-1 text-neutral-400" aria-label="Cancelar">
+                    <button type="button" onClick={() => setEditingId(null)} className="p-1 text-neutral-600" aria-label="Cancelar">
                       <X className="h-4 w-4" />
                     </button>
                   </div>
@@ -161,7 +161,7 @@ export function PipelineSelector({
                           <Link
                             href={`/configuracoes/alcadas?board=${b.id}`}
                             onClick={() => setOpen(false)}
-                            className="p-1 text-neutral-400 hover:text-neutral-700"
+                            className="p-1 text-neutral-600 hover:text-neutral-700"
                             title="Limites de alçada"
                             aria-label="Limites de alçada"
                           >
@@ -176,7 +176,7 @@ export function PipelineSelector({
                                 setMembersFor(b);
                                 setOpen(false);
                               }}
-                              className="p-1 text-neutral-400 hover:text-neutral-700"
+                              className="p-1 text-neutral-600 hover:text-neutral-700"
                               title="Membros / acesso"
                               aria-label="Membros"
                             >
@@ -188,7 +188,7 @@ export function PipelineSelector({
                                 setEditingId(b.id);
                                 setEditName(b.name);
                               }}
-                              className="p-1 text-neutral-400 hover:text-neutral-700"
+                              className="p-1 text-neutral-600 hover:text-neutral-700"
                               title="Renomear"
                               aria-label="Renomear"
                             >
@@ -199,7 +199,7 @@ export function PipelineSelector({
                               onClick={() => archive(b.id, true)}
                               disabled={active.length <= 1}
                               title={active.length <= 1 ? "Não é possível arquivar o único pipeline" : "Arquivar"}
-                              className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                              className="p-1 text-neutral-600 hover:text-neutral-700 disabled:opacity-30"
                               aria-label="Arquivar"
                             >
                               <Archive className="h-3.5 w-3.5" />
@@ -229,7 +229,7 @@ export function PipelineSelector({
                   <button type="button" onClick={submitNew} disabled={busy} className="p-1 text-primary" aria-label="Criar">
                     <Check className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => setCreating(false)} className="p-1 text-neutral-400" aria-label="Cancelar">
+                  <button type="button" onClick={() => setCreating(false)} className="p-1 text-neutral-600" aria-label="Cancelar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -247,16 +247,16 @@ export function PipelineSelector({
 
           {canConfigure && archived.length > 0 && (
             <div className="border-t border-neutral-100 py-1">
-              <p className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+              <p className="px-3 py-1 text-xs font-medium uppercase tracking-wide text-neutral-600">
                 Arquivados
               </p>
               {archived.map((b) => (
                 <div key={b.id} className="flex items-center gap-1 px-1">
-                  <span className="min-w-0 flex-1 truncate px-2 py-1 text-sm text-neutral-400">{b.name}</span>
+                  <span className="min-w-0 flex-1 truncate px-2 py-1 text-sm text-neutral-600">{b.name}</span>
                   <button
                     type="button"
                     onClick={() => archive(b.id, false)}
-                    className="p-1 text-neutral-400 hover:text-neutral-700"
+                    className="p-1 text-neutral-600 hover:text-neutral-700"
                     title="Desarquivar"
                     aria-label="Desarquivar"
                   >

@@ -116,7 +116,7 @@ export function RichDescriptionEditor({
   const btn = (active: boolean) =>
     clsx(
       "rounded p-1 transition-colors",
-      active ? "bg-neutral-200 text-neutral-800" : "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700",
+      active ? "bg-neutral-200 text-neutral-800" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700",
     );
 
   return (
@@ -167,8 +167,8 @@ export function RichDescriptionEditor({
         >
           <ImagePlus className="h-3.5 w-3.5" />
         </button>
-        {uploading && <span className="ml-1 text-[11px] text-neutral-400">enviando imagem…</span>}
-        {error && <span className="ml-1 text-[11px] text-red-600">{error}</span>}
+        {uploading && <span className="ml-1 text-xs text-neutral-600">enviando imagem…</span>}
+        {error && <span className="ml-1 text-xs text-red-600">{error}</span>}
       </div>
 
       <input

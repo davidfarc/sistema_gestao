@@ -373,7 +373,7 @@ export function BoardView({
           <label className="relative">
             <span className="sr-only">Buscar card</span>
             <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-600"
               aria-hidden="true"
             />
             <input
@@ -388,7 +388,7 @@ export function BoardView({
                 type="button"
                 onClick={() => setQuery("")}
                 aria-label="Limpar busca"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:text-neutral-700"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-600 hover:text-neutral-700"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

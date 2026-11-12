@@ -290,7 +290,7 @@ export function ListView({
           <tbody className="divide-y divide-neutral-100">
             {visible.length === 0 && (
               <tr>
-                <td colSpan={fields.length + (isDemandas ? 6 : 5)} className="px-3 py-6 text-center text-sm text-neutral-400">
+                <td colSpan={fields.length + (isDemandas ? 6 : 5)} className="px-3 py-6 text-center text-sm text-neutral-600">
                   Nenhum card corresponde aos filtros.
                 </td>
               </tr>
@@ -362,7 +362,7 @@ export function ListView({
                 {isDemandas && (
                   <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-neutral-700">
                     {demandOf.get(card.id)?.rice?.toFixed(1) ?? (
-                      <span className="text-neutral-300">—</span>
+                      <span className="text-neutral-500">—</span>
                     )}
                   </td>
                 )}

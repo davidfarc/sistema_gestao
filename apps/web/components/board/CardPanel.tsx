@@ -111,7 +111,7 @@ export function CardPanel({
   }
 
   const iconBtn =
-    "inline-flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800";
+    "inline-flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 md:h-9 md:w-9";
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/30" onClick={onClose}>
@@ -119,6 +119,9 @@ export function CardPanel({
         ref={panelRef}
         role="dialog"
         aria-modal="true"
+        // Esc e foco são tratados aqui mesmo (ver efeitos acima); o DialogA11y só prende o Tab.
+        data-escape="own"
+        data-focus="own"
         aria-label={data ? `Card #${data.number}: ${data.title}` : "Card"}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}

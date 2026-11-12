@@ -32,7 +32,7 @@ export function Attachments({
         <ul className="grid gap-1">
           {attachments.map((a) => (
             <li key={a.id} className="group flex items-center gap-2">
-              <span className="text-neutral-400">🔗</span>
+              <span className="text-neutral-600">🔗</span>
               <a
                 href={a.url}
                 target="_blank"
@@ -48,7 +48,7 @@ export function Attachments({
                   await deleteAttachment(a.id);
                   onChanged();
                 }}
-                className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
+                className="-m-2 p-2 text-sm text-neutral-500 hover:text-red-600 md:text-xs md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                 aria-label="Remover anexo"
               >
                 ✕

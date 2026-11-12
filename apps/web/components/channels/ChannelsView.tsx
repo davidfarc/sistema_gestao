@@ -269,7 +269,7 @@ export function ChannelsView({
             >
               <span
                 className={clsx(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white",
                   c.kind === "dm" ? "bg-primary" : "bg-neutral-400",
                 )}
               >
@@ -351,7 +351,7 @@ export function ChannelsView({
                   <div className="min-w-0">
                     <p className="text-sm">
                       <span className="font-semibold">{m.authorName}</span>
-                      <span className="ml-1 text-xs text-neutral-400">{clockLabel(m.createdAt)}</span>
+                      <span className="ml-1 text-xs text-neutral-600">{clockLabel(m.createdAt)}</span>
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-neutral-700">{m.body}</p>
                   </div>
@@ -497,6 +497,8 @@ function NewConversation({
     >
       <div
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -504,7 +506,7 @@ function NewConversation({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
           >
             <X className="h-4 w-4" />
           </button>
@@ -558,12 +560,12 @@ function NewConversation({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-neutral-800">{u.name}</span>
-                    <span className="block truncate text-xs text-neutral-400">{u.email}</span>
+                    <span className="block truncate text-xs text-neutral-600">{u.email}</span>
                   </span>
                 </button>
               ))}
               {results.length === 0 && (
-                <p className="px-2 py-3 text-xs text-neutral-400">Nenhuma pessoa encontrada.</p>
+                <p className="px-2 py-3 text-xs text-neutral-600">Nenhuma pessoa encontrada.</p>
               )}
             </div>
           </div>
@@ -576,7 +578,7 @@ function NewConversation({
               placeholder="Nome do grupo"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
             />
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-neutral-600">
               Todos os membros internos entram no grupo.
             </p>
             <button

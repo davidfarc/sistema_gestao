@@ -67,7 +67,7 @@ export function FieldEditorsForm({
               {restricted ? (
                 <Lock className="h-4 w-4 shrink-0 text-amber-600" />
               ) : (
-                <Unlock className="h-4 w-4 shrink-0 text-neutral-300" />
+                <Unlock className="h-4 w-4 shrink-0 text-neutral-500" />
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-neutral-800">{f.name}</p>

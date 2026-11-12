@@ -170,7 +170,7 @@ export function Comments({
               <div className="min-w-0 flex-1">
                 <p className="text-sm">
                   <span className="font-semibold">{c.authorName}</span>
-                  <span className="ml-1 text-xs text-neutral-400">· {timeAgo(c.createdAt)}</span>
+                  <span className="ml-1 text-xs text-neutral-600">· {timeAgo(c.createdAt)}</span>
                 </p>
                 <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
               </div>
@@ -182,7 +182,7 @@ export function Comments({
                     onChanged();
                   }}
                   // No toque não existe "passar o mouse": no celular o botão fica sempre visível.
-                  className="-m-2 p-2 text-sm text-neutral-500 hover:text-red-600 md:text-neutral-300 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                  className="-m-2 p-2 text-sm text-neutral-500 hover:text-red-600 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                   aria-label="Remover comentário"
                 >
                   ✕

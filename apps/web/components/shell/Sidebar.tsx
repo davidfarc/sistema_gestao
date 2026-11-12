@@ -158,7 +158,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
                       <p className="truncate text-xs font-semibold" title={user.email}>
                         {displayName}
                       </p>
-                      <p className="text-[10px] opacity-70">{user.internal ? "interno" : "externo"}</p>
+                      <p className="text-xs opacity-70">{user.internal ? "interno" : "externo"}</p>
                     </div>
                     <NotificationBell />
                     <form action="/auth/signout" method="post">

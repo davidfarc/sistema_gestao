@@ -274,7 +274,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
 | `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
-| `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço; antes eram executáveis direto pelo navegador | **A aplicar (segurança, prioridade)** |
+| `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
 
 ### Bloco A — Quadro (código completo)
 
@@ -297,7 +297,9 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | Conversas no celular | Lista → conversa, uma tela por vez; `/canais?conversa=<id>`; botão voltar | Na prévia; **não foi exercitado em navegador antes do envio**: testar com atenção |
 | Painel (`/painel`) | Por pipeline: em aberto, atrasados, parados (+7 dias na etapa), concluídos e criados em 7 dias, "meus" e contagem por etapa. Atalho no menu lateral e no Início | Na prévia (0036 aplicada); falta conferir os números com os quadros |
 | Push | Menção, card atribuído e mensagem direta (grupos não). Web Push sem biblioteca (`core/webpush.ts`), envio em `lib/push/send.ts`, service worker `public/sw.js` (só push, sem cache), botão de ativar por aparelho em `/avisos` | Código pronto; criptografia e migration testadas localmente; **entrega real não testada**. Falta: aplicar a 0037 e cadastrar `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` como segredos no Cloudflare (`node infra/gen-vapid.mjs`). Sem as chaves, o botão não aparece e nada é enviado |
-| Passada de acessibilidade | B.5 | A fazer |
+| Passada de acessibilidade | Janelas modais com foco preso, Esc e retorno do foco, num lugar só (`components/shell/DialogA11y.tsx`); cinza-claro de texto trocado por tom que passa no contraste AA; letras de 10–11 px subiram para 12 px (ficam em 10 px só as iniciais dos avatares); campos com 16 px no celular; "reduzir movimento" respeitado; foco visível no teclado; botões que só apareciam no *hover* ficam visíveis no toque | Código pronto; teclado testado em navegador. **Não cobre** Gestão de Vila e Novos alunos (fora do escopo, B.2). Alvos de 44 px aplicados nas telas do celular (barra, quadro, card, conversas, avisos), não em todo botão do computador |
+
+**Bloco B: código completo.** Falta a validação no celular e ativar o push (0037 + chaves).
 
 Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
 
@@ -340,14 +342,14 @@ Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
   **O `main` (produção) continua com a falha até este ramo ser publicado.**
 - **Funções `security definer` abertas (migration 0038).** `conversation_list(p_user)` e
   `sala_state_set(p_org, …)` confiam num parâmetro de quem chama e eram executáveis por
-  `authenticated`/`anon` via `/rest/v1/rpc`. A 0038 restringe a `service_role`; vale para
-  produção assim que aplicada, sem depender de publicar o ramo.
+  `authenticated`/`anon` via `/rest/v1/rpc` (confirmado em 12/11). A 0038, já aplicada, restringe
+  a `service_role`; vale para produção e prévia, que usam o mesmo banco.
 - Regra daqui para frente: toda função `security definer` nasce com
   `revoke all … from public, anon, authenticated` e só recebe o `grant` de quem precisa.
 
 ### Pendências com o David
 
-0. **Aplicar a migration 0038** (segurança).
+0. Decidir quando publicar o ramo no `main`: a correção das Conversas só chega à produção com isso.
 1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
 3. Enviar o logo oficial para os ícones do aplicativo.

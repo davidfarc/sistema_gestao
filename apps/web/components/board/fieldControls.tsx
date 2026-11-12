@@ -100,7 +100,7 @@ export function FieldEditor({
         ) : (
           <span className="truncate">{displayValue(field, value, members)}</span>
         )}
-        <Lock className="h-3 w-3 shrink-0 text-neutral-300" />
+        <Lock className="h-3 w-3 shrink-0 text-neutral-500" />
       </span>
     );
   }
@@ -240,7 +240,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
         ref={btnRef}
         type="button"
         onClick={() => (open ? close() : openMenu())}
-        className="rounded px-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+        className="rounded px-1 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-700"
         aria-label="Opções da propriedade"
       >
         ⋯
@@ -283,7 +283,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
             >
-              <ArrowLeft className="h-3.5 w-3.5 text-neutral-400" /> Mover para a esquerda
+              <ArrowLeft className="h-3.5 w-3.5 text-neutral-600" /> Mover para a esquerda
             </button>
             <button
               type="button"
@@ -294,7 +294,7 @@ export function FieldMenu({ field, onChanged }: { field: FieldDef; onChanged: ()
               }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50"
             >
-              <ArrowRight className="h-3.5 w-3.5 text-neutral-400" /> Mover para a direita
+              <ArrowRight className="h-3.5 w-3.5 text-neutral-600" /> Mover para a direita
             </button>
             <div className="my-1 border-t border-neutral-100" />
             <button
@@ -388,7 +388,7 @@ function PropertyForm({
             type="button"
             onClick={() => setType(t)}
             className={
-              "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-[10px] " +
+              "flex flex-col items-center gap-1 rounded-lg border px-1 py-2 text-xs " +
               (type === t
                 ? "border-primary bg-white text-primary"
                 : "border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300")

@@ -22,7 +22,7 @@ const URGENCIA_COLOR: Record<string, string> = {
   alta: "text-rose-600",
   normal: "text-blue-600",
   baixa: "text-neutral-500",
-  "muito baixa": "text-neutral-400",
+  "muito baixa": "text-neutral-600",
 };
 
 const RISCO_COLOR: Record<string, string> = {
@@ -34,7 +34,7 @@ const RISCO_COLOR: Record<string, string> = {
 };
 
 function colorFor(map: Record<string, string>, label: string | null): string {
-  if (!label) return "text-neutral-400";
+  if (!label) return "text-neutral-600";
   const k = label.toLowerCase();
   const hit = Object.keys(map).find((key) => k.startsWith(key));
   return hit ? map[hit]! : "text-neutral-600";
@@ -141,11 +141,11 @@ function Section({
     <section>
       <div className="flex items-baseline gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-600">{title}</h2>
-        <span className="text-xs text-neutral-400">{count}</span>
+        <span className="text-xs text-neutral-600">{count}</span>
       </div>
-      <p className="mt-0.5 text-xs text-neutral-400">{hint}</p>
+      <p className="mt-0.5 text-xs text-neutral-600">{hint}</p>
       {count === 0 ? (
-        <p className="mt-3 text-sm text-neutral-400">Nada por aqui.</p>
+        <p className="mt-3 text-sm text-neutral-600">Nada por aqui.</p>
       ) : (
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
       )}
@@ -164,8 +164,8 @@ function SlaBar({ urgencia, createdAt }: { urgencia: string | null; createdAt: s
 
   return (
     <div className="mt-3">
-      <div className="mb-1 flex items-baseline justify-between text-[10px]">
-        <span className="uppercase text-neutral-400">Prazo ({sla.limitDays}d úteis)</span>
+      <div className="mb-1 flex items-baseline justify-between text-xs">
+        <span className="uppercase text-neutral-600">Prazo ({sla.limitDays}d úteis)</span>
         <span className={clsx("font-semibold", sla.late ? "text-rose-600" : "text-neutral-600")}>
           {sla.late
             ? `${Math.abs(sla.remainingDays)} ${Math.abs(sla.remainingDays) === 1 ? "dia" : "dias"} atrasado`
@@ -208,7 +208,7 @@ function Card({
           {item.tipo && (
             <span
               className={clsx(
-                "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase text-white",
+                "rounded px-1.5 py-0.5 text-xs font-bold uppercase text-white",
                 TIPO_COLOR[item.tipo] ?? "bg-neutral-500",
               )}
             >
@@ -216,7 +216,7 @@ function Card({
             </span>
           )}
           {item.area && (
-            <span className="rounded border border-neutral-200 px-1.5 py-0.5 text-[10px] uppercase text-neutral-500">
+            <span className="rounded border border-neutral-200 px-1.5 py-0.5 text-xs uppercase text-neutral-500">
               {item.area}
             </span>
           )}
@@ -225,7 +225,7 @@ function Card({
           <div className="text-xl font-bold text-neutral-800">
             {item.rice != null ? item.rice.toFixed(1) : "—"}
           </div>
-          <div className="text-[9px] uppercase tracking-wide text-neutral-400">RICE</div>
+          <div className="text-xs uppercase tracking-wide text-neutral-600">RICE</div>
         </div>
       </div>
 
@@ -233,27 +233,27 @@ function Card({
         href={`/card/${item.cardId}`}
         className="mt-2 line-clamp-2 text-sm font-semibold text-neutral-800 hover:text-primary"
       >
-        {rank != null && <span className="mr-1 text-neutral-400">#{rank}</span>}
+        {rank != null && <span className="mr-1 text-neutral-600">#{rank}</span>}
         {item.title}
       </Link>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
         <div>
-          <dt className="uppercase text-neutral-400">Etapa</dt>
+          <dt className="uppercase text-neutral-600">Etapa</dt>
           <dd className="font-medium text-neutral-700">{item.stageName}</dd>
         </div>
         <div>
-          <dt className="uppercase text-neutral-400">Investimento</dt>
+          <dt className="uppercase text-neutral-600">Investimento</dt>
           <dd className="font-medium text-neutral-700">{brl(item.orcamento)}</dd>
         </div>
         <div>
-          <dt className="uppercase text-neutral-400">Urgência</dt>
+          <dt className="uppercase text-neutral-600">Urgência</dt>
           <dd className={clsx("font-medium", colorFor(URGENCIA_COLOR, item.urgencia))}>
             {item.urgencia ?? "—"}
           </dd>
         </div>
         <div>
-          <dt className="uppercase text-neutral-400">Risco</dt>
+          <dt className="uppercase text-neutral-600">Risco</dt>
           <dd className={clsx("font-medium", colorFor(RISCO_COLOR, item.risco))}>
             {item.risco ?? "—"}
           </dd>
@@ -262,13 +262,13 @@ function Card({
 
       <SlaBar urgencia={item.urgencia} createdAt={item.createdAt} />
 
-      <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3 text-[11px] text-neutral-500">
+      <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3 text-xs text-neutral-500">
         <span className="truncate">{item.responsavel ?? "Não atribuído"}</span>
       </div>
 
       {item.prioritized ? (
         <div className="mt-2 flex items-center gap-1">
-          <span className="mr-auto inline-flex items-center gap-1 text-[11px] text-emerald-700">
+          <span className="mr-auto inline-flex items-center gap-1 text-xs text-emerald-700">
             <Check className="h-3.5 w-3.5" /> por {item.prioritized.by}
           </span>
           {canPrioritize && (
@@ -277,7 +277,7 @@ function Card({
                 type="button"
                 onClick={onUp}
                 disabled={busy || !onUp}
-                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                 aria-label="Subir na fila"
               >
                 <ArrowUp className="h-3.5 w-3.5" />
@@ -286,7 +286,7 @@ function Card({
                 type="button"
                 onClick={onDown}
                 disabled={busy || !onDown}
-                className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                 aria-label="Descer na fila"
               >
                 <ArrowDown className="h-3.5 w-3.5" />
@@ -295,7 +295,7 @@ function Card({
                 type="button"
                 onClick={onDeprioritize}
                 disabled={busy}
-                className="rounded px-1.5 py-1 text-[11px] text-neutral-400 hover:text-red-600 disabled:opacity-50"
+                className="rounded px-1.5 py-1 text-xs text-neutral-600 hover:text-red-600 disabled:opacity-50"
               >
                 Remover
               </button>

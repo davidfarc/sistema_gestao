@@ -52,7 +52,7 @@ export function DemandPanel({ cardId }: { cardId: string }) {
   return (
     <div className="border-b border-neutral-100 bg-surface-low/40 p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Demanda</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-neutral-600">Demanda</p>
         <span
           className={
             "rounded px-2 py-0.5 text-xs font-semibold capitalize " +
@@ -67,7 +67,7 @@ export function DemandPanel({ cardId }: { cardId: string }) {
       <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-base font-semibold text-neutral-800">{BRACKET_LABEL[data.bracket]}</span>
         <span className="text-sm text-neutral-600">{TRACK_LABEL[data.track]}</span>
-        <span className="text-xs text-neutral-400">
+        <span className="text-xs text-neutral-600">
           SLA {data.slaDias.min}–{data.slaDias.max} dias úteis
           {data.rice != null && ` · RICE ${data.rice.toFixed(1)}`}
           {data.effort.total != null && (
@@ -100,8 +100,8 @@ export function DemandPanel({ cardId }: { cardId: string }) {
             ) : (
               <span className="h-4 w-4 rounded-full border border-neutral-300" />
             )}
-            <span className={s.by ? "text-neutral-700" : "text-neutral-400"}>{s.label}</span>
-            {s.by && <span className="text-xs text-neutral-400">· {s.by}</span>}
+            <span className={s.by ? "text-neutral-700" : "text-neutral-600"}>{s.label}</span>
+            {s.by && <span className="text-xs text-neutral-600">· {s.by}</span>}
           </li>
         ))}
       </ul>
@@ -161,7 +161,7 @@ export function DemandPanel({ cardId }: { cardId: string }) {
 function Field({ k, v }: { k: string; v: string | null }) {
   return (
     <div>
-      <dt className="text-neutral-400">{k}</dt>
+      <dt className="text-neutral-600">{k}</dt>
       <dd className="font-medium text-neutral-700">{v || "—"}</dd>
     </div>
   );
