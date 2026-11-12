@@ -4,45 +4,27 @@ import { cookies } from "next/headers";
 import { memberView } from "@/lib/board/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { LAST_BOARD_COOKIE, parseIntake } from "./types";
-import type { BoardData, BoardSummary, CardView, FieldChip, FieldType, StageView } from "./types";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
+import { resolveChip, type ChipField } from "./chips";
+import type {
+  BoardData,
+  BoardSummary,
+  CardView,
+  FieldChip,
+  FieldValueRaw,
+  StageView,
+} from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip | null {
-  if (!raw) return null;
-  const type = f.type as FieldType;
-  const options = (f.config?.options ?? []) as { id: string; label: string; color: string }[];
-  const base = { fieldId: f.id as string, name: f.name as string, type };
-  switch (type) {
-    case "text":
-    case "long_text":
-    case "link":
-      return raw.value_text
-        ? { ...base, display: String(raw.value_text).slice(0, 60), color: null }
-        : null;
-    case "number":
-      return raw.value_number != null
-        ? { ...base, display: String(raw.value_number), color: null }
-        : null;
-    case "date":
-      return raw.value_date ? { ...base, display: formatDate(raw.value_date), color: null } : null;
-    case "checkbox":
-      return raw.value_bool ? { ...base, display: `✓ ${f.name}`, color: null } : null;
-    case "member":
-      return raw.value_member_id
-        ? { ...base, display: nameOf.get(raw.value_member_id) ?? "?", color: null }
-        : null;
-    case "select":
-    case "status": {
-      const opt = options.find((o) => o.id === raw.value_text);
-      return opt ? { ...base, display: opt.label, color: opt.color } : null;
-    }
-    default:
-      return null;
-  }
+/** Linha de `field_value` → forma usada pela tela. */
+function rawValue(v: any): FieldValueRaw {
+  return {
+    fieldId: v.field_definition_id,
+    text: v.value_text ?? null,
+    number: v.value_number != null ? Number(v.value_number) : null,
+    date: v.value_date ?? null,
+    bool: v.value_bool ?? null,
+    memberId: v.value_member_id ?? null,
+  };
 }
 
 /**
@@ -100,7 +82,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     db.from("stage").select("id, name, category, position, wip_limit").eq("board_id", board.id).order("position"),
     db
       .from("card")
-      .select("id, number, title, stage_id, due_date, requester_id")
+      .select("id, number, title, stage_id, due_date, requester_id, position")
       .eq("board_id", board.id)
       .order("position")
       .order("number"), // desempate estável: cards antigos têm todos position 1000
@@ -133,7 +115,12 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
 
   const cardsRaw = cardsRes.data ?? [];
   const cardIds = cardsRaw.map((c) => c.id);
-  const showFields = fieldsRes.data ?? [];
+  const showFields: ChipField[] = (fieldsRes.data ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    type: f.type,
+    options: (f.config?.options ?? []) as ChipField["options"],
+  }));
 
   const assigneeOf = new Map<string, string>();
   const nameOf = new Map<string, string>();
@@ -180,7 +167,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     }
   }
 
-  const valueOf = new Map<string, unknown>();
+  const valueOf = new Map<string, FieldValueRaw>();
   if (cardIds.length > 0 && showFields.length > 0) {
     const { data: vals } = await db
       .from("field_value")
@@ -191,7 +178,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
         showFields.map((f) => f.id),
       );
     for (const v of vals ?? []) {
-      valueOf.set(`${v.card_id}|${v.field_definition_id}`, v);
+      valueOf.set(`${v.card_id}|${v.field_definition_id}`, rawValue(v));
       if (v.value_member_id) memberIds.add(v.value_member_id);
     }
   }
@@ -212,7 +199,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     const uid = assigneeOf.get(c.id);
     const fields: FieldChip[] = [];
     for (const f of showFields) {
-      const chip = resolveChip(f, valueOf.get(`${c.id}|${f.id}`), nameOf);
+      const chip = resolveChip(f, valueOf.get(`${c.id}|${f.id}`), (id) => nameOf.get(id));
       if (chip) fields.push(chip);
     }
     return {
@@ -220,6 +207,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       number: Number(c.number),
       title: c.title,
       stageId: c.stage_id,
+      position: Number(c.position),
       assignee: uid ? memberView(uid, nameOf.get(uid) ?? "?") : null,
       requester: c.requester_id
         ? memberView(c.requester_id, nameOf.get(c.requester_id) ?? "?")
@@ -231,6 +219,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       checklist: checklistOf.get(c.id) ?? null,
       commentCount: commentsOf.get(c.id) ?? 0,
       awaitingPrioritization: gatedStages.has(c.stage_id) && !prioritizedCards.has(c.id),
+      prioritized: prioritizedCards.has(c.id),
     };
   });
 
@@ -243,6 +232,8 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     stages,
     cards,
     members: [],
+    gatedStageIds: [...gatedStages],
+    loadedAt: Date.now(),
   };
 }
 

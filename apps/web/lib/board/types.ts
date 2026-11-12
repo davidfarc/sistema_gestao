@@ -34,6 +34,8 @@ export interface CardView {
   number: number; // ID sequencial por quadro (#1, #2…)
   title: string;
   stageId: string;
+  /** Ordem dentro da coluna (índice fracionário; empate desfeito pelo número). */
+  position: number;
   assignee: Member | null;
   /** Quem pediu (nativo, ao lado do responsável). Preenchido na criação. */
   requester: Member | null;
@@ -46,6 +48,8 @@ export interface CardView {
   commentCount?: number;
   /** Está numa etapa cuja saída exige priorização (e ainda não foi priorizada). */
   awaitingPrioritization?: boolean;
+  /** Já passou pela fila de priorização (para recalcular o selo ao mover). */
+  prioritized?: boolean;
 }
 
 /** Resultado de "+ Adicionar card" no pé de uma coluna. */
@@ -56,6 +60,8 @@ export interface CreatedCard {
   /** Etapa em que o card ficou (a 1ª, se uma regra de fluxo barrou a pedida). */
   stageId: string;
   position: number;
+  /** Nome de quem criou (vira o solicitante), para a tela montar o card sem recarregar. */
+  requesterName: string;
   /** Preenchido quando o card foi criado mas não pôde ir para a etapa pedida. */
   blockedReason?: string;
 }
@@ -162,6 +168,10 @@ export interface BoardData {
   stages: StageView[];
   cards: CardView[];
   members: Member[];
+  /** Etapas de checkpoint da priorização (cards nelas "aguardam priorização"). */
+  gatedStageIds: string[];
+  /** Quando o servidor montou estes dados (ms) — para a tela saber se estão velhos. */
+  loadedAt: number;
 }
 
 /** Item do seletor de pipelines. */

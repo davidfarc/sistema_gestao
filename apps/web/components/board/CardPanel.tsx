@@ -18,15 +18,15 @@ export function CardPanel({
   stageName,
   myUserId = null,
   onClose,
-  onChanged,
+  onSaved,
 }: {
   cardId: string;
   /** Etapa atual segundo o quadro (mais fresca que a carregada com o card). */
   stageName?: string;
   myUserId?: string | null;
   onClose: () => void;
-  /** Avisa o quadro de que algo no card foi gravado. */
-  onChanged?: () => void;
+  /** Algo no card foi gravado: recebe o card já relido, para o quadro refletir. */
+  onSaved?: (data: CardPageData) => void;
 }) {
   // undefined = carregando · null = não existe ou sem acesso
   const [data, setData] = useState<CardPageData | null | undefined>(undefined);
@@ -45,9 +45,13 @@ export function CardPanel({
   }, [cardId]);
 
   const reload = useCallback(() => {
-    loadCardPage(cardId).then((d) => d && setData(d));
-    onChanged?.();
-  }, [cardId, onChanged]);
+    // Uma ida ao servidor, só deste card — o quadro não é recarregado.
+    loadCardPage(cardId).then((d) => {
+      if (!d) return;
+      setData(d);
+      onSaved?.(d);
+    });
+  }, [cardId, onSaved]);
 
   // Foco entra no painel ao abrir e volta para onde estava ao fechar.
   useEffect(() => {

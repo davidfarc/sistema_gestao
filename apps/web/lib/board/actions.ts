@@ -66,6 +66,11 @@ async function recordActivity(
 }
 
 // ── Cards ────────────────────────────────────────────────────────────────────
+//
+// As actions de card do dia a dia (mover, renomear, responsável, propriedade,
+// criar na coluna) NÃO chamam `revalidatePath("/board")`: isso faria o Next
+// refazer todas as consultas do quadro a cada clique. A tela aplica a mudança
+// localmente e o Realtime leva para as outras pessoas (SPEC-FASE2 A9).
 
 type AdminDb = ReturnType<typeof createAdminClient>;
 
@@ -213,7 +218,16 @@ export async function createCardInStage(
   }
 
   const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
-  const created: CreatedCard = { ...card, stageId: firstStageId };
+  const { data: me } = await db
+    .from("app_user")
+    .select("name, email")
+    .eq("id", actor.userId as string)
+    .maybeSingle();
+  const created: CreatedCard = {
+    ...card,
+    stageId: firstStageId,
+    requesterName: me?.name || me?.email || "?",
+  };
   if (stageId !== firstStageId) {
     const res = await moveCard(card.id, stageId);
     if (res.ok) {
@@ -224,7 +238,6 @@ export async function createCardInStage(
       created.blockedReason = `Card criado na primeira etapa. ${res.reason}`;
     }
   }
-  revalidatePath("/board");
   return created;
 }
 
@@ -441,8 +454,7 @@ export async function moveCard(
         },
       );
     }
-    revalidatePath("/board");
-    return { ok: true };
+      return { ok: true };
   } catch (e) {
     if (e instanceof GateBlockedError) {
       const violations = (e.details ?? []) as RuleViolation[];
@@ -505,6 +517,28 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     fields,
     values,
     detail,
+  };
+}
+
+/** Tudo que a visão de Lista precisa além dos cards, numa ida só ao servidor. */
+export async function loadListData(boardId: string): Promise<{
+  fields: FieldDef[];
+  values: { cardId: string; value: FieldValueRaw }[];
+  members: MemberOption[];
+  prioritizedCardIds: string[];
+}> {
+  const db = await createClient(); // sessão → RLS
+  const [fields, values, members, prio] = await Promise.all([
+    loadFields(boardId),
+    loadFieldValuesByBoard(boardId),
+    loadMembers(),
+    db.from("prioritization").select("card_id").eq("board_id", boardId).is("archived_at", null),
+  ]);
+  return {
+    fields,
+    values,
+    members,
+    prioritizedCardIds: (prio.data ?? []).map((p) => p.card_id),
   };
 }
 

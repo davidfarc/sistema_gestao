@@ -271,4 +271,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | A3 card com link (`?card=<id>`, painel lateral = mesmo componente da página `/card/[id]`) | Código pronto no ramo; **falta testar na prévia** |
 | A4 ordem na coluna (`@dnd-kit/sortable` + `placeInColumn` em `core/ranking.ts`; card novo entra no fim da coluna) | Código pronto no ramo; arrasto testado em navegador com dados de mentira; **falta testar na prévia com o banco**. Sem migration |
 | A8 "+ Adicionar card" no pé da coluna (formulário `simple`; nasce na 1ª etapa e vai à coluna pelo `CardService.move`) | Código pronto no ramo; **falta testar na prévia**. Sem migration |
-| A9 atualização local | A fazer |
+| A9 atualização local (mover, criar na coluna, editar no painel e na Lista mudam a tela na hora; o Realtime é aplicado sem ir ao servidor; `router.refresh()` só em erro, card novo de terceiros sem nome conhecido, etapas e dados velhos; a Lista abre com 1 ida ao servidor em vez de 4) | Código pronto no ramo; **falta testar na prévia**. Sem migration |
+
+**Bloco A: código completo.** Pendências para fechar: aplicar a migration 0035 (se ainda não foi) e
+validar na prévia do ramo. Próximo bloco: **B (mobile/PWA)**.

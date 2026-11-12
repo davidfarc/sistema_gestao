@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { placementIndex, type Placement } from "@ecco/core";
+import type { Placement } from "@ecco/core";
 
 import { BoardProvider } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
@@ -14,12 +14,30 @@ import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { PipelineSelector } from "./PipelineSelector";
 import { createCardInStage, moveCard } from "@/lib/board/actions";
+import { memberView } from "@/lib/board/avatar";
+import {
+  applyCardRow,
+  applyMove,
+  cardFromRow,
+  faceFromPage,
+  sortCards,
+  type CardRow,
+} from "@/lib/board/localState";
 import { createClient } from "@/lib/supabase/client";
-import { LAST_BOARD_COOKIE, type BoardData, type BoardSummary } from "@/lib/board/types";
+import {
+  LAST_BOARD_COOKIE,
+  type BoardData,
+  type BoardSummary,
+  type CardPageData,
+  type CardView,
+} from "@/lib/board/types";
 
 type View = "kanban" | "list";
 
 const viewKey = (boardId: string) => `ecco_visao_${boardId}`;
+
+/** Carregamentos do servidor que esta aba já mostrou (ver "Dados velhos"). */
+const seenLoads = new Set<number>();
 
 export interface BoardCaps {
   fields: boolean; // editar propriedades (field:manage)
@@ -70,35 +88,95 @@ export function BoardView({
     }
   }
 
-  // Tempo real: qualquer mudança em cards ou etapas deste pipeline (feita por
-  // outra pessoa ou em outra aba) recarrega os dados do servidor. As mudanças
-  // chegam em rajada (um move grava card + atividade), então espera 400 ms
-  // de silêncio antes de buscar. O RLS filtra o que cada pessoa recebe.
+  const gated = useMemo(() => new Set(board.gatedStageIds), [board.gatedStageIds]);
+  // Sempre o valor mais novo, para os avisos do Realtime (que vivem num efeito
+  // montado uma vez só) não trabalharem com uma lista antiga.
+  const gatedRef = useRef(gated);
+  gatedRef.current = gated;
+  const cardsRef = useRef(cards);
+  cardsRef.current = cards;
+
+  // Recarrega do servidor, juntando pedidos em rajada (400 ms de silêncio).
+  // É o caminho de exceção: o normal é a tela se atualizar sozinha, abaixo.
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshSoon = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => router.refresh(), 400);
+  }, [router]);
+  useEffect(
+    () => () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    },
+    [],
+  );
+
+  // Tempo real. Mudança num card que a tela já conhece (título, etapa, ordem,
+  // prazo) é aplicada direto na lista, sem ir ao servidor — inclusive o "eco"
+  // das gravações desta própria tela. Só o que a tela não resolve sozinha
+  // (card novo de outra pessoa, solicitante trocado, etapas) recarrega.
+  // O RLS filtra o que cada pessoa recebe.
   useEffect(() => {
     const supabase = createClient();
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const refresh = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => router.refresh(), 400);
-    };
     const channel = supabase
       .channel(`board-${board.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "card", filter: `board_id=eq.${board.id}` },
-        refresh,
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            const id = (payload.old as { id?: string }).id;
+            if (id) setCards((prev) => prev.filter((c) => c.id !== id));
+            return;
+          }
+          const row = payload.new as CardRow;
+          const known = cardsRef.current.some((c) => c.id === row.id);
+          const resolvable = known
+            ? applyCardRow(cardsRef.current, row, gatedRef.current) !== null
+            : cardFromRow(cardsRef.current, row, gatedRef.current) !== null;
+          if (!resolvable) {
+            refreshSoon();
+            return;
+          }
+          setCards((prev) => {
+            if (prev.some((c) => c.id === row.id)) {
+              return applyCardRow(prev, row, gatedRef.current) ?? prev;
+            }
+            const created = cardFromRow(prev, row, gatedRef.current);
+            return created ? sortCards([...prev, created]) : prev;
+          });
+        },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "stage", filter: `board_id=eq.${board.id}` },
-        refresh,
+        refreshSoon,
       )
       .subscribe();
     return () => {
-      if (timer) clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [board.id, router]);
+  }, [board.id, refreshSoon]);
+
+  // Dados velhos. (1) Ao voltar pelo "voltar" do navegador o Next remonta a
+  // tela com a página que tinha guardado: se estes mesmos dados já foram
+  // montados antes, recarrega. (2) Aba que ficou mais de 1 min em segundo plano
+  // pode ter perdido avisos do Realtime (celular dormindo): recarrega ao voltar.
+  useEffect(() => {
+    if (seenLoads.has(board.loadedAt)) router.refresh();
+    seenLoads.add(board.loadedAt);
+    let hiddenAt: number | null = null;
+    function onVisibility() {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+      } else if (hiddenAt && Date.now() - hiddenAt > 60_000) {
+        router.refresh();
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // Só na montagem: `loadedAt` muda a cada recarga e não deve refazer o efeito.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.id]);
 
   // Busca e "Meus cards" valem para as duas visões.
   const shownCards = useMemo(() => {
@@ -154,27 +232,25 @@ export function BoardView({
     if (!selectedCardId) openedHere.current = false;
   }, [selectedCardId]);
 
-  const refreshBoard = useCallback(() => router.refresh(), [router]);
 
-  function move(cardId: string, toStageId: string, placement: Placement) {
+  /** Altera um card só na tela (a gravação é de quem chama). */
+  const patchCard = useCallback((cardId: string, patch: Partial<CardView>) => {
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, ...patch } : c)));
+  }, []);
+
+  // Otimista: muda de etapa e de lugar na hora, com a mesma conta de posição
+  // que o servidor fará. Se um gate barrar ou a gravação falhar, recarrega do
+  // servidor (volta ao estado real). Sem `placement` (Lista): fim da coluna.
+  function move(cardId: string, toStageId: string, placement?: Placement) {
     setMoveError(null);
-    // Otimista: muda de etapa e de lugar na hora (a ordem da lista É a ordem
-    // na coluna); se um gate barrar no servidor, reverte.
-    setCards((prev) => {
-      const moving = prev.find((c) => c.id === cardId);
-      if (!moving) return prev;
-      const rest = prev.filter((c) => c.id !== cardId);
-      const column = rest.filter((c) => c.stageId === toStageId).map((c) => c.id);
-      // Card que fica logo abaixo na coluna de destino (undefined = vai para o fim).
-      const nextId = column[placementIndex(column, placement)];
-      const at = nextId ? rest.findIndex((c) => c.id === nextId) : rest.length;
-      return [...rest.slice(0, at), { ...moving, stageId: toStageId }, ...rest.slice(at)];
-    });
+    // Pela Lista, escolher a etapa em que o card já está não muda nada.
+    if (!placement && cards.find((c) => c.id === cardId)?.stageId === toStageId) return;
+    setCards((prev) => applyMove(prev, cardId, toStageId, placement, gated));
     moveCard(cardId, toStageId, placement)
       .then((res) => {
         if (!res.ok) {
           setMoveError(res.reason);
-          router.refresh(); // reverte para o estado real do servidor
+          router.refresh();
         }
       })
       .catch(() => {
@@ -183,6 +259,28 @@ export function BoardView({
       });
   }
 
+  // O painel do card gravou algo e já buscou o card de novo: reflete na face.
+  const cardSaved = useCallback(
+    (data: CardPageData) => {
+      const face = faceFromPage(data);
+      setCards((prev) =>
+        prev.map((c) => {
+          if (c.id !== data.id) return c;
+          // Pessoa arquivada não vem na lista de membros: mantém o nome que já havia.
+          const keep = (next: CardView["assignee"], cur: CardView["assignee"]) =>
+            next && cur && next.id === cur.id && next.name === "?" ? cur : next;
+          return {
+            ...c,
+            ...face,
+            assignee: keep(face.assignee ?? null, c.assignee),
+            requester: keep(face.requester ?? null, c.requester),
+          };
+        }),
+      );
+    },
+    [],
+  );
+
   // "+ Adicionar card" no pé da coluna: só no formulário simples (os outros
   // pedem campos que o campo de título sozinho não coleta).
   async function addCard(stageId: string, title: string) {
@@ -190,7 +288,26 @@ export function BoardView({
     try {
       const created = await createCardInStage(board.id, title, stageId);
       if (created.blockedReason) setMoveError(created.blockedReason);
-      router.refresh();
+      const card: CardView = {
+        id: created.id,
+        number: created.number,
+        title: created.title,
+        stageId: created.stageId,
+        position: created.position,
+        assignee: null,
+        requester: myUserId ? memberView(myUserId, created.requesterName) : null,
+        labels: [],
+        dueDate: null,
+        status: null,
+        fields: [],
+        checklist: null,
+        commentCount: 0,
+        awaitingPrioritization: gated.has(created.stageId),
+        prioritized: false,
+      };
+      // O aviso do Realtime pode ter chegado antes e já provocado uma recarga
+      // com este card: nesse caso não duplica.
+      setCards((prev) => (prev.some((c) => c.id === card.id) ? prev : sortCards([...prev, card])));
     } catch {
       // Em produção o Next esconde o texto do erro do servidor; a mensagem é genérica.
       setMoveError("Não foi possível criar o card. Recarregue a página e tente de novo.");
@@ -316,6 +433,8 @@ export function BoardView({
             cards={shownCards}
             stages={board.stages}
             onOpenCard={openCard}
+            onMove={move}
+            onPatchCard={patchCard}
             canConfigure={caps.fields}
           />
         )}
@@ -327,7 +446,7 @@ export function BoardView({
           stageName={selectedStageName}
           myUserId={myUserId}
           onClose={closeCard}
-          onChanged={refreshBoard}
+          onSaved={cardSaved}
         />
       )}
     </div>
