@@ -246,7 +246,7 @@ plano original previa, sobre as mesmas funções.
 
 ---
 
-## E. Produção Pedagógica, visual novo e presença (planejado em 12/11/2026)
+## E. Produção Pedagógica, visual novo e tempo por tarefa (planejado em 12/11/2026)
 
 > Demanda do setor pedagógico da editora, que hoje usa um sistema próprio (site estático +
 > Supabase separado). Simulação navegável aprovada como direção; **nada implementado ainda**.
@@ -272,36 +272,48 @@ plano original previa, sobre as mesmas funções.
   for pedida.
 - **Login:** Google, como o resto do sistema (o e-mail e senha do sistema antigo não vêm).
 
-### E.2 Presença: quem está online, entrada e saída
+### E.2 Tempo por tarefa (substitui a ideia de "presença")
 
-Considerado muito importante pelo setor. No sistema de origem existe a hora do "registro do dia" e
-do último login; **não existe hora de saída nem indicador de online** no código recebido, então
-essa parte é nova.
+Redefinido em 12/11: o objetivo **não é registrar entrada e saída da pessoa**, e sim **quanto tempo
+cada tarefa consome**, para planejar prazos. Sem vínculo com ponto ou jornada; isso constará nos
+termos de uso.
 
 | Peça | Como |
 |---|---|
-| Online agora | Supabase Realtime Presence (efêmero, sem tabela): bolinha verde no bloco "Equipe hoje" |
-| Entrada e saída | Tabela `presence_session` (pessoa, início, última atividade). A tela manda um sinal a cada ~2 min enquanto está aberta e visível; mais de 15 min sem sinal encerra a sessão. Entrada do dia = início da primeira sessão; saída = fim da última. Guarda os intervalos (saiu para o almoço e voltou) |
-| Quem vê | Cada pessoa vê o próprio registro; a equipe inteira só para quem tiver a permissão nova `presence:read` (Gestor Master e Gestor de início) |
-| Onde aparece | Bloco "Equipe hoje" na Lista do pipeline e um painel "Presença" em Painéis (por dia e por pessoa) |
-| Guarda | 12 meses, depois apaga (ajustável) |
+| Cronômetro no card | O colaborador clica em **Iniciar** no card em que vai trabalhar, **Pausar** quando para e **Retomar** depois, inclusive em outro dia. O sistema soma os períodos |
+| Uma tarefa por vez | Iniciar outra tarefa pausa a anterior sozinho. Mover o card para análise também pausa |
+| Esquecimento | Cronômetro ligado sem a tela aberta por mais de N minutos é encerrado no último sinal recebido (N a definir; sugestão 15) |
+| Dados | Tabela `time_entry` (card, pessoa, início, fim). Total do card = soma dos períodos |
+| Quem vê | **Só a gestão** vê o bloco "Equipe agora" (em que cada um está trabalhando) e os relatórios. Cada pessoa vê apenas o próprio tempo |
+| Relatórios (Painéis) | No que cada um trabalhou e por quanto tempo; horas médias por tipo de material e por segmento, para planejar; horas registradas por dia |
 
-Pontos de atenção, para decidir antes de implementar:
+Pontos em aberto:
 
-1. **Não é ponto eletrônico.** Registra uso do sistema, não jornada: quem trabalha fora do sistema
-   aparece como ausente. Controle de jornada com valor legal tem regras próprias.
-2. **Transparência (LGPD):** a equipe precisa saber que a presença é registrada, quem vê e por
-   quanto tempo fica guardada. Texto de aviso no primeiro acesso.
-3. **Celular:** com o aplicativo fechado a pessoa aparece como offline, mesmo trabalhando.
-4. **Registro do dia em texto** (o que a pessoa fez), que existe no sistema de origem: manter como
-   campo opcional ou deixar só o histórico dos cards? A decidir com o setor.
+1. Texto dos termos de uso (finalidade: medir tempo de tarefa, não jornada) e aviso à equipe no
+   primeiro acesso. Vale uma conferida de quem cuida do jurídico/RH.
+2. Permite corrigir tempo à mão (esqueceu de pausar)? Sugestão: sim, pelo próprio colaborador, com
+   registro no histórico do card.
+3. Tempo de guarda dos períodos detalhados (sugestão: 12 meses; os totais por card ficam).
+
+### E.2b "Minhas demandas": a visão do colaborador
+
+No sistema de origem ela não é configurável: quem não é da coordenação cai direto nela. Mostra só
+os materiais da própria pessoa, em duas listas (em andamento e finalizados), com o que foi
+devolvido para emenda em destaque.
+
+No nosso sistema entra como **terceira visão do pipeline**, ao lado de Kanban e Lista:
+
+- mostra os cards em que a pessoa é responsável, com os devolvidos no topo e depois por prazo;
+- cada card traz o cronômetro, "Abrir card" e "Finalizar e enviar para análise";
+- é a visão padrão de quem não gerencia o pipeline; gestores abrem na Lista;
+- na tela Início, um resumo "Minhas demandas" junta os cards da pessoa em todos os pipelines.
 
 ### E.3 Ordem sugerida
 
 1. Visual novo no sistema todo (tokens e componentes) — maior, mexe em todas as telas.
 2. Lista nova (resumo, filtros rápidos, ordenação, planilha), mantendo o que já existe.
 3. Pipeline "Produção Pedagógica" (propriedades, contador de emendas) e o painel dele em Painéis.
-4. Presença (migration + sinal + bloco "Equipe hoje" + painel).
+4. "Minhas demandas" e tempo por tarefa (migration `time_entry`, cronômetro, bloco "Equipe agora", relatórios de tempo).
 
 ---
 
