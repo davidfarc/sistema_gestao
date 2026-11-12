@@ -2,11 +2,11 @@
 
 import { ListOrdered, Search, User, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { BoardProvider } from "./BoardContext";
-import { CardDetail } from "./CardDetail";
+import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
@@ -41,7 +41,10 @@ export function BoardView({
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  // O card aberto mora na URL (`?card=<id>`): tem link, e o "voltar" do
+  // navegador fecha o card em vez de sair do quadro.
+  const selectedCardId = useSearchParams().get("card");
+  const openedHere = useRef(false);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
@@ -120,10 +123,36 @@ export function BoardView({
     document.cookie = `${LAST_BOARD_COOKIE}=${board.id}; path=/; max-age=31536000; samesite=lax`;
   }, [board.id]);
 
-  const selectedCard = cards.find((c) => c.id === selectedCardId) ?? null;
-  const selectedStage = selectedCard
-    ? board.stages.find((s) => s.id === selectedCard.stageId)
-    : undefined;
+  const selectedStageId = cards.find((c) => c.id === selectedCardId)?.stageId;
+  const selectedStageName = board.stages.find((s) => s.id === selectedStageId)?.name;
+
+  // `history.pushState` (e não `router.push`): muda o endereço sem refazer as
+  // consultas do quadro. O Next mantém `useSearchParams` em dia com ele.
+  const openCard = useCallback((cardId: string) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("card", cardId);
+    openedHere.current = true;
+    window.history.pushState(null, "", `?${params}`);
+  }, []);
+
+  const closeCard = useCallback(() => {
+    // Abriu por clique: desfaz a entrada do histórico. Chegou por link direto:
+    // não há para onde voltar, então só tira o card do endereço.
+    if (openedHere.current) {
+      window.history.back();
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.delete("card");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCardId) openedHere.current = false;
+  }, [selectedCardId]);
+
+  const refreshBoard = useCallback(() => router.refresh(), [router]);
 
   function move(cardId: string, toStageId: string) {
     setMoveError(null);
@@ -248,24 +277,26 @@ export function BoardView({
             cards={shownCards}
             onMove={move}
             onError={setMoveError}
-            onOpenCard={setSelectedCardId}
+            onOpenCard={openCard}
             canConfigure={caps.stages}
           />
         ) : (
           <ListView
             cards={shownCards}
             stages={board.stages}
-            onOpenCard={setSelectedCardId}
+            onOpenCard={openCard}
             canConfigure={caps.fields}
           />
         )}
       </div>
 
-      {selectedCard && (
-        <CardDetail
-          card={selectedCard}
-          stage={selectedStage}
-          onClose={() => setSelectedCardId(null)}
+      {selectedCardId && (
+        <CardPanel
+          cardId={selectedCardId}
+          stageName={selectedStageName}
+          myUserId={myUserId}
+          onClose={closeCard}
+          onChanged={refreshBoard}
         />
       )}
     </div>
