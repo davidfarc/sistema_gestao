@@ -10,6 +10,7 @@ import type { Placement } from "@ecco/core";
 import { BoardProvider } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
+import { MobileBoard } from "./MobileBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { PipelineSelector } from "./PipelineSelector";
@@ -24,6 +25,7 @@ import {
   type CardRow,
 } from "@/lib/board/localState";
 import { createClient } from "@/lib/supabase/client";
+import { useIsMobile } from "@/lib/useIsMobile";
 import {
   LAST_BOARD_COOKIE,
   type BoardData,
@@ -61,6 +63,8 @@ export function BoardView({
   const router = useRouter();
   const [cards, setCards] = useState(board.cards);
   const [view, setView] = useState<View>("kanban");
+  // Celular: uma etapa por vez, sem arrastar e sem a Lista (tabela larga demais).
+  const isMobile = useIsMobile();
   // O card aberto mora na URL (`?card=<id>`): tem link, e o "voltar" do
   // navegador fecha o card em vez de sair do quadro.
   const selectedCardId = useSearchParams().get("card");
@@ -388,7 +392,7 @@ export function BoardView({
               <ListOrdered className="h-4 w-4" /> Prioridades
             </Link>
           )}
-          <div className="flex rounded-lg border border-neutral-200 p-0.5 text-sm">
+          <div className="hidden rounded-lg border border-neutral-200 p-0.5 text-sm md:flex">
             <ToggleButton active={view === "kanban"} onClick={() => chooseView("kanban")}>
               Kanban
             </ToggleButton>
@@ -417,28 +421,42 @@ export function BoardView({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto p-3 md:p-6">
-        {view === "kanban" ? (
-          <KanbanBoard
+      {isMobile === null ? (
+        // Um instante até saber o tamanho da tela (evita montar o quadro errado).
+        <div className="flex-1" />
+      ) : isMobile ? (
+        <div className="min-h-0 flex-1">
+          <MobileBoard
             stages={board.stages}
             cards={shownCards}
-            onMove={move}
-            onError={setMoveError}
             onOpenCard={openCard}
-            canConfigure={caps.stages}
             onAddCard={canAddInColumn ? addCard : undefined}
           />
-        ) : (
-          <ListView
-            cards={shownCards}
-            stages={board.stages}
-            onOpenCard={openCard}
-            onMove={move}
-            onPatchCard={patchCard}
-            canConfigure={caps.fields}
-          />
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-auto p-3 md:p-6">
+          {view === "kanban" ? (
+            <KanbanBoard
+              stages={board.stages}
+              cards={shownCards}
+              onMove={move}
+              onError={setMoveError}
+              onOpenCard={openCard}
+              canConfigure={caps.stages}
+              onAddCard={canAddInColumn ? addCard : undefined}
+            />
+          ) : (
+            <ListView
+              cards={shownCards}
+              stages={board.stages}
+              onOpenCard={openCard}
+              onMove={move}
+              onPatchCard={patchCard}
+              canConfigure={caps.fields}
+            />
+          )}
+        </div>
+      )}
 
       {selectedCardId && (
         <CardPanel
@@ -447,6 +465,11 @@ export function BoardView({
           myUserId={myUserId}
           onClose={closeCard}
           onSaved={cardSaved}
+          stages={board.stages}
+          stageId={selectedStageId}
+          onMoveTo={(toStageId) => move(selectedCardId, toStageId)}
+          notice={moveError}
+          onDismissNotice={() => setMoveError(null)}
         />
       )}
     </div>

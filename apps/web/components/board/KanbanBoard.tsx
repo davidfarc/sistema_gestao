@@ -82,7 +82,7 @@ function SortableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) 
 }
 
 /** "+ Adicionar card" no pé da coluna: digita o título, Enter cria e já abre o próximo. */
-function AddCard({
+export function AddCard({
   stageName,
   onAdd,
 }: {

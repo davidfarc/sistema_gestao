@@ -23,12 +23,14 @@ function emptyValue(fieldId: string): FieldValueRaw {
 const SPLIT = {
   lg: {
     grid: "lg:grid-cols-[7fr_3fr]",
-    aside: "lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0",
+    comments: "lg:col-start-1 lg:row-start-2",
+    aside: "lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0",
     sticky: "lg:sticky lg:top-8",
   },
   xl: {
     grid: "xl:grid-cols-[7fr_3fr]",
-    aside: "xl:mt-0 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0",
+    comments: "xl:col-start-1 xl:row-start-2",
+    aside: "xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0",
     sticky: "xl:sticky xl:top-4",
   },
 } as const;
@@ -47,11 +49,14 @@ export function CardContent({
   myUserId = null,
   onChanged,
   split = "lg",
+  composerSlot = null,
 }: {
   data: CardPageData;
   myUserId?: string | null;
   onChanged: () => void;
   split?: keyof typeof SPLIT;
+  /** Celular: rodapé fixo onde o campo de comentário é desenhado (ver Comments). */
+  composerSlot?: HTMLElement | null;
 }) {
   const [title, setTitle] = useState(data.title);
   const [description, setDescription] = useState(data.description ?? "");
@@ -166,18 +171,10 @@ export function CardContent({
             <Checklists cardId={data.id} checklists={d.checklists} onChanged={onChanged} />
           </Section>
 
-          <Section title="Anexos">
+          <Section title="Anexos" last>
             <Attachments cardId={data.id} attachments={d.attachments} onChanged={onChanged} />
           </Section>
 
-          <Section title="Comentários" last>
-            <Comments
-              cardId={data.id}
-              comments={d.comments}
-              members={d.members}
-              onChanged={onChanged}
-            />
-          </Section>
         </div>
 
         <aside className={`mt-6 min-w-0 border-t border-neutral-100 pt-4 ${css.aside}`}>
@@ -190,6 +187,21 @@ export function CardContent({
             </div>
           </div>
         </aside>
+
+        {/* Comentários: no celular vêm por último (depois da atividade), junto
+            do campo fixo no rodapé; em tela larga ficam sob o conteúdo. */}
+        <div className={`order-last mt-6 min-w-0 border-t border-neutral-100 pt-6 ${css.comments}`}>
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
+            Comentários
+          </p>
+          <Comments
+            cardId={data.id}
+            comments={d.comments}
+            members={d.members}
+            onChanged={onChanged}
+            composerSlot={composerSlot}
+          />
+        </div>
       </div>
     </>
   );
@@ -205,7 +217,7 @@ function Section({
   last?: boolean;
 }) {
   return (
-    <section className={last ? "pt-6" : "border-b border-neutral-100 py-6 first:pt-0"}>
+    <section className={last ? "pt-6 first:pt-0" : "border-b border-neutral-100 py-6 first:pt-0"}>
       <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">{title}</p>
       {children}
     </section>

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { loadCardPage } from "@/lib/board/actions";
-import type { CardPageData } from "@/lib/board/types";
+import type { CardPageData, StageView } from "@/lib/board/types";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { CardContent } from "./CardContent";
 
 /**
@@ -19,12 +20,24 @@ export function CardPanel({
   myUserId = null,
   onClose,
   onSaved,
+  stages,
+  stageId,
+  onMoveTo,
+  notice = null,
+  onDismissNotice,
 }: {
   cardId: string;
   /** Etapa atual segundo o quadro (mais fresca que a carregada com o card). */
   stageName?: string;
   myUserId?: string | null;
   onClose: () => void;
+  /** Etapas do quadro + etapa atual: habilitam o "Mover para…" no topo do card. */
+  stages?: StageView[];
+  stageId?: string;
+  onMoveTo?: (stageId: string) => void;
+  /** Aviso do quadro (ex.: regra de fluxo barrou o movimento), mostrado aqui porque o painel cobre o quadro. */
+  notice?: string | null;
+  onDismissNotice?: () => void;
   /** Algo no card foi gravado: recebe o card já relido, para o quadro refletir. */
   onSaved?: (data: CardPageData) => void;
 }) {
@@ -32,6 +45,10 @@ export function CardPanel({
   const [data, setData] = useState<CardPageData | null | undefined>(undefined);
   const [copied, setCopied] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Celular: o campo de comentário fica num rodapé fixo do painel.
+  const isMobile = useIsMobile();
+  const [composerSlot, setComposerSlot] = useState<HTMLDivElement | null>(null);
+  const canMove = !!(stages && stageId && onMoveTo && stages.some((s) => s.id === stageId));
 
   useEffect(() => {
     let active = true;
@@ -110,10 +127,32 @@ export function CardPanel({
         <div className="flex items-center gap-2 border-b border-neutral-200 px-4 py-2 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-neutral-500">
             {data && <span className="font-medium">#{data.number}</span>}
-            {data && (stageName || data.stageName) && (
-              <span className="truncate rounded bg-neutral-100 px-1.5 py-0.5 text-xs">
-                {stageName || data.stageName}
-              </span>
+            {data && canMove ? (
+              // Seletor nativo: no celular abre a lista do próprio sistema, e é
+              // o jeito de mover um card sem arrastar (toque ou teclado).
+              <label className="flex min-w-0 items-center gap-1.5">
+                <span className="hidden shrink-0 text-xs sm:inline">Mover para</span>
+                <span className="sr-only sm:hidden">Mover para a etapa</span>
+                <select
+                  value={stageId}
+                  onChange={(e) => onMoveTo!(e.target.value)}
+                  title="Mover para outra etapa"
+                  className="min-h-9 min-w-0 max-w-[12rem] truncate rounded-lg border border-neutral-300 bg-white px-2 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                >
+                  {stages!.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              data &&
+              (stageName || data.stageName) && (
+                <span className="truncate rounded bg-neutral-100 px-1.5 py-0.5 text-xs">
+                  {stageName || data.stageName}
+                </span>
+              )
             )}
             {data === undefined && <span className="italic">carregando…</span>}
           </div>
@@ -135,7 +174,26 @@ export function CardPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        {notice && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 sm:px-6"
+          >
+            <span className="flex-1">{notice}</span>
+            {onDismissNotice && (
+              <button
+                type="button"
+                onClick={onDismissNotice}
+                aria-label="Fechar aviso"
+                className="-my-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-amber-100"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
           {data === undefined && (
             <div className="grid gap-4" aria-hidden="true">
               <div className="h-8 w-2/3 animate-pulse rounded bg-neutral-100" />
@@ -165,9 +223,18 @@ export function CardPanel({
               myUserId={myUserId}
               onChanged={reload}
               split="xl"
+              composerSlot={isMobile ? composerSlot : null}
             />
           )}
         </div>
+
+        {/* Rodapé fixo do celular: recebe o campo de comentário (portal do Comments). */}
+        {isMobile && data && (
+          <div
+            ref={setComposerSlot}
+            className="shrink-0 border-t border-neutral-200 bg-white px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          />
+        )}
       </div>
     </div>
   );
