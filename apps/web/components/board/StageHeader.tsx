@@ -3,7 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
-import { deleteStage, renameStage, reorderStage, setStageCategory } from "@/lib/board/actions";
+import {
+  deleteStage,
+  renameStage,
+  reorderStage,
+  setStageCategory,
+  setStageWipLimit,
+} from "@/lib/board/actions";
 import type { StageCategory } from "@/lib/board/types";
 
 const DOT: Record<StageCategory, string> = {
@@ -24,12 +30,14 @@ export function StageHeader({
   stage,
   count,
   canConfigure,
+  onError,
   isFirst,
   isLast,
 }: {
-  stage: { id: string; name: string; category: StageCategory };
+  stage: { id: string; name: string; category: StageCategory; wipLimit?: number | null };
   count: number;
   canConfigure: boolean;
+  onError: (message: string) => void;
   isFirst: boolean;
   isLast: boolean;
 }) {
@@ -47,9 +55,24 @@ export function StageHeader({
       setName(stage.name);
     }
   }
-  async function cycleCategory() {
-    const next = CATEGORIES[(CATEGORIES.indexOf(stage.category) + 1) % CATEGORIES.length]!;
+  async function changeCategory(next: StageCategory) {
+    if (next === stage.category) return;
     await setStageCategory(stage.id, next);
+    router.refresh();
+  }
+  async function changeWip() {
+    setMenuOpen(false);
+    const raw = window.prompt(
+      `Limite de cards em "${stage.name}" (deixe vazio para não ter limite):`,
+      stage.wipLimit ? String(stage.wipLimit) : "",
+    );
+    if (raw === null) return;
+    const n = raw.trim() === "" ? null : Number(raw.replace(",", "."));
+    if (n !== null && (!Number.isFinite(n) || n < 1)) {
+      onError("Limite inválido: informe um número a partir de 1, ou deixe vazio.");
+      return;
+    }
+    await setStageWipLimit(stage.id, n);
     router.refresh();
   }
   async function move(dir: "left" | "right") {
@@ -59,22 +82,27 @@ export function StageHeader({
   }
   async function remove() {
     setMenuOpen(false);
+    if (count > 0) {
+      onError(`Mova os ${count} cards de "${stage.name}" antes de remover a etapa.`);
+      return;
+    }
+    if (!window.confirm(`Remover a etapa "${stage.name}"? Esta ação não pode ser desfeita.`)) return;
     try {
       await deleteStage(stage.id);
       router.refresh();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Erro ao remover.");
+      onError(e instanceof Error ? e.message : "Erro ao remover a etapa.");
     }
   }
 
+  const overLimit = !!stage.wipLimit && count > stage.wipLimit;
+
   return (
     <div className="relative mb-2 flex items-center gap-2 px-1">
-      <button
-        type="button"
-        onClick={canConfigure ? cycleCategory : undefined}
-        title={canConfigure ? "Mudar categoria" : CAT_LABEL[stage.category]}
+      <span
+        title={CAT_LABEL[stage.category]}
         className={"h-2 w-2 shrink-0 rounded-full " + DOT[stage.category]}
-        aria-label="Categoria"
+        aria-hidden="true"
       />
 
       {editing ? (
@@ -98,29 +126,58 @@ export function StageHeader({
         </h3>
       )}
 
-      <span className="ml-auto shrink-0 text-xs text-neutral-400">{count}</span>
+      <span
+        title={overLimit ? "Acima do limite da etapa" : undefined}
+        className={
+          "ml-auto shrink-0 rounded px-1 text-xs " +
+          (overLimit ? "bg-red-50 font-semibold text-red-700" : "text-neutral-500")
+        }
+      >
+        {stage.wipLimit ? `${count}/${stage.wipLimit}` : count}
+      </span>
 
       {canConfigure && (
         <div className="relative shrink-0">
           <button
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
-            className="rounded px-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
-            aria-label="Opções da etapa"
+            className="rounded px-1.5 py-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+            aria-label={`Opções da etapa ${stage.name}`}
+            aria-expanded={menuOpen}
           >
             ⋯
           </button>
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
+              <div className="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-neutral-200 bg-white py-1 text-sm shadow-lg">
                 <MenuBtn onClick={() => move("left")} disabled={isFirst}>
                   ← Mover para a esquerda
                 </MenuBtn>
                 <MenuBtn onClick={() => move("right")} disabled={isLast}>
                   Mover para a direita →
                 </MenuBtn>
-                <MenuBtn onClick={remove}>Remover etapa</MenuBtn>
+                <label className="block px-3 py-1.5 text-xs text-neutral-500">
+                  Categoria
+                  <select
+                    value={stage.category}
+                    onChange={(e) => changeCategory(e.target.value as StageCategory)}
+                    className="mt-1 block w-full rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-700"
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {CAT_LABEL[c]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <MenuBtn onClick={changeWip}>
+                  Limite de cards{stage.wipLimit ? ` (${stage.wipLimit})` : "…"}
+                </MenuBtn>
+                <div className="my-1 border-t border-neutral-100" />
+                <MenuBtn onClick={remove} danger>
+                  Remover etapa
+                </MenuBtn>
               </div>
             </>
           )}
@@ -134,17 +191,22 @@ function MenuBtn({
   children,
   onClick,
   disabled,
+  danger,
 }: {
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  danger?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="block w-full px-3 py-1.5 text-left text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+      className={
+        "block w-full px-3 py-1.5 text-left hover:bg-neutral-50 disabled:opacity-40 " +
+        (danger ? "text-red-700" : "text-neutral-700")
+      }
     >
       {children}
     </button>

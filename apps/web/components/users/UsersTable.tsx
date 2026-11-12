@@ -149,7 +149,7 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
                         disabled={savingId === u.id}
                         title="Editar nome"
                         aria-label={`Editar ${u.name}`}
-                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                        className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
@@ -159,7 +159,7 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
                         disabled={savingId === u.id}
                         title={u.archived ? "Devolver acesso" : "Revogar acesso"}
                         aria-label={`${u.archived ? "Devolver" : "Revogar"} acesso de ${u.name}`}
-                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+                        className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                       >
                         {u.archived ? (
                           <RotateCcw className="h-4 w-4" />
@@ -234,6 +234,8 @@ function EditNameModal({
       <form
         onSubmit={submit}
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -241,7 +243,7 @@ function EditNameModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
@@ -259,7 +261,7 @@ function EditNameModal({
             />
           </label>
 
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-neutral-600">
             O e-mail ({user.email}) não muda: é a identidade no Google. Interno/externo vem do
             domínio do e-mail.
           </p>
@@ -319,6 +321,8 @@ function AddUserModal({
       <form
         onSubmit={submit}
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -326,7 +330,7 @@ function AddUserModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
           >
             <X className="h-4 w-4" />
           </button>
@@ -371,7 +375,7 @@ function AddUserModal({
             </select>
           </label>
 
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-neutral-600">
             A conta é criada na hora, sem enviar e-mail. No primeiro login com Google (mesmo
             e-mail) ela é vinculada. <strong>Interno ou externo vem do domínio do e-mail</strong> —
             e papéis de gestão só podem ser dados a e-mails do domínio da organização.

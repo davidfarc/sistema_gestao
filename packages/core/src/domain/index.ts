@@ -65,6 +65,7 @@ export const ACTIONS = [
   "salas:manage", // editar a Gestão de Vila (sem ela, o módulo é só leitura)
   "novos:access", // Novos alunos: agenda, agendamentos e relatórios (atendimento/coordenação)
   "novos:manage", // Novos alunos: também psicólogas, segmentos, configurações e auditoria
+  "report:read", // relatórios para assistentes de IA (tokens pessoais do MCP)
   "user:manage", // convidar usuários / trocar papéis comuns
   "role:manage", // editar papéis e conceder papéis administrativos (Gestor Master)
 ] as const;

@@ -1,58 +1,40 @@
-﻿import { parseThresholds } from "@ecco/core";
+import { parseThresholds } from "@ecco/core";
 import { cookies } from "next/headers";
 
 import { memberView } from "@/lib/board/avatar";
 import { createClient } from "@/lib/supabase/server";
 import { LAST_BOARD_COOKIE, parseIntake } from "./types";
-import type { BoardData, BoardSummary, CardView, FieldChip, FieldType, StageView } from "./types";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
+import { resolveChip, type ChipField } from "./chips";
+import type {
+  BoardData,
+  BoardSummary,
+  CardView,
+  FieldChip,
+  FieldValueRaw,
+  StageView,
+} from "./types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function resolveChip(f: any, raw: any, nameOf: Map<string, string>): FieldChip | null {
-  if (!raw) return null;
-  const type = f.type as FieldType;
-  const options = (f.config?.options ?? []) as { id: string; label: string; color: string }[];
-  const base = { fieldId: f.id as string, name: f.name as string, type };
-  switch (type) {
-    case "text":
-    case "long_text":
-    case "link":
-      return raw.value_text
-        ? { ...base, display: String(raw.value_text).slice(0, 60), color: null }
-        : null;
-    case "number":
-      return raw.value_number != null
-        ? { ...base, display: String(raw.value_number), color: null }
-        : null;
-    case "date":
-      return raw.value_date ? { ...base, display: formatDate(raw.value_date), color: null } : null;
-    case "checkbox":
-      return raw.value_bool ? { ...base, display: `âœ“ ${f.name}`, color: null } : null;
-    case "member":
-      return raw.value_member_id
-        ? { ...base, display: nameOf.get(raw.value_member_id) ?? "?", color: null }
-        : null;
-    case "select":
-    case "status": {
-      const opt = options.find((o) => o.id === raw.value_text);
-      return opt ? { ...base, display: opt.label, color: opt.color } : null;
-    }
-    default:
-      return null;
-  }
+/** Linha de `field_value` → forma usada pela tela. */
+function rawValue(v: any): FieldValueRaw {
+  return {
+    fieldId: v.field_definition_id,
+    text: v.value_text ?? null,
+    number: v.value_number != null ? Number(v.value_number) : null,
+    date: v.value_date ?? null,
+    bool: v.value_bool ?? null,
+    memberId: v.value_member_id ?? null,
+  };
 }
 
 /**
- * Carrega o board com o CLIENT DE SESSÃƒO (RLS escopa por usuÃ¡rio). Resolve o
- * responsÃ¡vel da etapa atual e os campos customizados marcados "mostrar no card".
+ * Carrega o board com o CLIENT DE SESSÃO (RLS escopa por usuário). Resolve o
+ * responsável da etapa atual e os campos customizados marcados "mostrar no card".
  */
 export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const db = await createClient();
 
-  // Pipeline pedido (se visÃ­vel) ou o primeiro nÃ£o-arquivado. RLS escopa.
+  // Pipeline pedido (se visível) ou o primeiro não-arquivado. RLS escopa.
   let board: {
     id: string;
     name: string;
@@ -69,9 +51,9 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       .maybeSingle();
     board = data;
   }
-  // Sem pipeline na URL: o Ãºltimo que a pessoa deixou aberto (cookie gravado
-  // pela BoardView). RLS escopa, entÃ£o um cookie velho de um pipeline que ela
-  // perdeu acesso simplesmente nÃ£o resolve e cai no fallback.
+  // Sem pipeline na URL: o último que a pessoa deixou aberto (cookie gravado
+  // pela BoardView). RLS escopa, então um cookie velho de um pipeline que ela
+  // perdeu acesso simplesmente não resolve e cai no fallback.
   if (!board) {
     const last = (await cookies()).get(LAST_BOARD_COOKIE)?.value;
     if (last) {
@@ -84,8 +66,8 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       board = data;
     }
   }
-  // Primeira visita: o primeiro em ordem alfabÃ©tica â€” a mesma ordem do seletor,
-  // por isso ordenado aqui com byName (e nÃ£o no Postgres, cuja collation
+  // Primeira visita: o primeiro em ordem alfabética — a mesma ordem do seletor,
+  // por isso ordenado aqui com byName (e não no Postgres, cuja collation
   // divergiria da do navegador).
   if (!board) {
     const { data } = await db
@@ -97,19 +79,20 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   if (!board) return null;
 
   const [stagesRes, cardsRes, fieldsRes, gateRes, prioRes] = await Promise.all([
-    db.from("stage").select("id, name, category, position").eq("board_id", board.id).order("position"),
+    db.from("stage").select("id, name, category, position, wip_limit").eq("board_id", board.id).order("position"),
     db
       .from("card")
-      .select("id, number, title, stage_id, due_date, requester_id")
+      .select("id, number, title, stage_id, due_date, requester_id, position")
       .eq("board_id", board.id)
-      .order("position"),
+      .order("position")
+      .order("number"), // desempate estável: cards antigos têm todos position 1000
     db
       .from("field_definition")
       .select("id, name, type, config, position")
       .or(`board_id.eq.${board.id},board_id.is.null`)
       .eq("show_on_card_face", true)
       .order("position"),
-    // Etapa de checkpoint da priorizaÃ§Ã£o â€” vem da regra, sem nome fixo no cÃ³digo.
+    // Etapa de checkpoint da priorização — vem da regra, sem nome fixo no código.
     db
       .from("workflow_rule")
       .select("requirement_config")
@@ -132,14 +115,19 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
 
   const cardsRaw = cardsRes.data ?? [];
   const cardIds = cardsRaw.map((c) => c.id);
-  const showFields = fieldsRes.data ?? [];
+  const showFields: ChipField[] = (fieldsRes.data ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    type: f.type,
+    options: (f.config?.options ?? []) as ChipField["options"],
+  }));
 
   const assigneeOf = new Map<string, string>();
   const nameOf = new Map<string, string>();
   const memberIds = new Set<string>();
 
   if (cardIds.length > 0) {
-    // ResponsÃ¡vel por card = assignment com stage_id nulo (independe da etapa).
+    // Responsável por card = assignment com stage_id nulo (independe da etapa).
     const { data: assigns } = await db
       .from("assignment")
       .select("card_id, user_id")
@@ -149,13 +137,37 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       assigneeOf.set(a.card_id, a.user_id);
       memberIds.add(a.user_id);
     }
-    // Solicitante Ã© coluna do prÃ³prio card.
+    // Solicitante é coluna do próprio card.
     for (const c of cardsRaw) {
       if (c.requester_id) memberIds.add(c.requester_id);
     }
   }
 
-  const valueOf = new Map<string, unknown>();
+  // Progresso de checklist e nº de comentários, para a face do card.
+  const checklistOf = new Map<string, { done: number; total: number }>();
+  const commentsOf = new Map<string, number>();
+  if (cardIds.length > 0) {
+    const [{ data: lists }, { data: comments }] = await Promise.all([
+      db
+        .from("checklist")
+        .select("card_id, checklist_item(done)")
+        .in("card_id", cardIds)
+        .is("archived_at", null),
+      db.from("comment").select("card_id").in("card_id", cardIds).is("archived_at", null),
+    ]);
+    for (const l of lists ?? []) {
+      const items = (l.checklist_item ?? []) as { done: boolean }[];
+      const cur = checklistOf.get(l.card_id) ?? { done: 0, total: 0 };
+      cur.total += items.length;
+      cur.done += items.filter((i) => i.done).length;
+      checklistOf.set(l.card_id, cur);
+    }
+    for (const c of comments ?? []) {
+      commentsOf.set(c.card_id, (commentsOf.get(c.card_id) ?? 0) + 1);
+    }
+  }
+
+  const valueOf = new Map<string, FieldValueRaw>();
   if (cardIds.length > 0 && showFields.length > 0) {
     const { data: vals } = await db
       .from("field_value")
@@ -166,7 +178,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
         showFields.map((f) => f.id),
       );
     for (const v of vals ?? []) {
-      valueOf.set(`${v.card_id}|${v.field_definition_id}`, v);
+      valueOf.set(`${v.card_id}|${v.field_definition_id}`, rawValue(v));
       if (v.value_member_id) memberIds.add(v.value_member_id);
     }
   }
@@ -180,13 +192,14 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     id: s.id,
     name: s.name,
     category: s.category,
+    wipLimit: s.wip_limit ?? null,
   }));
 
   const cards: CardView[] = cardsRaw.map((c) => {
     const uid = assigneeOf.get(c.id);
     const fields: FieldChip[] = [];
     for (const f of showFields) {
-      const chip = resolveChip(f, valueOf.get(`${c.id}|${f.id}`), nameOf);
+      const chip = resolveChip(f, valueOf.get(`${c.id}|${f.id}`), (id) => nameOf.get(id));
       if (chip) fields.push(chip);
     }
     return {
@@ -194,6 +207,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       number: Number(c.number),
       title: c.title,
       stageId: c.stage_id,
+      position: Number(c.position),
       assignee: uid ? memberView(uid, nameOf.get(uid) ?? "?") : null,
       requester: c.requester_id
         ? memberView(c.requester_id, nameOf.get(c.requester_id) ?? "?")
@@ -202,7 +216,10 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       status: null,
       dueDate: c.due_date,
       fields,
+      checklist: checklistOf.get(c.id) ?? null,
+      commentCount: commentsOf.get(c.id) ?? 0,
       awaitingPrioritization: gatedStages.has(c.stage_id) && !prioritizedCards.has(c.id),
+      prioritized: prioritizedCards.has(c.id),
     };
   });
 
@@ -215,14 +232,16 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     stages,
     cards,
     members: [],
+    gatedStageIds: [...gatedStages],
+    loadedAt: Date.now(),
   };
 }
 
 /**
- * Lista os pipelines visÃ­veis (RLS: interno vÃª todos; externo os atribuÃ­dos),
- * em ordem alfabÃ©tica. A ordenaÃ§Ã£o Ã© feita aqui, e nÃ£o no `order()` do Postgres,
- * porque o collation do banco nÃ£o conhece as regras do portuguÃªs â€” "Ãvila"
- * viria depois de "Bahia". A lista Ã© curta, entÃ£o o custo Ã© irrelevante.
+ * Lista os pipelines visíveis (RLS: interno vê todos; externo os atribuídos),
+ * em ordem alfabética. A ordenação é feita aqui, e não no `order()` do Postgres,
+ * porque o collation do banco não conhece as regras do português — "Ávila"
+ * viria depois de "Bahia". A lista é curta, então o custo é irrelevante.
  */
 export async function loadBoards(): Promise<BoardSummary[]> {
   const db = await createClient();
@@ -232,7 +251,7 @@ export async function loadBoards(): Promise<BoardSummary[]> {
     .sort(byName);
 }
 
-/** Comparador alfabÃ©tico pt-BR: ignora caixa e trata acento como a letra base. */
+/** Comparador alfabético pt-BR: ignora caixa e trata acento como a letra base. */
 export function byName<T extends { name: string }>(a: T, b: T): number {
   return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base", numeric: true });
 }

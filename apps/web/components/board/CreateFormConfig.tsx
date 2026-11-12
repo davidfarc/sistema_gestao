@@ -62,6 +62,8 @@ export function CreateFormConfig({
     >
       <div
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -69,7 +71,7 @@ export function CreateFormConfig({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
             aria-label="Fechar"
           >
             <X className="h-4 w-4" />
@@ -93,7 +95,7 @@ export function CreateFormConfig({
             ))}
           </select>
 
-          <p className="mt-2 text-xs text-neutral-400">
+          <p className="mt-2 text-xs text-neutral-600">
             Quem pode <em>abrir</em> este formulário se define em Configurações → Alçadas,
             junto das demais autoridades do pipeline.
           </p>
@@ -101,7 +103,7 @@ export function CreateFormConfig({
 
         {mode === "generic" ? (
           <div className="border-t border-neutral-100 p-2">
-            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+            <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 px-2 py-1 text-xs font-medium uppercase tracking-wide text-neutral-600">
               <span>Propriedade</span>
               <span>Pedir</span>
               <span>Obrig.</span>
@@ -131,7 +133,7 @@ export function CreateFormConfig({
                 </li>
               ))}
               {items.length === 0 && (
-                <li className="px-2 py-3 text-xs text-neutral-400">
+                <li className="px-2 py-3 text-xs text-neutral-600">
                   Nenhuma propriedade neste pipeline ainda.
                 </li>
               )}

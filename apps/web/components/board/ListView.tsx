@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  loadFieldValuesByBoard,
-  loadFields,
-  loadMembers,
-  moveCard,
+  loadListData,
   setCardRequester,
   setCardResponsible,
   setFieldValue,
@@ -22,9 +19,10 @@ import type {
   StageView,
 } from "@/lib/board/types";
 import { canEditField } from "@/lib/board/types";
+import { memberView } from "@/lib/board/avatar";
+import { resolveChip } from "@/lib/board/chips";
 import { matchesFilter } from "@/lib/board/filters";
 import { computeDemand } from "@/lib/demandas/eval";
-import { loadPrioritizedCardIds } from "@/lib/demandas/queue";
 import { useBoardId, useCreationForm, useMyUserId, useThresholds } from "./BoardContext";
 import { CreateFormConfig } from "./CreateFormConfig";
 import { EMPTY_FILTERS, ListToolbar, SortHeader, type ListFilters, type SortKey } from "./ListToolbar";
@@ -34,11 +32,17 @@ export function ListView({
   cards,
   stages,
   onOpenCard,
+  onMove,
+  onPatchCard,
   canConfigure,
 }: {
   cards: CardView[];
   stages: StageView[];
   onOpenCard: (id: string) => void;
+  /** Troca de etapa (vai para o fim da coluna); o quadro cuida do otimismo e do erro. */
+  onMove: (cardId: string, stageId: string) => void;
+  /** Reflete uma edição na lista de cards da tela, sem recarregar o quadro. */
+  onPatchCard: (cardId: string, patch: Partial<CardView>) => void;
   canConfigure: boolean;
 }) {
   const router = useRouter();
@@ -64,16 +68,13 @@ export function ListView({
   }, [stages]);
 
   async function reload() {
-    const [fs, vs, ms, prio] = await Promise.all([
-      loadFields(boardId),
-      loadFieldValuesByBoard(boardId),
-      loadMembers(),
-      loadPrioritizedCardIds(boardId),
-    ]);
-    setFields(fs);
-    setMembers(ms);
-    setValues(Object.fromEntries(vs.map((v) => [`${v.cardId}|${v.value.fieldId}`, v.value])));
-    setPrioritized(new Set(prio));
+    const data = await loadListData(boardId);
+    setFields(data.fields);
+    setMembers(data.members);
+    setValues(
+      Object.fromEntries(data.values.map((v) => [`${v.cardId}|${v.value.fieldId}`, v.value])),
+    );
+    setPrioritized(new Set(data.prioritizedCardIds));
   }
 
   useEffect(() => {
@@ -87,32 +88,51 @@ export function ListView({
     patch: Partial<FieldValueRaw>,
   ) {
     const key = `${cardId}|${fieldId}`;
-    setValues((prev) => ({
-      ...prev,
-      [key]: { fieldId, text: null, number: null, date: null, bool: null, memberId: null, ...prev[key], ...patch },
-    }));
-    await setFieldValue(cardId, fieldId, value);
-    router.refresh(); // reflete chips na face do card (visão Kanban)
-  }
-
-  async function saveTitle(cardId: string, title: string, current: string) {
-    if (title.trim() && title.trim() !== current) {
-      await updateCard({ id: cardId, title });
+    const next: FieldValueRaw = {
+      fieldId,
+      text: null,
+      number: null,
+      date: null,
+      bool: null,
+      memberId: null,
+      ...values[key],
+      ...patch,
+    };
+    setValues((prev) => ({ ...prev, [key]: next }));
+    // Etiquetas da face do card (visão Kanban), recalculadas aqui mesmo.
+    const nameOf = (id: string) => members.find((m) => m.id === id)?.name;
+    onPatchCard(cardId, {
+      fields: fields
+        .filter((f) => f.showOnCardFace)
+        .map((f) => resolveChip(f, f.id === fieldId ? next : values[`${cardId}|${f.id}`], nameOf))
+        .filter((c) => c !== null),
+    });
+    try {
+      await setFieldValue(cardId, fieldId, value);
+    } catch {
       router.refresh();
+      reload();
     }
   }
-  async function changeStage(cardId: string, stageId: string) {
-    const res = await moveCard(cardId, stageId);
-    if (!res.ok) alert(res.reason);
-    router.refresh();
+
+  const personOf = (userId: string) =>
+    userId ? memberView(userId, members.find((m) => m.id === userId)?.name ?? "?") : null;
+
+  // Cada edição muda a tela na hora e grava em seguida; se a gravação falhar,
+  // recarrega do servidor para voltar ao valor real.
+  async function saveTitle(cardId: string, title: string, current: string) {
+    const next = title.trim();
+    if (!next || next === current) return;
+    onPatchCard(cardId, { title: next });
+    await updateCard({ id: cardId, title: next }).catch(() => router.refresh());
   }
   async function changeResponsible(cardId: string, userId: string) {
-    await setCardResponsible(cardId, userId || null);
-    router.refresh();
+    onPatchCard(cardId, { assignee: personOf(userId) });
+    await setCardResponsible(cardId, userId || null).catch(() => router.refresh());
   }
   async function changeRequester(cardId: string, userId: string) {
-    await setCardRequester(cardId, userId || null);
-    router.refresh();
+    onPatchCard(cardId, { requester: personOf(userId) });
+    await setCardRequester(cardId, userId || null).catch(() => router.refresh());
   }
 
   const cellInput =
@@ -270,7 +290,7 @@ export function ListView({
           <tbody className="divide-y divide-neutral-100">
             {visible.length === 0 && (
               <tr>
-                <td colSpan={fields.length + (isDemandas ? 6 : 5)} className="px-3 py-6 text-center text-sm text-neutral-400">
+                <td colSpan={fields.length + (isDemandas ? 6 : 5)} className="px-3 py-6 text-center text-sm text-neutral-600">
                   Nenhum card corresponde aos filtros.
                 </td>
               </tr>
@@ -291,6 +311,8 @@ export function ListView({
                 </td>
                 <td className="min-w-40 px-3 py-1.5">
                   <input
+                    // `key`: se o título mudar por fora (outra pessoa), o campo acompanha.
+                    key={card.title}
                     defaultValue={card.title}
                     onBlur={(e) => saveTitle(card.id, e.target.value, card.title)}
                     className={cellInput + " text-neutral-800"}
@@ -299,7 +321,7 @@ export function ListView({
                 <td className="min-w-32 px-3 py-1.5">
                   <select
                     value={card.stageId}
-                    onChange={(e) => changeStage(card.id, e.target.value)}
+                    onChange={(e) => onMove(card.id, e.target.value)}
                     className={cellInput + " pr-6 text-neutral-600"}
                   >
                     {stages.map((s) => (
@@ -340,7 +362,7 @@ export function ListView({
                 {isDemandas && (
                   <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-neutral-700">
                     {demandOf.get(card.id)?.rice?.toFixed(1) ?? (
-                      <span className="text-neutral-300">—</span>
+                      <span className="text-neutral-500">—</span>
                     )}
                   </td>
                 )}

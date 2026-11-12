@@ -29,7 +29,7 @@ export function NewStageButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="h-fit w-64 shrink-0 rounded-xl border-2 border-dashed border-neutral-200 p-3 text-sm text-neutral-400 transition-colors hover:border-neutral-300 hover:text-neutral-600"
+        className="h-fit w-64 shrink-0 rounded-xl border-2 border-dashed border-neutral-200 p-3 text-sm text-neutral-600 transition-colors hover:border-neutral-300 hover:text-neutral-600"
       >
         + Nova etapa
       </button>

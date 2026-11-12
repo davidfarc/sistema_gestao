@@ -99,13 +99,13 @@ export function NotificationBell() {
                   <div className={n.read ? "min-w-0 pl-4" : "min-w-0"}>
                     <p className="text-sm text-neutral-800">{n.title}</p>
                     {n.subtitle && <p className="truncate text-xs text-neutral-500">{n.subtitle}</p>}
-                    <p className="mt-0.5 text-[10px] text-neutral-400">{timeAgo(n.createdAt)}</p>
+                    <p className="mt-0.5 text-xs text-neutral-600">{timeAgo(n.createdAt)}</p>
                   </div>
                 </div>
               </li>
             ))}
             {items.length === 0 && (
-              <li className="px-4 py-6 text-center text-xs text-neutral-400">
+              <li className="px-4 py-6 text-center text-xs text-neutral-600">
                 Nenhuma notificação.
               </li>
             )}

@@ -127,7 +127,7 @@ export function RolesEditor({ roles }: { roles: RoleDetail[] }) {
                 <span className="block truncate font-medium">{r.name}</span>
                 <span
                   className={
-                    "block text-xs " + (r.id === selectedId ? "text-white/70" : "text-neutral-400")
+                    "block text-xs " + (r.id === selectedId ? "text-white/70" : "text-neutral-600")
                   }
                 >
                   {r.users === 0
@@ -141,7 +141,7 @@ export function RolesEditor({ roles }: { roles: RoleDetail[] }) {
                 <Lock
                   className={
                     "h-3.5 w-3.5 shrink-0 " +
-                    (r.id === selectedId ? "text-white/60" : "text-neutral-300")
+                    (r.id === selectedId ? "text-white/60" : "text-neutral-500")
                   }
                 />
               )}
@@ -176,7 +176,7 @@ export function RolesEditor({ roles }: { roles: RoleDetail[] }) {
                   type="button"
                   onClick={() => excluir(selected)}
                   disabled={busy}
-                  className="rounded-lg border border-neutral-200 p-2 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                  className="rounded-lg border border-neutral-200 p-2 text-neutral-600 hover:bg-red-50 hover:text-red-600"
                   title="Excluir papel"
                   aria-label={`Excluir ${selected.name}`}
                 >
@@ -186,7 +186,7 @@ export function RolesEditor({ roles }: { roles: RoleDetail[] }) {
             </div>
 
             {selected.slug && (
-              <p className="mt-2 text-xs text-neutral-400">
+              <p className="mt-2 text-xs text-neutral-600">
                 Papel de sistema: o cadastro automático de novos usuários depende dele, então
                 pode ser renomeado e ajustado, mas não excluído.
               </p>

@@ -89,6 +89,11 @@ export const ACTION_GROUPS: ActionGroup[] = [
         hint: "Sem esta permissão o módulo continua visível, mas só para consulta e simulação.",
       },
       {
+        action: "report:read",
+        label: "Relatórios para assistentes de IA",
+        hint: "Gerar tokens pessoais para consultar o sistema por um assistente (somente leitura, só os pipelines que a pessoa enxerga).",
+      },
+      {
         action: "user:manage",
         label: "Gerenciar usuários e papéis",
         hint: "Convidar pessoas, trocar papéis e editar permissões. É o acesso mais amplo do sistema.",
@@ -102,6 +107,8 @@ export const ACOES_DE_GESTAO: Action[] = [
   "user:manage",
   "board:configure",
   "role:manage",
+  // Consulta em lote por fora da tela: só para a equipe interna.
+  "report:read",
   // Dados pessoais de famílias (LGPD): nunca para usuário externo.
   "novos:access",
   "novos:manage",

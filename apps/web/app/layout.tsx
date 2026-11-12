@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Manrope } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { DialogA11y } from "@/components/shell/DialogA11y";
+
 import "./globals.css";
 
 const manrope = Manrope({
@@ -21,16 +23,28 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Ecco Prime — Gestão Editorial",
   description: "Sistema de produção editorial da Editora Ecco Prime",
+  // Instalável no celular (o manifesto vem de app/manifest.ts).
+  appleWebApp: { capable: true, title: "Ecco Prime", statusBarStyle: "default" },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: "#001e40",
+  // Deixa o app instalado ocupar a tela toda; as bordas seguras (entalhe, barra
+  // de gestos) são respeitadas com env(safe-area-inset-*) no CSS.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR" className={`${manrope.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <DialogA11y />
+      </body>
     </html>
   );
 }

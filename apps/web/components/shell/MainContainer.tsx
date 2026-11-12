@@ -11,7 +11,8 @@ export function MainContainer({ children }: { children: ReactNode }) {
   return (
     <div
       className={clsx(
-        "min-h-screen transition-[margin] duration-200",
+        // Respiro embaixo para a barra de navegação do celular (0 no computador).
+        "min-h-dvh pb-[var(--bottom-nav)] transition-[margin] duration-200",
         collapsed ? "md:ml-16" : "md:ml-60",
       )}
     >

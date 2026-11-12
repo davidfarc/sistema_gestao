@@ -46,7 +46,7 @@ export function ActivityFeed({ activity }: { activity: ActivityView[] }) {
           </span>
           <p className="leading-snug text-neutral-700">
             <span className="font-semibold">{a.actorName}</span> {describe(a)}
-            <span className="ml-1 text-xs text-neutral-400">· {timeAgo(a.createdAt)}</span>
+            <span className="ml-1 text-xs text-neutral-600">· {timeAgo(a.createdAt)}</span>
           </p>
         </li>
       ))}

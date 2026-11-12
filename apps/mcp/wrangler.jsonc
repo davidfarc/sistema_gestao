@@ -1,0 +1,16 @@
+{
+  // Worker SEPARADO do site (ecco-sistema): servidor MCP somente leitura.
+  // Não guarda nenhum segredo: quem autentica é o token pessoal de cada pessoa,
+  // conferido pelo banco (função mcp_call, migration 0039).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ecco-mcp",
+  "main": "src/index.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-11-01",
+  "vars": {
+    // Valores PÚBLICOS do Supabase (os mesmos que já vão para o navegador).
+    "SUPABASE_URL": "https://rcjjwoajuvnrgeuzsgsj.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_rRJIWGymSGwpJ6o2eUUY0Q_TiCgQxer"
+  },
+  "observability": { "enabled": true }
+}

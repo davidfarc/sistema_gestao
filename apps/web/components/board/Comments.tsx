@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 
 import { addComment, deleteComment } from "@/lib/board/actions";
 import type { CommentView, MemberOption } from "@/lib/board/types";
@@ -33,11 +34,17 @@ export function Comments({
   comments,
   members,
   onChanged,
+  composerSlot = null,
 }: {
   cardId: string;
   comments: CommentView[];
   members: MemberOption[];
   onChanged: () => void;
+  /**
+   * Celular: elemento do rodapé fixo do card. Quando informado, o campo de
+   * escrever é desenhado lá (compacto), e aqui fica só a lista.
+   */
+  composerSlot?: HTMLElement | null;
 }) {
   const [body, setBody] = useState("");
   const [pending, setPending] = useState(false);
@@ -86,8 +93,70 @@ export function Comments({
     setPending(false);
   }
 
+  const docked = composerSlot !== null;
+  const form = (
+      <form onSubmit={submit} className={docked ? "flex items-end gap-2" : "grid gap-2"}>
+        <div className="relative min-w-0 flex-1">
+          <textarea
+            ref={taRef}
+            value={body}
+            onChange={(e) => onType(e.target.value, e.target.selectionStart)}
+            onKeyUp={(e) => setMenu(activeMention(body, e.currentTarget.selectionStart))}
+            onClick={(e) => setMenu(activeMention(body, e.currentTarget.selectionStart))}
+            rows={docked ? 1 : 2}
+            aria-label="Novo comentário"
+            placeholder={docked ? "Comentar… (@ menciona)" : "Escreva um comentário… use @ para mencionar"}
+            // 16 px no celular: abaixo disso o iPhone dá zoom ao focar o campo.
+            className={
+              "block w-full rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-500 sm:text-sm " +
+              (docked ? "max-h-32 resize-none" : "resize-y")
+            }
+          />
+          {menu && suggestions.length > 0 && (
+            <ul
+              className={
+                "absolute left-2 z-10 w-64 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg " +
+                // No rodapé a lista abre para cima (embaixo não há espaço).
+                (docked ? "bottom-full mb-1" : "top-full mt-1")
+              }
+            >
+              {suggestions.map((m) => (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      choose(m);
+                    }}
+                    className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
+                      {m.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span className="truncate">{m.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className={docked ? "shrink-0" : "flex justify-end"}>
+          <button
+            type="submit"
+            disabled={pending || !body.trim()}
+            className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+          >
+            {pending ? "Enviando…" : docked ? "Enviar" : "Comentar"}
+          </button>
+        </div>
+      </form>
+  );
+
   return (
     <div className="grid gap-3">
+      {docked && comments.length === 0 && (
+        <p className="text-sm text-neutral-600">Nenhum comentário ainda.</p>
+      )}
       {comments.length > 0 && (
         <ul className="grid gap-3">
           {comments.map((c) => (
@@ -101,7 +170,7 @@ export function Comments({
               <div className="min-w-0 flex-1">
                 <p className="text-sm">
                   <span className="font-semibold">{c.authorName}</span>
-                  <span className="ml-1 text-xs text-neutral-400">· {timeAgo(c.createdAt)}</span>
+                  <span className="ml-1 text-xs text-neutral-600">· {timeAgo(c.createdAt)}</span>
                 </p>
                 <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
               </div>
@@ -112,7 +181,8 @@ export function Comments({
                     await deleteComment(c.id);
                     onChanged();
                   }}
-                  className="text-xs text-neutral-300 opacity-0 hover:text-red-600 group-hover:opacity-100"
+                  // No toque não existe "passar o mouse": no celular o botão fica sempre visível.
+                  className="-m-2 p-2 text-sm text-neutral-500 hover:text-red-600 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
                   aria-label="Remover comentário"
                 >
                   ✕
@@ -123,50 +193,7 @@ export function Comments({
         </ul>
       )}
 
-      <form onSubmit={submit} className="grid gap-2">
-        <div className="relative">
-          <textarea
-            ref={taRef}
-            value={body}
-            onChange={(e) => onType(e.target.value, e.target.selectionStart)}
-            onKeyUp={(e) => setMenu(activeMention(body, e.currentTarget.selectionStart))}
-            onClick={(e) => setMenu(activeMention(body, e.currentTarget.selectionStart))}
-            rows={2}
-            placeholder="Escreva um comentário… use @ para mencionar"
-            className="w-full resize-y rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
-          />
-          {menu && suggestions.length > 0 && (
-            <ul className="absolute left-2 top-full z-10 mt-1 w-64 overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
-              {suggestions.map((m) => (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      choose(m);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100"
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-white">
-                      {m.name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span className="truncate">{m.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={pending || !body.trim()}
-            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
-          >
-            {pending ? "Enviando…" : "Comentar"}
-          </button>
-        </div>
-      </form>
+      {docked ? createPortal(form, composerSlot) : form}
     </div>
   );
 }

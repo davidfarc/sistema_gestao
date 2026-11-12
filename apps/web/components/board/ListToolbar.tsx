@@ -77,7 +77,7 @@ export function ListToolbar({
     <div className="mb-3 grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-600" />
           <input
             value={filters.query}
             onChange={(e) => set({ query: e.target.value })}
@@ -106,7 +106,7 @@ export function ListToolbar({
           </button>
         )}
 
-        <span className="ml-auto text-xs text-neutral-400">
+        <span className="ml-auto text-xs text-neutral-600">
           {shown === total ? `${total} cards` : `${shown} de ${total}`}
         </span>
       </div>
@@ -161,7 +161,7 @@ export function ListToolbar({
                 <button
                   type="button"
                   onClick={() => remove(f.id)}
-                  className="rounded p-1 text-neutral-400 hover:bg-neutral-200 hover:text-neutral-700"
+                  className="rounded p-1 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-700"
                   aria-label="Remover filtro"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -261,7 +261,7 @@ export function SortHeader({
         )}
       >
         {label}
-        <span className={clsx("text-[9px]", active ? "opacity-100" : "opacity-0")}>
+        <span className={clsx("text-xs", active ? "opacity-100" : "opacity-0")}>
           {dir === "asc" ? "▲" : "▼"}
         </span>
       </button>

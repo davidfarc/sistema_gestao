@@ -4,8 +4,12 @@ import {
   CardService,
   ForbiddenError,
   GateBlockedError,
+  firstPosition,
+  placeInColumn,
+  positionAfter,
   validateThresholds,
   type Action,
+  type Placement,
   type RuleViolation,
   type Thresholds,
 } from "@ecco/core";
@@ -18,6 +22,7 @@ import { assertCanCreateInBoard } from "@/lib/board/intake";
 import { parseIntake } from "@/lib/board/types";
 import { ACOES_DE_GESTAO, ehPapelAdministrativo } from "@/lib/roles/catalog";
 import { ensureDmChannel } from "@/lib/comms/dm";
+import { sendPush } from "@/lib/push/send";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -26,6 +31,7 @@ import type {
   CardDetailData,
   CardPageData,
   ChecklistItemView,
+  CreatedCard,
   ChecklistView,
   CommentView,
   FieldDef,
@@ -61,20 +67,105 @@ async function recordActivity(
 }
 
 // ── Cards ────────────────────────────────────────────────────────────────────
+//
+// As actions de card do dia a dia (mover, renomear, responsável, propriedade,
+// criar na coluna) NÃO chamam `revalidatePath("/board")`: isso faria o Next
+// refazer todas as consultas do quadro a cada clique. A tela aplica a mudança
+// localmente e o Realtime leva para as outras pessoas (SPEC-FASE2 A9).
 
-/** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(boardId: string, title: string): Promise<string> {
-  const actor = await requireActor("card:create");
-  await assertCanCreateInBoard(boardId);
-  const db = createAdminClient();
+type AdminDb = ReturnType<typeof createAdminClient>;
 
+/** Posição para um card entrar no FIM da etapa (card novo vai para o pé da coluna). */
+async function endOfStagePosition(db: AdminDb, stageId: string): Promise<number> {
+  const { data } = await db
+    .from("card")
+    .select("position")
+    .eq("stage_id", stageId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? positionAfter(Number(data.position)) : firstPosition();
+}
+
+/**
+ * Grava a ordem do card dentro da etapa em que ele JÁ está (a troca de etapa é
+ * sempre do CardService.move). Sem `placement`, vai para o fim da coluna.
+ */
+async function placeCardInStage(
+  db: AdminDb,
+  cardId: string,
+  stageId: string,
+  placement: Placement | undefined,
+): Promise<void> {
+  if (!placement) {
+    const { error } = await db
+      .from("card")
+      .update({ position: await endOfStagePosition(db, stageId) })
+      .eq("id", cardId)
+      .eq("stage_id", stageId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  // Mesma ordem que o quadro mostra (loadBoard): posição e, no empate, número.
+  const { data: column, error: readError } = await db
+    .from("card")
+    .select("id, position")
+    .eq("stage_id", stageId)
+    .order("position")
+    .order("number");
+  if (readError) throw new Error(readError.message);
+
+  const current = (column ?? []).map((c) => ({ id: c.id, position: Number(c.position) }));
+  const result = placeInColumn(current, cardId, placement);
+  const writes =
+    result.kind === "single"
+      ? [{ id: cardId, position: result.position }]
+      : result.positions.filter(
+          (p) => current.find((c) => c.id === p.id)?.position !== p.position,
+        );
+  const results = await Promise.all(
+    writes.map((w) =>
+      db.from("card").update({ position: w.position }).eq("id", w.id).eq("stage_id", stageId),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+}
+
+/** Insere o card no fim da etapa e registra `card_created`. Sem checagens: é de quem chama. */
+async function insertCard(
+  db: AdminDb,
+  actorId: string,
+  board: { id: string; organization_id: string },
+  stageId: string,
+  title: string,
+): Promise<{ id: string; number: number; title: string; position: number }> {
+  const position = await endOfStagePosition(db, stageId);
+  const { data: card, error } = await db
+    .from("card")
+    .insert({
+      organization_id: board.organization_id,
+      board_id: board.id,
+      stage_id: stageId,
+      title: title.trim() || "Novo card",
+      position,
+      requester_id: actorId, // solicitante = quem abriu
+    })
+    .select("id, number, title")
+    .single();
+  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  await recordActivity(card.id, actorId, "card_created", { stageId });
+  return { id: card.id, number: Number(card.number), title: card.title, position };
+}
+
+/** Pipeline + primeira etapa, para as actions de criação. */
+async function boardAndFirstStage(db: AdminDb, boardId: string) {
   const { data: board } = await db
     .from("board")
-    .select("id, organization_id")
+    .select("id, organization_id, creation_form")
     .eq("id", boardId)
     .maybeSingle();
   if (!board) throw new Error("Pipeline não encontrado.");
-
   const { data: firstStage } = await db
     .from("stage")
     .select("id")
@@ -83,21 +174,72 @@ export async function createCard(boardId: string, title: string): Promise<string
     .limit(1)
     .maybeSingle();
   if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
+  return { board, firstStageId: firstStage.id as string };
+}
 
-  const { data: card, error } = await db
-    .from("card")
-    .insert({
-      organization_id: board.organization_id,
-      board_id: board.id,
-      stage_id: firstStage.id,
-      title: title.trim() || "Novo card",
-      requester_id: actor.userId as string, // solicitante = quem abriu
-    })
-    .select("id")
-    .single();
-  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+/** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
+export async function createCard(boardId: string, title: string): Promise<string> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
+  const db = createAdminClient();
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
   revalidatePath("/board");
   return card.id;
+}
+
+/**
+ * "+ Adicionar card" no pé de uma coluna (só pipelines de formulário `simple`).
+ *
+ * O card SEMPRE nasce na 1ª etapa; se a coluna escolhida for outra, ele é
+ * levado até lá pelo CardService.move, como qualquer movimentação. Assim criar
+ * direto numa etapa adiantada não vira atalho para pular regras de fluxo.
+ */
+export async function createCardInStage(
+  boardId: string,
+  title: string,
+  stageId: string,
+): Promise<CreatedCard> {
+  const actor = await requireActor("card:create");
+  await assertCanCreateInBoard(boardId);
+  const db = createAdminClient();
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  if ((board.creation_form ?? "simple") !== "simple") {
+    throw new Error("Este pipeline pede o formulário completo. Use o botão “Novo card”.");
+  }
+
+  if (stageId !== firstStageId) {
+    const { data: stage } = await db
+      .from("stage")
+      .select("id")
+      .eq("id", stageId)
+      .eq("board_id", board.id)
+      .maybeSingle();
+    if (!stage) throw new Error("Etapa não encontrada neste pipeline.");
+  }
+
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
+  const { data: me } = await db
+    .from("app_user")
+    .select("name, email")
+    .eq("id", actor.userId as string)
+    .maybeSingle();
+  const created: CreatedCard = {
+    ...card,
+    stageId: firstStageId,
+    requesterName: me?.name || me?.email || "?",
+  };
+  if (stageId !== firstStageId) {
+    const res = await moveCard(card.id, stageId);
+    if (res.ok) {
+      const { data } = await db.from("card").select("position").eq("id", card.id).maybeSingle();
+      created.stageId = stageId;
+      created.position = data ? Number(data.position) : created.position;
+    } else {
+      created.blockedReason = `Card criado na primeira etapa. ${res.reason}`;
+    }
+  }
+  return created;
 }
 
 /** Troca o solicitante do card (nativo, ao lado do responsável). */
@@ -125,34 +267,8 @@ export async function createCardWithFields(
   await assertCanCreateInBoard(boardId);
   const db = createAdminClient();
 
-  const { data: board } = await db
-    .from("board")
-    .select("id, organization_id")
-    .eq("id", boardId)
-    .maybeSingle();
-  if (!board) throw new Error("Pipeline não encontrado.");
-
-  const { data: firstStage } = await db
-    .from("stage")
-    .select("id")
-    .eq("board_id", board.id)
-    .order("position")
-    .limit(1)
-    .maybeSingle();
-  if (!firstStage) throw new Error("Pipeline sem etapas. Adicione uma coluna antes.");
-
-  const { data: card, error } = await db
-    .from("card")
-    .insert({
-      organization_id: board.organization_id,
-      board_id: board.id,
-      stage_id: firstStage.id,
-      title: title.trim() || "Novo card",
-      requester_id: actor.userId as string, // solicitante = quem abriu
-    })
-    .select("id")
-    .single();
-  if (error || !card) throw new Error(error?.message ?? "Falha ao criar o card.");
+  const { board, firstStageId } = await boardAndFirstStage(db, boardId);
+  const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
 
   for (const v of values) {
     if (v.value === null || v.value === "") continue;
@@ -295,20 +411,51 @@ export async function setBoardAlcadaThresholds(
 /**
  * Move um card de etapa PELO CardService — avalia os gates (workflow_rules) no
  * servidor. Se um gate block barrar, retorna { ok:false, reason } (não move).
+ *
+ * `placement` diz onde o card foi solto dentro da coluna (vizinho de cima e de
+ * baixo). Também serve para só reordenar na mesma etapa: aí o CardService
+ * confere a permissão, não há troca de etapa e só a posição é gravada.
  */
 export async function moveCard(
   cardId: string,
   toStageId: string,
+  placement?: Placement,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const actor = await provisionAndGetActor();
   if (!actor) return { ok: false, reason: "Sessão expirada. Entre novamente." };
 
   const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
+  // Etapa de origem e tempo de permanência: lidos ANTES do movimento, porque o
+  // `applyMove` sobrescreve `stage_entered_at`. Base dos relatórios por etapa.
+  const { data: before } = await createAdminClient()
+    .from("card")
+    .select("stage_id, stage_entered_at")
+    .eq("id", cardId)
+    .maybeSingle();
   try {
-    await service.move(actor, cardId, toStageId);
-    await recordActivity(cardId, actor.userId, "card_moved", { toStageId });
-    revalidatePath("/board");
-    return { ok: true };
+    const res = await service.move(actor, cardId, toStageId);
+    if (res.moved) {
+      await recordActivity(cardId, actor.userId, "card_moved", {
+        toStageId,
+        fromStageId: before?.stage_id ?? null,
+        secondsInStage: before?.stage_entered_at
+          ? Math.max(0, Math.round((Date.now() - new Date(before.stage_entered_at).getTime()) / 1000))
+          : null,
+      });
+    }
+    // Trocou de etapa sem dizer onde (ex.: pela Lista) → fim da coluna.
+    if (res.moved || placement) {
+      await placeCardInStage(
+        createAdminClient(),
+        cardId,
+        toStageId,
+        placement && {
+          beforeId: typeof placement.beforeId === "string" ? placement.beforeId : null,
+          afterId: typeof placement.afterId === "string" ? placement.afterId : null,
+        },
+      );
+    }
+      return { ok: true };
   } catch (e) {
     if (e instanceof GateBlockedError) {
       const violations = (e.details ?? []) as RuleViolation[];
@@ -371,6 +518,28 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     fields,
     values,
     detail,
+  };
+}
+
+/** Tudo que a visão de Lista precisa além dos cards, numa ida só ao servidor. */
+export async function loadListData(boardId: string): Promise<{
+  fields: FieldDef[];
+  values: { cardId: string; value: FieldValueRaw }[];
+  members: MemberOption[];
+  prioritizedCardIds: string[];
+}> {
+  const db = await createClient(); // sessão → RLS
+  const [fields, values, members, prio] = await Promise.all([
+    loadFields(boardId),
+    loadFieldValuesByBoard(boardId),
+    loadMembers(),
+    db.from("prioritization").select("card_id").eq("board_id", boardId).is("archived_at", null),
+  ]);
+  return {
+    fields,
+    values,
+    members,
+    prioritizedCardIds: (prio.data ?? []).map((p) => p.card_id),
   };
 }
 
@@ -663,6 +832,12 @@ export async function setCardResponsible(
           cardNumber: card.number,
           cardTitle: card.title,
         },
+      });
+      await sendPush([userId], {
+        title: `${meU?.name || meU?.email || "Alguém"} atribuiu um card a você`,
+        body: `#${card.number} ${card.title}`,
+        url: `/board?card=${cardId}`,
+        tag: `card-${cardId}`,
       });
     }
   }
@@ -1082,6 +1257,12 @@ export async function addComment(
       },
     })),
   );
+  await sendPush(validIds, {
+    title: `${actorName} mencionou você`,
+    body: `#${card.number} ${card.title}: ${text.slice(0, 120)}`,
+    url: `/board?card=${cardId}`,
+    tag: `card-${cardId}`,
+  });
 }
 
 // ── Propriedades customizadas (campos) ───────────────────────────────────────
@@ -1473,6 +1654,16 @@ export async function setStageCategory(stageId: string, category: string): Promi
   await requireActor("stage:manage");
   const db = createAdminClient();
   const { error } = await db.from("stage").update({ category }).eq("id", stageId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/board");
+}
+
+/** Define (ou remove, com null) o limite de cards em andamento da etapa. */
+export async function setStageWipLimit(stageId: string, limit: number | null): Promise<void> {
+  await requireActor("stage:manage");
+  const value = limit != null && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
+  const db = createAdminClient();
+  const { error } = await db.from("stage").update({ wip_limit: value }).eq("id", stageId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
 }

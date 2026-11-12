@@ -37,9 +37,19 @@
   --shadow-premium-soft: 0 1px 3px rgba(0, 30, 64, 0.04), 0 2px 8px rgba(0, 30, 64, 0.04);
   --shadow-premium-hover: 0 2px 6px rgba(0, 30, 64, 0.06), 0 8px 20px rgba(0, 30, 64, 0.08);
 
+  /* Altura da barra de navegação inferior do celular (0 no computador).
+     Telas de altura fixa descontam este valor; o resto ganha um respiro embaixo. */
+  --bottom-nav: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+
   /* Fontes (next/font sobrescreve as variáveis no <html>) */
   --font-headline: "Manrope", sans-serif;
   --font-body: "Inter", sans-serif;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --bottom-nav: 0px;
+  }
 }
 
 @theme inline {
@@ -133,3 +143,44 @@ body {
   }
 }
 
+
+/* ============================================================================
+   Acessibilidade (SPEC-FASE2 B.5) — regras que valem para o sistema todo.
+   ============================================================================ */
+
+/* Celular: campo com letra menor que 16 px faz o iPhone dar zoom ao focar e a
+   tela não volta sozinha. `!important` porque as telas usam `text-sm` nos campos. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Caixas de marcar: 16 px é pequeno para o dedo. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-width: 1.375rem;
+    min-height: 1.375rem;
+  }
+}
+
+/* Quem pede "reduzir movimento" no sistema operacional não recebe animações
+   nem rolagem suave. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Foco visível para quem navega pelo teclado, em qualquer controle que não
+   defina o seu. */
+:where(a, button, [role="button"], [role="tab"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-primary-high);
+  outline-offset: 2px;
+}

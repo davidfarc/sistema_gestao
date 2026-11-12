@@ -1,7 +1,8 @@
 "use client";
 
 import clsx from "clsx";
-import { Hash, Pencil, Search, Settings, Users, X } from "lucide-react";
+import { ArrowLeft, Hash, Pencil, Search, Settings, Users, X } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { MemberManagerDialog } from "@/components/common/MemberManagerDialog";
@@ -19,6 +20,10 @@ import {
   setChannelMember,
 } from "@/lib/comms/actions";
 import { createClient } from "@/lib/supabase/client";
+import { useIsMobile } from "@/lib/useIsMobile";
+
+/** Conversa aberta no endereço (`/canais?conversa=<id>`): dá link e faz o "voltar" funcionar no celular. */
+const PARAM = "conversa";
 
 function clockLabel(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -65,11 +70,63 @@ export function ChannelsView({
     [selected],
   );
 
+  // Celular: uma tela por vez (lista → conversa). Computador: lista e conversa
+  // lado a lado, como sempre.
+  const isMobile = useIsMobile();
+  const urlConversation = useSearchParams().get(PARAM);
+
   useEffect(() => {
-    refreshConversations().then((cs) => {
-      setSelected((cur) => cur ?? cs[0]?.id ?? null);
-    });
+    refreshConversations();
   }, [refreshConversations]);
+
+  // Qual conversa abrir. O endereço manda (link direto, "voltar" do navegador).
+  // Sem nada no endereço: no computador abre a mais recente; no celular fica
+  // na lista, que é a primeira tela.
+  useEffect(() => {
+    if (isMobile === null) return;
+    if (urlConversation) {
+      if (conversations.some((c) => c.id === urlConversation)) setSelected(urlConversation);
+      return;
+    }
+    if (isMobile) setSelected(null);
+    else setSelected((cur) => cur ?? conversations[0]?.id ?? null);
+  }, [isMobile, urlConversation, conversations]);
+
+  /**
+   * Escolhe uma conversa e a registra no endereço. No celular a primeira
+   * escolha entra no histórico (o "voltar" retorna à lista); trocar de conversa
+   * e o computador só substituem o endereço, sem empilhar.
+   */
+  const choose = useCallback(
+    (channelId: string) => {
+      setSelected(channelId);
+      const params = new URLSearchParams(window.location.search);
+      const push = isMobile === true && !params.has(PARAM);
+      params.set(PARAM, channelId);
+      if (push) window.history.pushState({ eccoConversa: true }, "", `?${params}`);
+      else {
+        // Só a nossa marca é repassada: com o estado interno do Next junto, ele
+        // trataria a troca como dele e não avisaria o `useSearchParams`.
+        const mark = (window.history.state as { eccoConversa?: boolean } | null)?.eccoConversa;
+        window.history.replaceState(mark ? { eccoConversa: true } : null, "", `?${params}`);
+      }
+    },
+    [isMobile],
+  );
+
+  /** Volta para a lista (celular). */
+  function backToList() {
+    if ((window.history.state as { eccoConversa?: boolean } | null)?.eccoConversa) {
+      window.history.back();
+      return;
+    }
+    // Chegou por link direto: não há entrada anterior, só limpa o endereço.
+    const params = new URLSearchParams(window.location.search);
+    params.delete(PARAM);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    setSelected(null);
+  }
 
   // Abre uma conversa: carrega mensagens, marca como lida e zera o contador.
   const openConversation = useCallback(async (channelId: string) => {
@@ -175,9 +232,14 @@ export function ChannelsView({
   const active = conversations.find((c) => c.id === selected);
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-[calc(100dvh-var(--bottom-nav))]">
       {/* Lista de conversas */}
-      <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-surface-low">
+      <aside
+        className={clsx(
+          "w-full shrink-0 flex-col border-r border-neutral-200 bg-surface-low md:flex md:w-72",
+          selected ? "hidden" : "flex",
+        )}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <h2 className="text-sm font-semibold text-neutral-700">Conversas</h2>
           {canPost && (
@@ -185,7 +247,8 @@ export function ChannelsView({
               type="button"
               onClick={() => setComposing(true)}
               title="Nova conversa"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-primary hover:bg-primary/10"
+              aria-label="Nova conversa"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-primary hover:bg-primary/10 md:h-8 md:w-8"
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -197,15 +260,16 @@ export function ChannelsView({
             <button
               key={c.id}
               type="button"
-              onClick={() => setSelected(c.id)}
+              onClick={() => choose(c.id)}
+              aria-current={selected === c.id ? "true" : undefined}
               className={clsx(
-                "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left",
+                "flex w-full items-center gap-2.5 rounded-md px-2 py-3 text-left md:py-2",
                 selected === c.id ? "bg-primary/10" : "hover:bg-neutral-200/60",
               )}
             >
               <span
                 className={clsx(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white",
                   c.kind === "dm" ? "bg-primary" : "bg-neutral-400",
                 )}
               >
@@ -214,7 +278,7 @@ export function ChannelsView({
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-sm font-semibold text-neutral-800">{c.name}</span>
-                  <span className="shrink-0 text-[10px] text-neutral-400">
+                  <span className="shrink-0 text-xs text-neutral-500">
                     {listLabel(c.lastMessageAt)}
                   </span>
                 </span>
@@ -223,7 +287,10 @@ export function ChannelsView({
                     {c.lastMessage ?? "Sem mensagens ainda"}
                   </span>
                   {c.unread > 0 && (
-                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white">
+                    <span
+                      aria-label={`${c.unread} não lidas`}
+                      className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white"
+                    >
                       {c.unread}
                     </span>
                   )}
@@ -232,16 +299,24 @@ export function ChannelsView({
             </button>
           ))}
           {conversations.length === 0 && (
-            <p className="px-2 py-3 text-xs text-neutral-400">Nenhuma conversa ainda.</p>
+            <p className="px-2 py-3 text-sm text-neutral-600">Nenhuma conversa ainda.</p>
           )}
         </nav>
       </aside>
 
       {/* Mensagens */}
-      <section className="flex flex-1 flex-col">
+      <section className={clsx("min-w-0 flex-1 flex-col md:flex", selected ? "flex" : "hidden")}>
         {active ? (
           <>
-            <header className="flex items-center gap-2 border-b border-neutral-200 px-5 py-3">
+            <header className="flex items-center gap-2 border-b border-neutral-200 px-2 py-2 md:px-5 md:py-3">
+              <button
+                type="button"
+                onClick={backToList}
+                aria-label="Voltar para a lista de conversas"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-700 hover:bg-neutral-100 md:hidden"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
               <span
                 className={clsx(
                   "flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white",
@@ -250,21 +325,21 @@ export function ChannelsView({
               >
                 {active.kind === "group" ? <Hash className="h-4 w-4" /> : active.initials}
               </span>
-              <h1 className="text-base font-semibold text-neutral-800">{active.name}</h1>
+              <h1 className="min-w-0 truncate text-base font-semibold text-neutral-800">{active.name}</h1>
               {active.kind === "group" && canManageGroups && (
                 <button
                   type="button"
                   onClick={() => setManagingGroup(true)}
                   title="Gerenciar grupo"
                   aria-label="Gerenciar grupo"
-                  className="ml-auto rounded-md p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                  className="ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 md:h-8 md:w-8"
                 >
                   <Settings className="h-4 w-4" />
                 </button>
               )}
             </header>
 
-            <div className="flex-1 space-y-3 overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 md:p-5">
               {messages.map((m) => (
                 <div key={m.id} className="flex items-start gap-2">
                   <span
@@ -276,7 +351,7 @@ export function ChannelsView({
                   <div className="min-w-0">
                     <p className="text-sm">
                       <span className="font-semibold">{m.authorName}</span>
-                      <span className="ml-1 text-xs text-neutral-400">{clockLabel(m.createdAt)}</span>
+                      <span className="ml-1 text-xs text-neutral-600">{clockLabel(m.createdAt)}</span>
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-neutral-700">{m.body}</p>
                   </div>
@@ -295,12 +370,14 @@ export function ChannelsView({
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
                     placeholder={`Mensagem para ${active.name}`}
-                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+                    aria-label={`Mensagem para ${active.name}`}
+                    // 16 px no celular: abaixo disso o iPhone dá zoom ao focar.
+                    className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-500 md:text-sm"
                   />
                   <button
                     type="submit"
                     disabled={!body.trim()}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+                    className="min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50 md:min-h-0 md:py-2"
                   >
                     Enviar
                   </button>
@@ -322,7 +399,7 @@ export function ChannelsView({
           onOpened={async (channelId) => {
             setComposing(false);
             await refreshConversations();
-            if (channelId) setSelected(channelId);
+            if (channelId) choose(channelId);
           }}
         />
       )}
@@ -414,9 +491,14 @@ function NewConversation({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-3 pt-12 md:pt-24"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -424,7 +506,7 @@ function NewConversation({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100"
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
           >
             <X className="h-4 w-4" />
           </button>
@@ -478,12 +560,12 @@ function NewConversation({
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-neutral-800">{u.name}</span>
-                    <span className="block truncate text-xs text-neutral-400">{u.email}</span>
+                    <span className="block truncate text-xs text-neutral-600">{u.email}</span>
                   </span>
                 </button>
               ))}
               {results.length === 0 && (
-                <p className="px-2 py-3 text-xs text-neutral-400">Nenhuma pessoa encontrada.</p>
+                <p className="px-2 py-3 text-xs text-neutral-600">Nenhuma pessoa encontrada.</p>
               )}
             </div>
           </div>
@@ -496,7 +578,7 @@ function NewConversation({
               placeholder="Nome do grupo"
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
             />
-            <p className="text-xs text-neutral-400">
+            <p className="text-xs text-neutral-600">
               Todos os membros internos entram no grupo.
             </p>
             <button

@@ -7,12 +7,10 @@ import { loadUnreadTotal } from "@/lib/comms/actions";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Badge de não-lidas no item "Conversas" da sidebar. Busca o total no servidor
- * e reage ao Realtime: mensagem nova (message INSERT) ou marcação de lida
- * (channel_member UPDATE de last_read_at) disparam um refetch. `collapsed`
- * mostra só um ponto quando a sidebar está recolhida.
+ * Total de mensagens não lidas, mantido em dia pelo Realtime. `channelName`
+ * precisa ser único por lugar que usa (dois inscritos no mesmo canal se anulam).
  */
-export function UnreadBadge({ collapsed }: { collapsed: boolean }) {
+export function useUnreadTotal(channelName: string): number {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
@@ -26,7 +24,7 @@ export function UnreadBadge({ collapsed }: { collapsed: boolean }) {
 
     const supabase = createClient();
     const channel = supabase
-      .channel("sidebar-unread")
+      .channel(channelName)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "message" }, refetch)
       .on(
         "postgres_changes",
@@ -38,7 +36,19 @@ export function UnreadBadge({ collapsed }: { collapsed: boolean }) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [channelName]);
+
+  return total;
+}
+
+/**
+ * Badge de não-lidas no item "Conversas" da sidebar. Busca o total no servidor
+ * e reage ao Realtime: mensagem nova (message INSERT) ou marcação de lida
+ * (channel_member UPDATE de last_read_at) disparam um refetch. `collapsed`
+ * mostra só um ponto quando a sidebar está recolhida.
+ */
+export function UnreadBadge({ collapsed }: { collapsed: boolean }) {
+  const total = useUnreadTotal("sidebar-unread");
 
   if (total <= 0) return null;
 
