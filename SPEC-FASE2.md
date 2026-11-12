@@ -407,7 +407,7 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
   o celular (B.3) e o teclado (B.5) com um controle só.
 - **Criar numa coluna não pula regra de fluxo**: o card nasce na 1ª etapa e é movido pelo
   `CardService.move`; se um gate barrar, fica na 1ª etapa e a tela avisa.
-- **Ícones provisórios** (livro branco sobre o azul da marca), a trocar pelo logo oficial.
+- **Nome e marca (12/11):** o sistema passa a se chamar **Sistema de Gestão Eccoprime** (grafia do logo oficial). Logo oficial no login (colorida), no menu lateral (branca; só o símbolo com o menu recolhido) e nos ícones do aplicativo (símbolo colorido sobre branco). Arquivos em `apps/web/public/brand` e `public/icons`, gerados dos PDFs enviados.
 - **Relatórios com `security invoker`**: `report_*` rodam com o RLS de quem chama. Para o MCP
   (token, sem sessão do Supabase) será preciso definir como o usuário é informado à função (D.3).
 - **Web Push sem biblioteca**: implementado sobre WebCrypto em `packages/core`, para não aumentar
@@ -448,7 +448,6 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
 0. Decidir quando publicar o ramo no `main`: a correção das Conversas só chega à produção com isso.
 1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
-3. Enviar o logo oficial para os ícones do aplicativo.
 4. Push: aplicar a migration 0037; rodar `node infra/gen-vapid.mjs` e cadastrar os dois valores como segredos do Worker (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`); testar em Avisos → "Ativar notificações".
 5. MCP: aplicar a migration 0039; publicar o Worker `ecco-mcp` (`apps/mcp`, `npx wrangler deploy`); gerar um token em Configurações → Integrações e conectar um assistente.
 6. `report:read` começa com Gestor Master e Gestor; ajustar em Configurações → Papéis se quiser.

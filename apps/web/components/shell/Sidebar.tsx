@@ -3,7 +3,6 @@
 import clsx from "clsx";
 import {
   BarChart3,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   KanbanSquare,
@@ -96,15 +95,16 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
 
         <div className="flex h-full flex-col py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {/* Logo */}
-          <div className={clsx("mb-4 flex h-9 items-center gap-2.5", showLabels ? "px-3" : "justify-center px-2")}>
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15">
-              <BookOpen className="h-3.5 w-3.5 text-white" aria-hidden="true" />
-            </div>
-            {showLabels && (
-              <span className="font-headline text-base font-extrabold tracking-tight text-white">
-                Ecco Prime
-              </span>
-            )}
+          {/* Logo oficial em branco (sobre o azul): completa com o menu aberto, só o símbolo recolhido. */}
+          <div className={clsx("mb-4 flex h-11 items-center", showLabels ? "px-3" : "justify-center px-2")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={showLabels ? "/brand/logo-branca.png" : "/brand/simbolo-branco.png"}
+              alt="Eccoprime"
+              width={showLabels ? 560 : 128}
+              height={showLabels ? 165 : 128}
+              className={showLabels ? "h-10 w-auto" : "h-8 w-8"}
+            />
           </div>
 
           {/* Nav */}

@@ -37,11 +37,16 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-8 px-6">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Editora Ecco Prime
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold">Gestão Editorial</h1>
-        <p className="mt-2 text-sm text-neutral-500">Entre para acessar o sistema.</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo-colorida.png"
+          alt="Eccoprime International Christian School"
+          width={720}
+          height={212}
+          className="h-auto w-56"
+        />
+        <h1 className="mt-6 text-2xl font-semibold">Sistema de Gestão Eccoprime</h1>
+        <p className="mt-2 text-sm text-neutral-600">Entre para acessar o sistema.</p>
       </div>
 
       <button

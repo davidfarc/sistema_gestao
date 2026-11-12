@@ -7,16 +7,16 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ecco Prime — Sistema de Gestão",
-    short_name: "Ecco Prime",
-    description: "Quadros, conversas e avisos da equipe Ecco Prime.",
+    name: "Sistema de Gestão Eccoprime",
+    short_name: "Eccoprime",
+    description: "Quadros, conversas e avisos da equipe Eccoprime.",
     lang: "pt-BR",
     id: "/",
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#f8f9fb",
+    background_color: "#ffffff",
     theme_color: "#001e40",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

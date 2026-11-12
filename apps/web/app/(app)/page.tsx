@@ -21,13 +21,9 @@ export default async function Home() {
       <div className="mb-6 empty:hidden">
         <InstallHint />
       </div>
-      <p className="text-sm font-medium uppercase tracking-wide text-secondary">
-        Editora Ecco Prime
-      </p>
-      <h1 className="mt-1 text-3xl">Sistema de Gestão Editorial</h1>
+      <h1 className="text-3xl">Sistema de Gestão Eccoprime</h1>
       <p className="mt-2 max-w-xl text-secondary">
-        Acompanhe a produção do material didático pelo pipeline editorial — do briefing à
-        gráfica.
+        Quadros, conversas, painéis e os módulos da escola e da editora num só lugar.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-2">
