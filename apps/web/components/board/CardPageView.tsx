@@ -35,7 +35,14 @@ export function CardPageView({
         )}
       </div>
 
-      <CardContent data={data} myUserId={myUserId} onChanged={() => router.refresh()} />
+      <CardContent
+        // `key`: ao mudar de pipeline o card é o mesmo, mas campos e etapa são outros.
+        key={`${data.id}:${data.boardId}`}
+        data={data}
+        myUserId={myUserId}
+        onChanged={() => router.refresh()}
+        onTransferred={() => router.refresh()}
+      />
     </main>
   );
 }

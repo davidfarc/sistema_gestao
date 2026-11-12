@@ -8,6 +8,7 @@ import { loadCardPage } from "@/lib/board/actions";
 import type { CardPageData, StageView } from "@/lib/board/types";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { CardContent } from "./CardContent";
+import type { TransferResult } from "./TransferDialog";
 
 /**
  * Card aberto por cima do quadro (`?card=<id>`): painel lateral largo no
@@ -25,6 +26,7 @@ export function CardPanel({
   onMoveTo,
   notice = null,
   onDismissNotice,
+  onTransferred,
 }: {
   cardId: string;
   /** Etapa atual segundo o quadro (mais fresca que a carregada com o card). */
@@ -38,6 +40,8 @@ export function CardPanel({
   /** Aviso do quadro (ex.: regra de fluxo barrou o movimento), mostrado aqui porque o painel cobre o quadro. */
   notice?: string | null;
   onDismissNotice?: () => void;
+  /** O card foi enviado para outro pipeline (some deste quadro). */
+  onTransferred?: (cardId: string, result: TransferResult) => void;
   /** Algo no card foi gravado: recebe o card já relido, para o quadro refletir. */
   onSaved?: (data: CardPageData) => void;
 }) {
@@ -227,6 +231,7 @@ export function CardPanel({
               onChanged={reload}
               split="xl"
               composerSlot={isMobile ? composerSlot : null}
+              onTransferred={onTransferred ? (r) => onTransferred(cardId, r) : undefined}
             />
           )}
         </div>

@@ -498,6 +498,12 @@ export function BoardView({
           onMoveTo={(toStageId) => move(selectedCardId, toStageId)}
           notice={moveError}
           onDismissNotice={() => setMoveError(null)}
+          onTransferred={(cardId, r) => {
+            // O card saiu deste pipeline: some da lista, fecha o painel e avisa.
+            setCards((prev) => prev.filter((c) => c.id !== cardId));
+            closeCard();
+            setMoveError(`Card enviado para “${r.boardName}” como #${r.number}. A gestão de lá define o responsável.`);
+          }}
         />
       )}
     </div>

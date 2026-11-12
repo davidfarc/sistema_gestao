@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRightLeft } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { setFieldValue, updateCard } from "@/lib/board/actions";
@@ -13,6 +14,7 @@ import { DemandPanel } from "./DemandPanel";
 import { FieldEditor } from "./fieldControls";
 import { RichDescription } from "./RichDescription";
 import { Responsavel } from "./Responsavel";
+import { TransferDialog, type TransferResult } from "./TransferDialog";
 
 function emptyValue(fieldId: string): FieldValueRaw {
   return { fieldId, text: null, number: null, date: null, bool: null, memberId: null };
@@ -50,6 +52,7 @@ export function CardContent({
   onChanged,
   split = "lg",
   composerSlot = null,
+  onTransferred,
 }: {
   data: CardPageData;
   myUserId?: string | null;
@@ -57,10 +60,13 @@ export function CardContent({
   split?: keyof typeof SPLIT;
   /** Celular: rodapé fixo onde o campo de comentário é desenhado (ver Comments). */
   composerSlot?: HTMLElement | null;
+  /** O card foi enviado para outro pipeline: quem hospeda decide para onde ir. */
+  onTransferred?: (result: TransferResult) => void;
 }) {
   const [title, setTitle] = useState(data.title);
   const [description, setDescription] = useState(data.description ?? "");
   const [values, setValues] = useState(data.values);
+  const [transferring, setTransferring] = useState(false);
   const css = SPLIT[split];
 
   function saveTitle() {
@@ -103,6 +109,29 @@ export function CardContent({
         aria-label="Título do card"
         className="w-full text-xl font-semibold text-neutral-800 outline-none sm:text-2xl"
       />
+
+      {onTransferred && (
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setTransferring(true)}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
+          >
+            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Enviar para outro pipeline
+          </button>
+        </div>
+      )}
+      {transferring && onTransferred && (
+        <TransferDialog
+          cardId={data.id}
+          cardLabel={`#${data.number} ${title}`}
+          onClose={() => setTransferring(false)}
+          onTransferred={(result) => {
+            setTransferring(false);
+            onTransferred(result);
+          }}
+        />
+      )}
 
       <div className={`mt-4 grid grid-cols-1 gap-x-8 ${css.grid}`}>
         <div className="min-w-0">

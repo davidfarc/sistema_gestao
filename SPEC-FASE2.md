@@ -309,6 +309,31 @@ No nosso sistema entra como **terceira visão do pipeline**, ao lado de Kanban e
 - onde estiver ligada, é a visão padrão de quem não gerencia o pipeline; gestores abrem na Lista;
 - na tela Início, um resumo "Minhas demandas" junta os cards da pessoa em todos os pipelines.
 
+### E.4 Enviar card para outro pipeline (código pronto em 12/11)
+
+Botão **"Enviar para outro pipeline"** no card (painel e página). Dois passos: escolher o destino e
+**conciliar campos** (para cada campo do pipeline de origem com valor, escolher o campo do destino
+ou "não levar"; o sistema sugere os de mesmo nome e tipo compatível).
+
+- O card entra na **primeira etapa** do destino, no fim da coluna, com **número novo**.
+- Fica **sem responsável**; quem tem `card:assign` no pipeline de destino recebe aviso (sininho e
+  push) para definir o novo dono. O solicitante é mantido.
+- Comentários, checklists, anexos e histórico acompanham o card. Campos globais não mudam.
+- Campo sem correspondente **não se perde**: vira um comentário no card. Opções de seleção são
+  reconhecidas pelo nome.
+- A priorização do pipeline de origem é arquivada. Histórico registra `card_transferred`.
+- **Quem pode:** `card:move` + enxergar o card, e poder abrir demanda no destino (mesma regra do
+  formulário de criação: membro do pipeline ou caixa de entrada aberta para a pessoa).
+- Não passa pelo `CardService.move` (não é mudança de etapa dentro de um fluxo): as regras de fluxo
+  do destino valem a partir da entrada. A troca é a função `transfer_card` (migration 0040),
+  executável só pela chave de serviço.
+
+Limitações conhecidas: quem está com o quadro de ORIGEM aberto em outra tela só vê o card sumir ao
+recarregar; o relatório `atividades` do MCP mostra o evento com o nome técnico `card_transferred`.
+
+Situação: função testada em Postgres local; tela passa em typecheck e build; **falta aplicar a 0040
+e testar na prévia**.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -348,9 +373,10 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 |---|---|---|
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
-| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
+| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** (push desligado até lá) |
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
-| `0039_mcp_reports.sql` | Permissão `report:read` (Gestor Master e Gestor); tabelas `api_token` e `api_token_call`; funções `report_*` das 7 ferramentas; `mcp_call`, a porta única do Worker MCP | **A aplicar** |
+| `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
+| `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

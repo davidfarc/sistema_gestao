@@ -24,6 +24,12 @@ function render(kind: string, payload: Record<string, unknown>): { title: string
       subtitle: [stage && `Etapa ${stage}`, num].filter(Boolean).join(" · "),
     };
   }
+  if (kind === "transfer") {
+    return {
+      title: `${actor} enviou um card para ${boardName || "o seu pipeline"}`,
+      subtitle: [`${num} ${card}`.trim(), "Falta definir o responsável"].filter(Boolean).join(" · "),
+    };
+  }
   return { title: actor, subtitle: `${num} ${card}`.trim() };
 }
 
