@@ -275,6 +275,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
 | `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
+| `0039_mcp_reports.sql` | Permissão `report:read` (Gestor Master e Gestor); tabelas `api_token` e `api_token_call`; funções `report_*` das 7 ferramentas; `mcp_call`, a porta única do Worker MCP | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 
@@ -301,7 +302,27 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 
 **Bloco B: código completo.** Falta a validação no celular e ativar o push (0037 + chaves).
 
-Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
+### Bloco D — MCP (código completo)
+
+| Item | O que ficou | Situação |
+|---|---|---|
+| Funções `report_*` | As 7 ferramentas de D.2, em SQL. O alcance é decidido num lugar só (`report_scope_cards`: `can_see_board` / `can_see_card`). Tempo por etapa de movimentações antigas é reconstruído pela sequência de `card_moved` | Testadas em Postgres local com o esquema real (38 migrations) e dados de exemplo: números, alcance por pessoa e bloqueios conferidos. **Falta aplicar a 0039 e conferir com dados reais** |
+| Tokens | Configurações → Integrações: gerar (mostrado uma vez; no banco só o hash sha-256), listar, revogar; validade opcional; até 5 ativos por pessoa | Código pronto; não exercitado em navegador |
+| Worker `ecco-mcp` (`apps/mcp`) | Streamable HTTP sem estado e sem biblioteca (4 KiB comprimido); `Authorization: Bearer` ou `/mcp/<token>`; 11 testes | Empacota (`wrangler deploy --dry-run`); **falta publicar** e testar com um assistente de verdade |
+| Auditoria e limite | Cada chamada vai para `api_token_call`; 60 chamadas por minuto por token | Testado localmente |
+
+**Como o MCP sabe quem pergunta (resolve a dúvida de D.3):** o Worker não tem chave secreta. Ele
+manda o *hash* do token para `mcp_call`, que valida, assume a identidade do dono **só naquela
+transação** (`request.jwt.claims`), confere `report:read` e executa. As funções `report_*` filtram
+explicitamente pelo alcance, então não dependem do RLS (que a função dona ignora). Elas não são
+executáveis por `anon`/`authenticated` direto; só `mcp_call` é.
+
+Diferenças em relação a D.2/D.3: `produtividade_usuario` sem filtro devolve todas as pessoas para
+quem tem `user:manage` e só a própria para os demais; `atividades` filtrada por outra pessoa também
+exige `user:manage`. Descrição do card vai sem formatação e limitada a 2.000 caracteres.
+
+Depois de D: **C (WhatsApp agente)**, sem nada iniciado. As ferramentas de escrita de C reusam `mcp_call`
+como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
 
 ### Decisões e ajustes tomados durante a execução
 
@@ -354,4 +375,6 @@ Depois de B: **D (MCP)** e **C (WhatsApp agente)**, sem nada iniciado.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
 3. Enviar o logo oficial para os ícones do aplicativo.
 4. Push: aplicar a migration 0037; rodar `node infra/gen-vapid.mjs` e cadastrar os dois valores como segredos do Worker (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`); testar em Avisos → "Ativar notificações".
-5. Pendências antigas da seção "Resumo": provedor do VPS do WhatsApp; quem recebe `report:read`.
+5. MCP: aplicar a migration 0039; publicar o Worker `ecco-mcp` (`apps/mcp`, `npx wrangler deploy`); gerar um token em Configurações → Integrações e conectar um assistente.
+6. `report:read` começa com Gestor Master e Gestor; ajustar em Configurações → Papéis se quiser.
+7. Pendência antiga: provedor do VPS do WhatsApp (bloco C).
