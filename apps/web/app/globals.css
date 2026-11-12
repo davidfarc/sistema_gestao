@@ -37,9 +37,19 @@
   --shadow-premium-soft: 0 1px 3px rgba(0, 30, 64, 0.04), 0 2px 8px rgba(0, 30, 64, 0.04);
   --shadow-premium-hover: 0 2px 6px rgba(0, 30, 64, 0.06), 0 8px 20px rgba(0, 30, 64, 0.08);
 
+  /* Altura da barra de navegação inferior do celular (0 no computador).
+     Telas de altura fixa descontam este valor; o resto ganha um respiro embaixo. */
+  --bottom-nav: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+
   /* Fontes (next/font sobrescreve as variáveis no <html>) */
   --font-headline: "Manrope", sans-serif;
   --font-body: "Inter", sans-serif;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --bottom-nav: 0px;
+  }
 }
 
 @theme inline {

@@ -323,8 +323,8 @@ export function BoardView({
       myUserId={myUserId}
       intake={board.intake}
     >
-    <div className="flex h-dvh flex-col">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 py-3 pl-14 pr-4 md:px-6">
+    <div className="flex h-[calc(100dvh-var(--bottom-nav))] flex-col">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 px-4 py-3 md:px-6">
         <div>
           <PipelineSelector
             boards={boards}

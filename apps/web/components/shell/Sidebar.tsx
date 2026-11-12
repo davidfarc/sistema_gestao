@@ -8,17 +8,15 @@ import {
   KanbanSquare,
   LayoutDashboard,
   LogOut,
-  Menu as MenuIcon,
   MessagesSquare,
   School,
   Settings,
   UserPlus,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { NotificationBell } from "./NotificationBell";
 import { useSidebar } from "./SidebarContext";
@@ -45,10 +43,10 @@ const MENU: MenuItem[] = [
 
 export function Sidebar({ user }: { user: { email: string; name?: string | null; internal: boolean } | null }) {
   const pathname = usePathname();
-  const { collapsed, toggle } = useSidebar();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // No celular este menu abre pelo botão "Menu" da barra inferior (BottomNav).
+  const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebar();
 
-  useEffect(() => setMobileOpen(false), [pathname]);
+  useEffect(() => setMobileOpen(false), [pathname, setMobileOpen]);
 
   const showLabels = mobileOpen || !collapsed;
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -57,16 +55,6 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
 
   return (
     <>
-      {/* Hambúrguer mobile */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen((o) => !o)}
-        aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
-        className="fixed left-3 top-3 z-[110] flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white shadow-md md:hidden"
-      >
-        {mobileOpen ? <X className="h-4 w-4" /> : <MenuIcon className="h-4 w-4" />}
-      </button>
-
       {mobileOpen && (
         <div
           className="fixed inset-0 z-[100] bg-black/50 md:hidden"
@@ -77,7 +65,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
 
       <aside
         className={clsx(
-          "fixed left-0 top-0 z-[105] h-screen bg-primary text-white shadow-lg transition-[width] duration-200",
+          "fixed left-0 top-0 z-[105] h-dvh bg-primary text-white shadow-lg transition-[width] duration-200",
           mobileOpen ? "w-60 translate-x-0" : "-translate-x-full md:translate-x-0",
           collapsed ? "md:w-16" : "md:w-60",
         )}
@@ -92,7 +80,19 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
         </button>
 
-        <div className="flex h-full flex-col py-3">
+        {/* Fechar (só no celular, onde o menu cobre a tela) */}
+        {mobileOpen && (
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fechar menu"
+            className="absolute right-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-lg text-white/80 hover:bg-white/10 md:hidden"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )}
+
+        <div className="flex h-full flex-col py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {/* Logo */}
           <div className={clsx("mb-4 flex h-9 items-center gap-2.5", showLabels ? "px-3" : "justify-center px-2")}>
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/15">

@@ -275,3 +275,11 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 
 **Bloco A: código completo.** Pendências para fechar: aplicar a migration 0035 (se ainda não foi) e
 validar na prévia do ramo. Próximo bloco: **B (mobile/PWA)**.
+
+| Bloco B | Situação |
+|---|---|
+| Manifesto, ícones, instalação, barra inferior (Início, Quadros, Conversas, Avisos + **Menu**, que abre a barra lateral completa) e tela `/avisos` | Código pronto no ramo; **falta testar no celular pela prévia**. Sem migration. Os ícones são provisórios (livro branco sobre o azul da marca): trocar pelo logo oficial quando houver |
+| Quadro e card no celular · Conversas no celular · Painel · Push · Passada de acessibilidade | A fazer |
+
+Nota: a barra inferior ganhou um 5º item, **Menu**, além dos 4 previstos em B.3. Sem ele, Gestão
+de Vila, Novos alunos, Configurações e "Sair" ficariam sem caminho no celular.

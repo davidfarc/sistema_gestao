@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { BottomNav } from "@/components/shell/BottomNav";
 import { MainContainer } from "@/components/shell/MainContainer";
 import { Sidebar } from "@/components/shell/Sidebar";
 import { SidebarProvider } from "@/components/shell/SidebarContext";
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <SidebarProvider>
       <Sidebar user={user} />
       <MainContainer>{children}</MainContainer>
+      <BottomNav />
     </SidebarProvider>
   );
 }

@@ -1,6 +1,7 @@
 import { KanbanSquare } from "lucide-react";
 import Link from "next/link";
 
+import { InstallHint } from "@/components/shell/InstallHint";
 import { Shortcuts } from "@/components/home/Shortcuts";
 import { provisionAndGetActor } from "@/lib/actor";
 import { loadBoardOptions, loadShortcuts } from "@/lib/shortcuts/actions";
@@ -17,6 +18,9 @@ export default async function Home() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10 md:py-16">
+      <div className="mb-6 empty:hidden">
+        <InstallHint />
+      </div>
       <p className="text-sm font-medium uppercase tracking-wide text-secondary">
         Editora Ecco Prime
       </p>

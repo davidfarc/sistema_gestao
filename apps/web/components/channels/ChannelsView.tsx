@@ -175,7 +175,7 @@ export function ChannelsView({
   const active = conversations.find((c) => c.id === selected);
 
   return (
-    <div className="flex h-dvh">
+    <div className="flex h-[calc(100dvh-var(--bottom-nav))]">
       {/* Lista de conversas */}
       <aside className="flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-surface-low">
         <div className="flex items-center justify-between px-4 py-3">

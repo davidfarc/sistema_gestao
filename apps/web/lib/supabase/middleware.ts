@@ -46,6 +46,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/auth") ||
     path === "/agendar" ||
     path === "/privacidade" ||
+    // Manifesto do PWA: o navegador o busca sem os cookies de login.
+    path === "/manifest.webmanifest" ||
     path.startsWith("/api/anamnese/public/") ||
     path === "/api/anamnese/cron/process";
 
