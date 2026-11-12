@@ -331,8 +331,8 @@ ou "não levar"; o sistema sugere os de mesmo nome e tipo compatível).
 Limitações conhecidas: quem está com o quadro de ORIGEM aberto em outra tela só vê o card sumir ao
 recarregar; o relatório `atividades` do MCP mostra o evento com o nome técnico `card_transferred`.
 
-Situação: função testada em Postgres local; tela passa em typecheck e build; **falta aplicar a 0040
-e testar na prévia**.
+Situação: migration 0040 aplicada; função testada em Postgres local; tela passa em typecheck e
+build; **falta testar na prévia** e publicar (ainda só no ramo).
 
 ### E.3 Ordem sugerida
 
@@ -376,7 +376,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** (push desligado até lá) |
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
-| `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | **A aplicar** |
+| `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 
 ### Bloco A — Quadro (código completo)
 
