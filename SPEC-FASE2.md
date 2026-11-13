@@ -309,6 +309,45 @@ No nosso sistema entra como **terceira visão do pipeline**, ao lado de Kanban e
 - onde estiver ligada, é a visão padrão de quem não gerencia o pipeline; gestores abrem na Lista;
 - na tela Início, um resumo "Minhas demandas" junta os cards da pessoa em todos os pipelines.
 
+### E.4 Enviar card para outro pipeline (código pronto em 12/11)
+
+Botão **"Enviar para outro pipeline"** no card (painel e página). Dois passos: escolher o destino e
+**conciliar campos** (para cada campo do pipeline de origem com valor, escolher o campo do destino
+ou "não levar"; o sistema sugere os de mesmo nome e tipo compatível).
+
+- O card entra na **primeira etapa** do destino, no fim da coluna, com **número novo**.
+- Fica **sem responsável**; quem tem `card:assign` no pipeline de destino recebe aviso (sininho e
+  push) para definir o novo dono. O solicitante é mantido.
+- Comentários, checklists, anexos e histórico acompanham o card. Campos globais não mudam.
+- Campo sem correspondente **não se perde**: vira um comentário no card. Opções de seleção são
+  reconhecidas pelo nome.
+- A priorização do pipeline de origem é arquivada. Histórico registra `card_transferred`.
+- **Quem pode:** `card:move` + enxergar o card, e poder abrir demanda no destino (mesma regra do
+  formulário de criação: membro do pipeline ou caixa de entrada aberta para a pessoa).
+- Não passa pelo `CardService.move` (não é mudança de etapa dentro de um fluxo): as regras de fluxo
+  do destino valem a partir da entrada. A troca é a função `transfer_card` (migration 0040),
+  executável só pela chave de serviço.
+
+Limitações conhecidas: quem está com o quadro de ORIGEM aberto em outra tela só vê o card sumir ao
+recarregar; o relatório `atividades` do MCP mostra o evento com o nome técnico `card_transferred`.
+
+Situação: migration 0040 aplicada; função testada em Postgres local; tela passa em typecheck e
+build; **falta testar na prévia** e publicar (ainda só no ramo).
+
+### E.5 Arquivar e reativar card (código pronto em 13/11)
+
+- **Arquivar card:** botão no card, junto de "Enviar para outro pipeline", antes dos comentários,
+  com confirmação. Usa `card.archived_at` (já existia). **Não apaga nada.**
+- Card arquivado some do quadro, da Lista, do Painel e dos relatórios do MCP. Continua abrindo pelo
+  link, com uma faixa "arquivado" e o botão **Reativar card**.
+- **Arquivados:** botão no topo do quadro abre a lista dos arquivados do pipeline (etapa em que
+  estava, data), com **Abrir** e **Reativar**. Ao reativar, o card volta para a mesma etapa, no fim
+  da coluna.
+- Permissão: `card:update` + enxergar o card. Histórico: `card_archived` / `card_restored`.
+- Sem migration.
+
+Situação: passa em typecheck e build; **não exercitado em navegador**; falta testar na prévia.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -348,9 +387,10 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 |---|---|---|
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
-| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** |
+| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | ✅ Aplicada (conferida em 13/11). O push segue desligado até as chaves VAPID entrarem no Cloudflare |
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
-| `0039_mcp_reports.sql` | Permissão `report:read` (Gestor Master e Gestor); tabelas `api_token` e `api_token_call`; funções `report_*` das 7 ferramentas; `mcp_call`, a porta única do Worker MCP | **A aplicar** |
+| `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
+| `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 
 ### Bloco A — Quadro (código completo)
 
@@ -407,7 +447,7 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
   o celular (B.3) e o teclado (B.5) com um controle só.
 - **Criar numa coluna não pula regra de fluxo**: o card nasce na 1ª etapa e é movido pelo
   `CardService.move`; se um gate barrar, fica na 1ª etapa e a tela avisa.
-- **Ícones provisórios** (livro branco sobre o azul da marca), a trocar pelo logo oficial.
+- **Nome e marca (12/11):** o sistema passa a se chamar **Sistema de Gestão Eccoprime** (grafia do logo oficial). Logo oficial no login (colorida), no menu lateral (branca; só o símbolo com o menu recolhido) e nos ícones do aplicativo (símbolo colorido sobre branco). Arquivos em `apps/web/public/brand` e `public/icons`, gerados dos PDFs enviados.
 - **Relatórios com `security invoker`**: `report_*` rodam com o RLS de quem chama. Para o MCP
   (token, sem sessão do Supabase) será preciso definir como o usuário é informado à função (D.3).
 - **Web Push sem biblioteca**: implementado sobre WebCrypto em `packages/core`, para não aumentar
@@ -448,7 +488,6 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
 0. Decidir quando publicar o ramo no `main`: a correção das Conversas só chega à produção com isso.
 1. Testar no celular, pela prévia: instalação, barra inferior, quadro, card, Conversas e Painel.
 2. Conferir se o teclado do celular não cobre o campo de comentário nem o de mensagem (iPhone).
-3. Enviar o logo oficial para os ícones do aplicativo.
 4. Push: aplicar a migration 0037; rodar `node infra/gen-vapid.mjs` e cadastrar os dois valores como segredos do Worker (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`); testar em Avisos → "Ativar notificações".
 5. MCP: aplicar a migration 0039; publicar o Worker `ecco-mcp` (`apps/mcp`, `npx wrangler deploy`); gerar um token em Configurações → Integrações e conectar um assistente.
 6. `report:read` começa com Gestor Master e Gestor; ajustar em Configurações → Papéis se quiser.

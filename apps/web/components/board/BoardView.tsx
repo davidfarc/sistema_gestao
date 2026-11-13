@@ -1,12 +1,13 @@
 "use client";
 
-import { ListOrdered, Search, User, X } from "lucide-react";
+import { Archive, ListOrdered, Search, User, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { Placement } from "@ecco/core";
 
+import { ArchivedDialog } from "./ArchivedDialog";
 import { BoardProvider } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
@@ -72,6 +73,7 @@ export function BoardView({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Visão escolhida (Kanban/Lista) lembrada por pipeline, neste navegador.
   useEffect(() => {
@@ -156,7 +158,18 @@ export function BoardView({
             return;
           }
           const row = payload.new as CardRow;
+          // Arquivado (por qualquer pessoa): sai do quadro na hora.
+          if (row.archived_at) {
+            setCards((prev) => prev.filter((c) => c.id !== row.id));
+            return;
+          }
           const known = cardsRef.current.some((c) => c.id === row.id);
+          // Card que a tela não tinha e que não é novo (reativado, ou vindo de
+          // outro pipeline): já tem responsável, checklist… Só o servidor sabe.
+          if (!known && payload.eventType === "UPDATE") {
+            refreshSoon();
+            return;
+          }
           const resolvable = known
             ? applyCardRow(cardsRef.current, row, gatedRef.current) !== null
             : cardFromRow(cardsRef.current, row, gatedRef.current) !== null;
@@ -420,6 +433,14 @@ export function BoardView({
               <ListOrdered className="h-4 w-4" /> Prioridades
             </Link>
           )}
+          <button
+            type="button"
+            onClick={() => setShowArchived(true)}
+            title="Ver cards arquivados e reativar"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+          >
+            <Archive className="h-4 w-4" aria-hidden="true" /> Arquivados
+          </button>
           <div className="hidden rounded-lg border border-neutral-200 p-0.5 text-sm md:flex">
             <ToggleButton active={view === "kanban"} onClick={() => chooseView("kanban")}>
               Kanban
@@ -486,6 +507,15 @@ export function BoardView({
         </div>
       )}
 
+      {showArchived && (
+        <ArchivedDialog
+          boardId={board.id}
+          boardName={board.name}
+          onClose={() => setShowArchived(false)}
+          onRestored={() => router.refresh()}
+        />
+      )}
+
       {selectedCardId && (
         <CardPanel
           cardId={selectedCardId}
@@ -498,6 +528,21 @@ export function BoardView({
           onMoveTo={(toStageId) => move(selectedCardId, toStageId)}
           notice={moveError}
           onDismissNotice={() => setMoveError(null)}
+          onArchivedChange={(cardId, archived) => {
+            if (!archived) {
+              router.refresh(); // reativado: volta ao quadro com os dados completos
+              return;
+            }
+            setCards((prev) => prev.filter((c) => c.id !== cardId));
+            closeCard();
+            setMoveError("Card arquivado. Para ver ou reativar, use “Arquivados” no topo do quadro.");
+          }}
+          onTransferred={(cardId, r) => {
+            // O card saiu deste pipeline: some da lista, fecha o painel e avisa.
+            setCards((prev) => prev.filter((c) => c.id !== cardId));
+            closeCard();
+            setMoveError(`Card enviado para “${r.boardName}” como #${r.number}. A gestão de lá define o responsável.`);
+          }}
         />
       )}
     </div>

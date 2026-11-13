@@ -29,6 +29,7 @@ import type {
   ActivityView,
   AttachmentView,
   CardDetailData,
+  ArchivedCard,
   CardPageData,
   ChecklistItemView,
   CreatedCard,
@@ -485,12 +486,64 @@ export async function updateCard(input: {
   revalidatePath("/board");
 }
 
+/**
+ * Arquiva ou reativa um card. Arquivar NÃO apaga nada: o card só sai dos
+ * quadros, listas e relatórios, e pode voltar pela lista "Arquivados" do
+ * pipeline. Ao reativar, volta para a etapa em que estava, no fim da coluna.
+ */
+export async function setCardArchived(
+  cardId: string,
+  archived: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireActor("card:update");
+  // A sessão (RLS) decide se a pessoa enxerga o card; só então a escrita.
+  const { data: visible } = await (await createClient())
+    .from("card")
+    .select("id, stage_id, archived_at")
+    .eq("id", cardId)
+    .maybeSingle();
+  if (!visible) return { ok: false, error: "Card não encontrado." };
+  if ((visible.archived_at != null) === archived) return { ok: true };
+
+  const db = createAdminClient();
+  const patch: Record<string, unknown> = { archived_at: archived ? new Date().toISOString() : null };
+  if (!archived) patch.position = await endOfStagePosition(db, visible.stage_id);
+  const { error } = await db.from("card").update(patch).eq("id", cardId);
+  if (error) return { ok: false, error: "Não foi possível gravar. Tente de novo." };
+  await recordActivity(cardId, actor.userId as string, archived ? "card_archived" : "card_restored", {});
+  return { ok: true };
+}
+
+/** Cards arquivados de um pipeline, do mais recente para o mais antigo. */
+export async function loadArchivedCards(boardId: string): Promise<ArchivedCard[]> {
+  await requireActor("card:read");
+  const db = await createClient(); // sessão → RLS
+  const [{ data: cards }, { data: stages }] = await Promise.all([
+    db
+      .from("card")
+      .select("id, number, title, stage_id, archived_at")
+      .eq("board_id", boardId)
+      .not("archived_at", "is", null)
+      .order("archived_at", { ascending: false })
+      .limit(300),
+    db.from("stage").select("id, name").eq("board_id", boardId),
+  ]);
+  const stageName = new Map((stages ?? []).map((s) => [s.id, s.name]));
+  return (cards ?? []).map((c) => ({
+    id: c.id,
+    number: Number(c.number),
+    title: c.title,
+    stageName: stageName.get(c.stage_id) ?? "",
+    archivedAt: c.archived_at as string,
+  }));
+}
+
 /** Carrega a visão expandida do card (página): cabeçalho + propriedades + detalhe. */
 export async function loadCardPage(cardId: string): Promise<CardPageData | null> {
   const db = await createClient(); // sessão → RLS
   const { data: card } = await db
     .from("card")
-    .select("id, number, title, description, board_id, stage_id")
+    .select("id, number, title, description, board_id, stage_id, archived_at")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return null;
@@ -515,6 +568,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     boardName: boardRes.data?.name ?? "",
     stageId: card.stage_id,
     stageName: stageRes.data?.name ?? "",
+    archivedAt: card.archived_at ?? null,
     fields,
     values,
     detail,

@@ -16,7 +16,7 @@ export default async function SemAcessoPage() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
       <div>
         <p className="text-sm font-medium uppercase tracking-wide text-neutral-500">
-          Editora Ecco Prime
+          Sistema de Gestão Eccoprime
         </p>
         <h1 className="mt-1 text-2xl font-semibold">Acesso não liberado</h1>
         <p className="mt-3 text-sm text-neutral-600">

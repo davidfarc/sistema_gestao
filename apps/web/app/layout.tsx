@@ -21,10 +21,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ecco Prime — Gestão Editorial",
-  description: "Sistema de produção editorial da Editora Ecco Prime",
+  title: "Sistema de Gestão Eccoprime",
+  description: "Sistema de gestão da Eccoprime: quadros, conversas, painéis e os módulos da escola e da editora.",
   // Instalável no celular (o manifesto vem de app/manifest.ts).
-  appleWebApp: { capable: true, title: "Ecco Prime", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Eccoprime", statusBarStyle: "default" },
   icons: {
     icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],

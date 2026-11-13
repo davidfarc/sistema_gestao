@@ -15,6 +15,16 @@ function describe(a: ActivityView): string {
       return "criou o card";
     case "assignment_changed":
       return "mudou o responsável";
+    case "card_archived":
+      return "arquivou o card";
+    case "card_restored":
+      return "reativou o card";
+    case "card_transferred": {
+      const from = typeof a.payload.fromBoardName === "string" ? a.payload.fromBoardName : "outro pipeline";
+      const to = typeof a.payload.toBoardName === "string" ? a.payload.toBoardName : "outro pipeline";
+      const old = a.payload.oldNumber != null ? ` (era #${a.payload.oldNumber})` : "";
+      return `enviou o card de “${from}” para “${to}”${old}`;
+    }
     default:
       return a.kind;
   }

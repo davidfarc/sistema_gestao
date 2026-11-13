@@ -1,8 +1,9 @@
 "use client";
 
+import { Archive, ArrowRightLeft } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { setFieldValue, updateCard } from "@/lib/board/actions";
+import { setCardArchived, setFieldValue, updateCard } from "@/lib/board/actions";
 import { canEditField } from "@/lib/board/types";
 import type { CardPageData, FieldValueRaw } from "@/lib/board/types";
 import { ActivityFeed } from "./ActivityFeed";
@@ -13,6 +14,7 @@ import { DemandPanel } from "./DemandPanel";
 import { FieldEditor } from "./fieldControls";
 import { RichDescription } from "./RichDescription";
 import { Responsavel } from "./Responsavel";
+import { TransferDialog, type TransferResult } from "./TransferDialog";
 
 function emptyValue(fieldId: string): FieldValueRaw {
   return { fieldId, text: null, number: null, date: null, bool: null, memberId: null };
@@ -50,6 +52,8 @@ export function CardContent({
   onChanged,
   split = "lg",
   composerSlot = null,
+  onTransferred,
+  onArchivedChange,
 }: {
   data: CardPageData;
   myUserId?: string | null;
@@ -57,10 +61,38 @@ export function CardContent({
   split?: keyof typeof SPLIT;
   /** Celular: rodapé fixo onde o campo de comentário é desenhado (ver Comments). */
   composerSlot?: HTMLElement | null;
+  /** O card foi enviado para outro pipeline: quem hospeda decide para onde ir. */
+  onTransferred?: (result: TransferResult) => void;
+  /** O card foi arquivado ou reativado: quem hospeda decide o que fazer com a tela. */
+  onArchivedChange?: (archived: boolean) => void;
 }) {
   const [title, setTitle] = useState(data.title);
   const [description, setDescription] = useState(data.description ?? "");
   const [values, setValues] = useState(data.values);
+  const [transferring, setTransferring] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const actionBtn =
+    "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50";
+
+  async function archive(archived: boolean) {
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const res = await setCardArchived(data.id, archived);
+      if (!res.ok) {
+        setArchiveError(res.error);
+        return;
+      }
+      setConfirmArchive(false);
+      onArchivedChange?.(archived);
+    } catch {
+      setArchiveError("Não foi possível gravar. Tente de novo.");
+    } finally {
+      setArchiving(false);
+    }
+  }
   const css = SPLIT[split];
 
   function saveTitle() {
@@ -95,6 +127,29 @@ export function CardContent({
 
   return (
     <>
+      {data.archivedAt && (
+        <div
+          role="status"
+          className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          <span className="flex-1">
+            Este card está <strong>arquivado</strong> desde{" "}
+            {new Date(data.archivedAt).toLocaleDateString("pt-BR")}. Ele não aparece no quadro nem
+            nos relatórios.
+          </span>
+          {onArchivedChange && (
+            <button
+              type="button"
+              onClick={() => archive(false)}
+              disabled={archiving}
+              className="min-h-9 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+            >
+              {archiving ? "Reativando…" : "Reativar card"}
+            </button>
+          )}
+          {archiveError && <span className="w-full text-red-700">{archiveError}</span>}
+        </div>
+      )}
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -103,6 +158,18 @@ export function CardContent({
         aria-label="Título do card"
         className="w-full text-xl font-semibold text-neutral-800 outline-none sm:text-2xl"
       />
+
+      {transferring && onTransferred && (
+        <TransferDialog
+          cardId={data.id}
+          cardLabel={`#${data.number} ${title}`}
+          onClose={() => setTransferring(false)}
+          onTransferred={(result) => {
+            setTransferring(false);
+            onTransferred(result);
+          }}
+        />
+      )}
 
       <div className={`mt-4 grid grid-cols-1 gap-x-8 ${css.grid}`}>
         <div className="min-w-0">
@@ -191,6 +258,42 @@ export function CardContent({
         {/* Comentários: no celular vêm por último (depois da atividade), junto
             do campo fixo no rodapé; em tela larga ficam sob o conteúdo. */}
         <div className={`order-last mt-6 min-w-0 border-t border-neutral-100 pt-6 ${css.comments}`}>
+          {/* Ações do card, logo antes dos comentários (celular e computador). */}
+          {(onTransferred || onArchivedChange) && !data.archivedAt && (
+            <div className="mb-6 flex flex-wrap items-center gap-2 border-b border-neutral-100 pb-6">
+              {onTransferred && (
+                <button type="button" onClick={() => setTransferring(true)} className={actionBtn}>
+                  <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Enviar para outro pipeline
+                </button>
+              )}
+              {onArchivedChange &&
+                (confirmArchive ? (
+                  <>
+                    <span className="text-sm text-neutral-700">Tirar este card do quadro?</span>
+                    <button
+                      type="button"
+                      onClick={() => archive(true)}
+                      disabled={archiving}
+                      className="min-h-10 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+                    >
+                      {archiving ? "Arquivando…" : "Sim, arquivar"}
+                    </button>
+                    <button type="button" onClick={() => setConfirmArchive(false)} className={actionBtn}>
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setConfirmArchive(true)} className={actionBtn}>
+                    <Archive className="h-4 w-4" aria-hidden="true" /> Arquivar card
+                  </button>
+                ))}
+              {archiveError && (
+                <p role="alert" className="w-full text-sm text-red-700">
+                  {archiveError}
+                </p>
+              )}
+            </div>
+          )}
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
             Comentários
           </p>
