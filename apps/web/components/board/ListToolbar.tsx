@@ -19,7 +19,8 @@ export type SortKey =
   | "solicitante"
   | "responsavel"
   | "rice"
-  | "orcamento";
+  | "orcamento"
+  | "prazo";
 
 export interface ListFilters {
   query: string;
@@ -251,12 +252,12 @@ export function SortHeader({
 }) {
   const active = current === sortKey;
   return (
-    <th className={clsx("whitespace-nowrap px-3 py-2 font-medium", className)}>
+    <th className={clsx("whitespace-nowrap px-3 py-2.5 font-bold", className)}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
         className={clsx(
-          "inline-flex items-center gap-1 hover:text-neutral-800",
+          "inline-flex items-center gap-1 uppercase tracking-[0.09em] hover:text-neutral-800",
           active && "text-neutral-800",
         )}
       >

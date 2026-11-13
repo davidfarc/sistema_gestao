@@ -112,7 +112,7 @@ export function PipelineSelector({
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-left hover:bg-neutral-100"
       >
-        <span className="text-lg font-semibold text-neutral-800">{current?.name ?? "Pipeline"}</span>
+        <span className="font-headline text-xl font-semibold text-neutral-800">{current?.name ?? "Pipeline"}</span>
         <ChevronDown className="h-4 w-4 text-neutral-600" />
       </button>
 

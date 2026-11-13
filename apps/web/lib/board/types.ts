@@ -177,6 +177,10 @@ export interface BoardData {
   stages: StageView[];
   cards: CardView[];
   members: Member[];
+  /** Oferece a visão "Minhas demandas" (opção do pipeline). */
+  myTasks: boolean;
+  /** Mostra o cronômetro de tempo por tarefa (opção do pipeline). */
+  timeTracking: boolean;
   /** Etapas de checkpoint da priorização (cards nelas "aguardam priorização"). */
   gatedStageIds: string[];
   /** Quando o servidor montou estes dados (ms) — para a tela saber se estão velhos. */

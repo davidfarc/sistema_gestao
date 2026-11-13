@@ -66,6 +66,7 @@ export const ACTIONS = [
   "novos:access", // Novos alunos: agenda, agendamentos e relatórios (atendimento/coordenação)
   "novos:manage", // Novos alunos: também psicólogas, segmentos, configurações e auditoria
   "report:read", // relatórios para assistentes de IA (tokens pessoais do MCP)
+  "time:read", // ver o tempo por tarefa da equipe e exportar a planilha
   "user:manage", // convidar usuários / trocar papéis comuns
   "role:manage", // editar papéis e conceder papéis administrativos (Gestor Master)
 ] as const;

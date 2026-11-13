@@ -32,7 +32,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: BarChart3, label: "Painel", href: "/painel" },
+  { Icon: BarChart3, label: "Painéis", href: "/painel" },
   // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
   // acesso fica no próprio quadro (e no badge do card).
   { Icon: School, label: "Gestão de Vila", href: "/salas" },
@@ -66,7 +66,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
 
       <aside
         className={clsx(
-          "fixed left-0 top-0 z-[105] h-dvh bg-primary text-white shadow-lg transition-[width] duration-200",
+          "fixed left-0 top-0 z-[105] h-dvh bg-brand text-white shadow-lg transition-[width] duration-200",
           mobileOpen ? "w-60 translate-x-0" : "-translate-x-full md:translate-x-0",
           collapsed ? "md:w-16" : "md:w-60",
         )}
@@ -76,7 +76,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
           type="button"
           onClick={toggle}
           aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          className="absolute -right-3 top-6 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-primary/10 bg-white text-primary shadow-md hover:bg-primary/5 md:flex"
+          className="absolute -right-3 top-6 z-10 hidden h-6 w-6 items-center justify-center rounded-full border border-brand/10 bg-white text-brand shadow-md hover:bg-brand/5 md:flex"
         >
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
         </button>
@@ -147,7 +147,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
                 )}
               >
                 <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-tertiary-fixed text-[10px] font-black text-primary"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-tertiary-fixed text-[10px] font-black text-brand"
                   title={user.email}
                 >
                   {initials}
@@ -180,7 +180,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
               showLabels && (
                 <Link
                   href="/login"
-                  className="block rounded-md bg-white p-2 text-center text-xs font-bold text-primary hover:bg-white/90"
+                  className="block rounded-md bg-white p-2 text-center text-xs font-bold text-brand hover:bg-white/90"
                 >
                   Entrar
                 </Link>

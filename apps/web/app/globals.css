@@ -8,11 +8,13 @@
 :root {
   color-scheme: light;
 
-  /* Marca */
-  --color-primary: #001e40;
-  --color-primary-high: #0d3a73;
+  /* Visual da Produção Pedagógica (aprovado em 12/11/2026), no sistema todo.
+     A cor de ação é o azul-petróleo; o azul-marinho fica só no menu lateral. */
+  --color-brand: #001e40;
+  --color-primary: #1e5a6e;
+  --color-primary-high: #174858;
   --color-on-primary: #ffffff;
-  --color-secondary: #4c616c;
+  --color-secondary: #5a6a6e;
 
   /* Acento */
   --color-tertiary: #002504;
@@ -20,30 +22,31 @@
   --color-on-tertiary: #ffffff;
 
   /* Semânticas */
-  --color-success: #047857;
-  --color-warning: #b45309;
-  --color-danger: #ba1a1a;
-  --color-info: #1d4ed8;
+  --color-success: #2f6b3e;
+  --color-warning: #8a5a0b;
+  --color-danger: #a3312a;
+  --color-info: #3d4f8c;
 
   /* Superfícies (mais claro → mais escuro) */
-  --background: #f8f9fb;
-  --foreground: #191c1e;
+  --background: #f3f5f4;
+  --foreground: #16252a;
   --surface-container-lowest: #ffffff;
-  --surface-container-low: #f2f4f6;
-  --surface-container-medium: #e6e9ed;
-  --surface-container-high: #d8dde3;
+  --surface-container-low: #e8ecea;
+  --surface-container-medium: #d3dad7;
+  --surface-container-high: #bfc9c5;
 
   /* Sombras */
-  --shadow-premium-soft: 0 1px 3px rgba(0, 30, 64, 0.04), 0 2px 8px rgba(0, 30, 64, 0.04);
-  --shadow-premium-hover: 0 2px 6px rgba(0, 30, 64, 0.06), 0 8px 20px rgba(0, 30, 64, 0.08);
+  --shadow-premium-soft: none;
+  --shadow-premium-hover: 0 0 0 1px var(--color-primary);
 
   /* Altura da barra de navegação inferior do celular (0 no computador).
      Telas de altura fixa descontam este valor; o resto ganha um respiro embaixo. */
   --bottom-nav: calc(3.5rem + env(safe-area-inset-bottom, 0px));
 
   /* Fontes (next/font sobrescreve as variáveis no <html>) */
-  --font-headline: "Manrope", sans-serif;
-  --font-body: "Inter", sans-serif;
+  --font-headline: "Literata", Georgia, "Times New Roman", serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 
 @media (min-width: 768px) {
@@ -52,7 +55,24 @@
   }
 }
 
+/* Escala de cinzas do sistema todo = a da Produção Pedagógica (cinza com um
+   toque de verde-azulado). Substitui a escala "neutral" padrão do Tailwind, então
+   todas as telas mudam juntas sem tocar componente por componente. */
+@theme {
+  --color-neutral-50: #f3f5f4;
+  --color-neutral-100: #e8ecea;
+  --color-neutral-200: #d3dad7;
+  --color-neutral-300: #bfc9c5;
+  --color-neutral-400: #8e9c9f;
+  --color-neutral-500: #6b7b7f;
+  --color-neutral-600: #5a6a6e;
+  --color-neutral-700: #34454a;
+  --color-neutral-800: #16252a;
+  --color-neutral-900: #0e191c;
+}
+
 @theme inline {
+  --color-brand: var(--color-brand);
   --color-primary: var(--color-primary);
   --color-primary-high: var(--color-primary-high);
   --color-on-primary: var(--color-on-primary);
@@ -79,6 +99,7 @@
 
   --font-sans: var(--font-body);
   --font-headline: var(--font-headline);
+  --font-mono: var(--font-mono);
 }
 
 body {
@@ -95,7 +116,9 @@ body {
 @layer base {
   h1, h2, h3, h4, .font-headline {
     font-family: var(--font-headline);
-    color: var(--color-primary);
+    font-weight: 600;
+    color: var(--foreground);
+    text-wrap: balance;
   }
 }
 
@@ -183,4 +206,42 @@ body {
 :where(a, button, [role="button"], [role="tab"], input, select, textarea, summary):focus-visible {
   outline: 2px solid var(--color-primary-high);
   outline-offset: 2px;
+}
+
+/* ============================================================================
+   Componentes no padrão da Produção Pedagógica
+   ============================================================================ */
+
+/* Cabeçalho de tabela: rótulo pequeno em caixa alta sobre faixa cinza. */
+.tabela-cab {
+  background: var(--color-neutral-100);
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-neutral-600);
+  font-weight: 700;
+}
+
+/* Etiqueta com ponto (situação, etapa). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.chip::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Números em colunas e cronômetros alinhados. */
+.num {
+  font-variant-numeric: tabular-nums;
 }

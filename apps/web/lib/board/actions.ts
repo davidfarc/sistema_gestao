@@ -23,6 +23,7 @@ import { parseIntake } from "@/lib/board/types";
 import { ACOES_DE_GESTAO, ehPapelAdministrativo } from "@/lib/roles/catalog";
 import { ensureDmChannel } from "@/lib/comms/dm";
 import { sendPush } from "@/lib/push/send";
+import { stopTimersOnCard } from "@/lib/time/stop";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -444,6 +445,15 @@ export async function moveCard(
           : null,
       });
     }
+    // Foi para revisão ou concluído: o trabalho ativo parou, pausa o cronômetro.
+    if (res.moved) {
+      const { data: stage } = await createAdminClient()
+        .from("stage")
+        .select("category")
+        .eq("id", toStageId)
+        .maybeSingle();
+      if (stage?.category === "review" || stage?.category === "done") await stopTimersOnCard(cardId);
+    }
     // Trocou de etapa sem dizer onde (ex.: pela Lista) → fim da coluna.
     if (res.moved || placement) {
       await placeCardInStage(
@@ -511,6 +521,7 @@ export async function setCardArchived(
   const { error } = await db.from("card").update(patch).eq("id", cardId);
   if (error) return { ok: false, error: "Não foi possível gravar. Tente de novo." };
   await recordActivity(cardId, actor.userId as string, archived ? "card_archived" : "card_restored", {});
+  if (archived) await stopTimersOnCard(cardId);
   return { ok: true };
 }
 
