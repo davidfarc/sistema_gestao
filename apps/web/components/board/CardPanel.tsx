@@ -27,6 +27,7 @@ export function CardPanel({
   notice = null,
   onDismissNotice,
   onTransferred,
+  onArchivedChange,
 }: {
   cardId: string;
   /** Etapa atual segundo o quadro (mais fresca que a carregada com o card). */
@@ -40,6 +41,8 @@ export function CardPanel({
   /** Aviso do quadro (ex.: regra de fluxo barrou o movimento), mostrado aqui porque o painel cobre o quadro. */
   notice?: string | null;
   onDismissNotice?: () => void;
+  /** O card foi arquivado (some do quadro) ou reativado. */
+  onArchivedChange?: (cardId: string, archived: boolean) => void;
   /** O card foi enviado para outro pipeline (some deste quadro). */
   onTransferred?: (cardId: string, result: TransferResult) => void;
   /** Algo no card foi gravado: recebe o card já relido, para o quadro refletir. */
@@ -232,6 +235,15 @@ export function CardPanel({
               split="xl"
               composerSlot={isMobile ? composerSlot : null}
               onTransferred={onTransferred ? (r) => onTransferred(cardId, r) : undefined}
+              onArchivedChange={
+                onArchivedChange
+                  ? (archived) => {
+                      // Reativado com o painel aberto: relê o card para tirar a faixa.
+                      if (!archived) reload();
+                      onArchivedChange(cardId, archived);
+                    }
+                  : undefined
+              }
             />
           )}
         </div>

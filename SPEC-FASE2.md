@@ -334,6 +334,20 @@ recarregar; o relatório `atividades` do MCP mostra o evento com o nome técnico
 Situação: migration 0040 aplicada; função testada em Postgres local; tela passa em typecheck e
 build; **falta testar na prévia** e publicar (ainda só no ramo).
 
+### E.5 Arquivar e reativar card (código pronto em 13/11)
+
+- **Arquivar card:** botão no card, junto de "Enviar para outro pipeline", antes dos comentários,
+  com confirmação. Usa `card.archived_at` (já existia). **Não apaga nada.**
+- Card arquivado some do quadro, da Lista, do Painel e dos relatórios do MCP. Continua abrindo pelo
+  link, com uma faixa "arquivado" e o botão **Reativar card**.
+- **Arquivados:** botão no topo do quadro abre a lista dos arquivados do pipeline (etapa em que
+  estava, data), com **Abrir** e **Reativar**. Ao reativar, o card volta para a mesma etapa, no fim
+  da coluna.
+- Permissão: `card:update` + enxergar o card. Histórico: `card_archived` / `card_restored`.
+- Sem migration.
+
+Situação: passa em typecheck e build; **não exercitado em navegador**; falta testar na prévia.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.

@@ -84,6 +84,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       .from("card")
       .select("id, number, title, stage_id, due_date, requester_id, position")
       .eq("board_id", board.id)
+      .is("archived_at", null) // arquivados saem do quadro; ver "Arquivados" no cabeçalho
       .order("position")
       .order("number"), // desempate estável: cards antigos têm todos position 1000
     db

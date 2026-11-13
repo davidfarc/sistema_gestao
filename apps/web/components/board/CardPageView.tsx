@@ -42,6 +42,7 @@ export function CardPageView({
         myUserId={myUserId}
         onChanged={() => router.refresh()}
         onTransferred={() => router.refresh()}
+        onArchivedChange={() => router.refresh()}
       />
     </main>
   );

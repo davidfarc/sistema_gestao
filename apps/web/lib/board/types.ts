@@ -52,6 +52,15 @@ export interface CardView {
   prioritized?: boolean;
 }
 
+/** Linha da lista de cards arquivados de um pipeline. */
+export interface ArchivedCard {
+  id: string;
+  number: number;
+  title: string;
+  stageName: string;
+  archivedAt: string;
+}
+
 /** Resultado de "+ Adicionar card" no pé de uma coluna. */
 export interface CreatedCard {
   id: string;
@@ -287,6 +296,8 @@ export interface CardPageData {
   boardName: string;
   stageId: string;
   stageName: string;
+  /** Preenchido quando o card está arquivado (fora dos quadros, listas e relatórios). */
+  archivedAt: string | null;
   fields: FieldDef[];
   values: Record<string, FieldValueRaw>; // por fieldId
   detail: CardDetailData;

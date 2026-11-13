@@ -68,6 +68,7 @@ export interface CardRow {
   due_date: string | null;
   position: number | string;
   requester_id: string | null;
+  archived_at?: string | null;
 }
 
 /**
