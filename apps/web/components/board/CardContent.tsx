@@ -110,17 +110,6 @@ export function CardContent({
         className="w-full text-xl font-semibold text-neutral-800 outline-none sm:text-2xl"
       />
 
-      {onTransferred && (
-        <div className="mt-2">
-          <button
-            type="button"
-            onClick={() => setTransferring(true)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
-          >
-            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Enviar para outro pipeline
-          </button>
-        </div>
-      )}
       {transferring && onTransferred && (
         <TransferDialog
           cardId={data.id}
@@ -220,6 +209,18 @@ export function CardContent({
         {/* Comentários: no celular vêm por último (depois da atividade), junto
             do campo fixo no rodapé; em tela larga ficam sob o conteúdo. */}
         <div className={`order-last mt-6 min-w-0 border-t border-neutral-100 pt-6 ${css.comments}`}>
+          {/* Logo antes dos comentários, no celular e no computador. */}
+          {onTransferred && (
+            <div className="mb-6 border-b border-neutral-100 pb-6">
+              <button
+                type="button"
+                onClick={() => setTransferring(true)}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-700 hover:bg-neutral-50"
+              >
+                <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Enviar para outro pipeline
+              </button>
+            </div>
+          )}
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">
             Comentários
           </p>
