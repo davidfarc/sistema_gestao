@@ -373,7 +373,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 |---|---|---|
 | `0035_board_realtime_and_completion.sql` | Publica `card` e `stage` no Realtime; cria `card.completed_at` (gatilho) | ✅ Aplicada em 12/11 |
 | `0036_report_overview.sql` | Função `report_pipeline_overview` (Painel e, depois, MCP) | ✅ Aplicada em 12/11 |
-| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | **A aplicar** (push desligado até lá) |
+| `0037_push_subscription.sql` | Tabela `push_subscription` (uma linha por aparelho; RLS: cada um lê só as suas; escrita só pelo servidor) | ✅ Aplicada (conferida em 13/11). O push segue desligado até as chaves VAPID entrarem no Cloudflare |
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
