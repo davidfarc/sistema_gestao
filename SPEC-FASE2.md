@@ -348,6 +348,34 @@ build; **falta testar na prévia** e publicar (ainda só no ramo).
 
 Situação: passa em typecheck e build; **não exercitado em navegador**; falta testar na prévia.
 
+### E.6 Tempo por tarefa e "Minhas demandas" (código pronto em 13/11)
+
+- **Opções do pipeline** (botão de engrenagem no topo do quadro, para quem tem `board:configure`):
+  "Visão Minhas demandas" e "Controle de tempo por tarefa". Desligadas por padrão; Kanban e Lista
+  não mudam.
+- **Minhas demandas** (terceira visão, ao lado de Kanban e Lista): cards em que a pessoa é
+  responsável, atrasados primeiro e depois por prazo; etapa, prazo, checklist, "Mover para" e o
+  cronômetro. Concluídas embaixo. É a visão que abre para quem não gerencia o pipeline (sem escolha
+  salva); gestores continuam abrindo no Kanban.
+- **Cronômetro**: Iniciar / Pausar / Retomar no card. Uma tarefa por vez (iniciar outra pausa a
+  anterior). Pausa sozinho quando o card vai para etapa de revisão ou concluído, é arquivado ou
+  enviado a outro pipeline. Sem parada por tempo; acima de 10 h seguidas aparece um aviso e o botão
+  "Parei em outro horário". "Meus períodos" permite corrigir início e fim (sem sobreposição, sem
+  futuro, até 24 h por período); toda correção vai para o histórico do card (`time_edited`).
+- **Painéis → Tempo por tarefa** (`/painel/tempo`, só `time:read`): equipe agora, horas por pessoa e
+  por pipeline, cards que mais consumiram tempo, filtro por período.
+- **Planilha por período** (`/api/relatorios/tempo`): detalhada (uma linha por período trabalhado)
+  ou resumo por card; CSV com ";" e vírgula decimal (abre direto no Excel). Só `time:read`.
+- Cada pessoa vê só o próprio tempo; `time:read` (Gestor Master e Gestor) vê o da equipe nos cards
+  que enxerga (RLS). Escrita só pelo servidor.
+
+Ainda não feito: resumo de "Minhas demandas" de todos os pipelines na tela Início; cronômetro dentro
+do card aberto (hoje fica só em Minhas demandas); horas médias por tipo de material (depende de
+como o pipeline da Produção Pedagógica marcar o tipo).
+
+Situação: migration testada em Postgres local; telas passam em typecheck e build, "Minhas
+demandas" conferida em navegador com dados de exemplo; **falta aplicar a 0041 e testar na prévia**.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -391,6 +419,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
+| `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

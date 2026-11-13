@@ -15,6 +15,8 @@ function describe(a: ActivityView): string {
       return "criou o card";
     case "assignment_changed":
       return "mudou o responsável";
+    case "time_edited":
+      return typeof a.payload.text === "string" ? a.payload.text : "corrigiu o tempo registrado";
     case "card_archived":
       return "arquivou o card";
     case "card_restored":

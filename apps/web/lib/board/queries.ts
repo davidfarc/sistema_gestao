@@ -35,17 +35,21 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   const db = await createClient();
 
   // Pipeline pedido (se visível) ou o primeiro não-arquivado. RLS escopa.
+  // `select("*")`: colunas novas (opções do pipeline) não quebram o quadro
+  // enquanto a migration correspondente não for aplicada.
   let board: {
     id: string;
     name: string;
     creation_form: string;
     alcada_thresholds: unknown;
     intake: string;
+    my_tasks?: boolean | null;
+    time_tracking?: boolean | null;
   } | null = null;
   if (boardId) {
     const { data } = await db
       .from("board")
-      .select("id, name, creation_form, alcada_thresholds, intake")
+      .select("*")
       .eq("id", boardId)
       .is("archived_at", null)
       .maybeSingle();
@@ -59,7 +63,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     if (last) {
       const { data } = await db
         .from("board")
-        .select("id, name, creation_form, alcada_thresholds, intake")
+        .select("*")
         .eq("id", last)
         .is("archived_at", null)
         .maybeSingle();
@@ -72,7 +76,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   if (!board) {
     const { data } = await db
       .from("board")
-      .select("id, name, creation_form, alcada_thresholds, intake")
+      .select("*")
       .is("archived_at", null);
     board = (data ?? []).sort(byName)[0] ?? null;
   }
@@ -233,6 +237,8 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     stages,
     cards,
     members: [],
+    myTasks: board.my_tasks === true,
+    timeTracking: board.time_tracking === true,
     gatedStageIds: [...gatedStages],
     loadedAt: Date.now(),
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ListOrdered, Search, User, X } from "lucide-react";
+import { Archive, ListOrdered, Search, Settings2, User, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { Placement } from "@ecco/core";
 
 import { ArchivedDialog } from "./ArchivedDialog";
+import { BoardOptionsDialog } from "./BoardOptionsDialog";
+import { MyTasksView } from "./MyTasksView";
 import { BoardProvider } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
@@ -35,7 +37,7 @@ import {
   type CardView,
 } from "@/lib/board/types";
 
-type View = "kanban" | "list";
+type View = "kanban" | "list" | "mine";
 
 const viewKey = (boardId: string) => `ecco_visao_${boardId}`;
 
@@ -74,16 +76,21 @@ export function BoardView({
   const [query, setQuery] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
 
-  // Visão escolhida (Kanban/Lista) lembrada por pipeline, neste navegador.
+  // Visão escolhida lembrada por pipeline, neste navegador. Sem escolha
+  // salva: em pipeline com "Minhas demandas", quem não gerencia abre nela.
   useEffect(() => {
+    let saved: string | null = null;
     try {
-      const saved = window.localStorage.getItem(viewKey(board.id));
-      if (saved === "kanban" || saved === "list") setView(saved);
+      saved = window.localStorage.getItem(viewKey(board.id));
     } catch {
-      // Armazenamento bloqueado (aba anônima): segue no Kanban.
+      // Armazenamento bloqueado (aba anônima): usa o padrão.
     }
-  }, [board.id]);
+    if (saved === "kanban" || saved === "list") setView(saved);
+    else if (saved === "mine" && board.myTasks) setView("mine");
+    else setView(board.myTasks && !caps.boards ? "mine" : "kanban");
+  }, [board.id, board.myTasks, caps.boards]);
 
   function chooseView(next: View) {
     setView(next);
@@ -441,7 +448,27 @@ export function BoardView({
           >
             <Archive className="h-4 w-4" aria-hidden="true" /> Arquivados
           </button>
-          <div className="hidden rounded-lg border border-neutral-200 p-0.5 text-sm md:flex">
+          {caps.boards && (
+            <button
+              type="button"
+              onClick={() => setShowOptions(true)}
+              title="Opções do pipeline: Minhas demandas e controle de tempo"
+              aria-label="Opções do pipeline"
+              className="inline-flex items-center rounded-lg border border-neutral-200 p-1.5 text-neutral-600 hover:bg-neutral-50"
+            >
+              <Settings2 className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+          <div
+            className={
+              "rounded-lg border border-neutral-200 p-0.5 text-sm " + (board.myTasks ? "flex" : "hidden md:flex")
+            }
+          >
+            {board.myTasks && (
+              <ToggleButton active={view === "mine"} onClick={() => chooseView("mine")}>
+                Minhas demandas
+              </ToggleButton>
+            )}
             <ToggleButton active={view === "kanban"} onClick={() => chooseView("kanban")}>
               Kanban
             </ToggleButton>
@@ -473,6 +500,18 @@ export function BoardView({
       {isMobile === null ? (
         // Um instante até saber o tamanho da tela (evita montar o quadro errado).
         <div className="flex-1" />
+      ) : view === "mine" && board.myTasks ? (
+        <div className="flex-1 overflow-auto p-3 md:p-6">
+          <MyTasksView
+            boardId={board.id}
+            cards={shownCards}
+            stages={board.stages}
+            myUserId={myUserId}
+            timeTracking={board.timeTracking}
+            onOpenCard={openCard}
+            onMove={(cardId, stageId) => move(cardId, stageId)}
+          />
+        </div>
       ) : isMobile ? (
         <div className="min-h-0 flex-1">
           <MobileBoard
@@ -505,6 +544,17 @@ export function BoardView({
             />
           )}
         </div>
+      )}
+
+      {showOptions && (
+        <BoardOptionsDialog
+          boardId={board.id}
+          boardName={board.name}
+          myTasks={board.myTasks}
+          timeTracking={board.timeTracking}
+          onClose={() => setShowOptions(false)}
+          onSaved={() => router.refresh()}
+        />
       )}
 
       {showArchived && (

@@ -9,6 +9,7 @@ import { assertCanCreateInBoard } from "@/lib/board/intake";
 import { byName } from "@/lib/board/queries";
 import type { FieldType } from "@/lib/board/types";
 import { sendPush } from "@/lib/push/send";
+import { stopTimersOnCard } from "@/lib/time/stop";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -186,6 +187,7 @@ export async function transferCard(
     return { ok: false, error: code ? ERRORS[code]! : "Não foi possível enviar o card. Tente de novo." };
   }
   const result = data as { boardId: string; boardName: string; number: number; fieldsKept: boolean };
+  await stopTimersOnCard(cardId);
 
   // Avisa quem pode definir o novo responsável no destino: membros do pipeline
   // com permissão de atribuir. O card chegou sem dono.

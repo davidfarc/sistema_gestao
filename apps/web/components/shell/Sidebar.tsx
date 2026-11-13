@@ -32,7 +32,7 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: BarChart3, label: "Painel", href: "/painel" },
+  { Icon: BarChart3, label: "Painéis", href: "/painel" },
   // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
   // acesso fica no próprio quadro (e no badge do card).
   { Icon: School, label: "Gestão de Vila", href: "/salas" },

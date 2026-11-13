@@ -89,6 +89,11 @@ export const ACTION_GROUPS: ActionGroup[] = [
         hint: "Sem esta permissão o módulo continua visível, mas só para consulta e simulação.",
       },
       {
+        action: "time:read",
+        label: "Ver o tempo da equipe",
+        hint: "Ver em que cada pessoa está trabalhando, os relatórios de horas por tarefa e baixar a planilha. Sem esta permissão, cada um vê só o próprio tempo.",
+      },
+      {
         action: "report:read",
         label: "Relatórios para assistentes de IA",
         hint: "Gerar tokens pessoais para consultar o sistema por um assistente (somente leitura, só os pipelines que a pessoa enxerga).",
