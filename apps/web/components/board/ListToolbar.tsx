@@ -1,6 +1,7 @@
 "use client";
 
 import clsx from "clsx";
+import type { ReactNode } from "react";
 import { Filter, Plus, Search, X } from "lucide-react";
 
 import {
@@ -242,6 +243,7 @@ export function SortHeader({
   dir,
   onSort,
   className,
+  resizer,
 }: {
   label: string;
   sortKey: SortKey;
@@ -249,10 +251,12 @@ export function SortHeader({
   dir: "asc" | "desc";
   onSort: (k: SortKey) => void;
   className?: string;
+  /** Alça para mudar a largura da coluna. */
+  resizer?: ReactNode;
 }) {
   const active = current === sortKey;
   return (
-    <th className={clsx("whitespace-nowrap px-3 py-2.5 font-bold", className)}>
+    <th className={clsx("relative whitespace-nowrap px-3 py-2.5 font-bold", className)}>
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -266,6 +270,7 @@ export function SortHeader({
           {dir === "asc" ? "▲" : "▼"}
         </span>
       </button>
+      {resizer}
     </th>
   );
 }

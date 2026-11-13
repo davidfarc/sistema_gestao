@@ -393,6 +393,14 @@ atrasados), coluna **Prazo** ordenável com atrasado em vermelho, e **Baixar pla
 linhas e colunas na tela). Mantido tudo o que a Lista já fazia: edição na célula, colunas por
 propriedade, filtro por qualquer propriedade, RICE e estrela no pipeline de demandas.
 
+**Lista legível (13/11):** o texto não fica mais escondido: título, etapa, solicitante,
+responsável e propriedades de texto ou de opção **quebram a linha** dentro da célula (a linha cresce;
+Enter grava o título, Shift+Enter quebra a linha). A **largura de cada coluna** é ajustável
+arrastando a borda direita do cabeçalho (ou pelo teclado: Tab até a borda e setas), entre 60 e 640 px;
+fica lembrada por pipeline neste navegador, e "Larguras padrão" volta ao original. Se as colunas
+somarem mais que a tela, a tabela rola de lado. Em "Minhas demandas", o seletor de etapa não passa
+mais da borda do card.
+
 Ainda não: destaque de card **parado** na Lista (o quadro ainda não carrega a data de entrada na
 etapa) e o **modo escuro**, que a simulação tem e o sistema ainda não.
 
@@ -429,8 +437,9 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 
 ## Andamento
 
-> Atualizado em **12/11/2026**. Tudo abaixo está no ramo `claude/fase2-quadro` (prévia do
-> Cloudflare); **nada foi para o `main`** ainda.
+> Atualizado em **13/11/2026**. Os blocos A, B e D, a seção E até a Lista nova e o tempo por
+> tarefa já estão no `main` (PR #3). O que vem depois fica no ramo `claude/fase2-quadro` (prévia
+> do Cloudflare) até o próximo envio ao `main`.
 
 ### Banco
 
@@ -442,7 +451,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0038_lock_definer_functions.sql` | Restringe `conversation_list` e `sala_state_set` (security definer) à chave de serviço | ✅ Aplicada em 12/11. Antes: executáveis por `anon` e `authenticated` (confirmado por consulta); depois: só `service_role` (confirmado) |
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
-| `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | **A aplicar** |
+| `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | ✅ Aplicada em 13/11 (cronômetro funcionando) |
 
 ### Bloco A — Quadro (código completo)
 

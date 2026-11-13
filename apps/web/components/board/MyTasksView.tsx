@@ -249,7 +249,7 @@ export function MyTasksView({
                 <article
                   key={c.id}
                   className={
-                    "flex flex-col gap-3 rounded-xl border bg-white p-4 " +
+                    "flex min-w-0 flex-col gap-3 rounded-xl border bg-white p-4 " +
                     (isRunning ? "border-primary ring-1 ring-primary" : late ? "border-red-300" : "border-neutral-200")
                   }
                 >
@@ -325,12 +325,12 @@ export function MyTasksView({
                     </div>
                   )}
 
-                  <label className="grid gap-1 text-sm text-neutral-700">
+                  <label className="grid min-w-0 gap-1 text-sm text-neutral-700">
                     <span className="sr-only">Mover #{c.number} para</span>
                     <select
                       value={c.stageId}
                       onChange={(e) => onMove(c.id, e.target.value)}
-                      className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
+                      className="w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
                     >
                       {stages.map((s) => (
                         <option key={s.id} value={s.id}>
