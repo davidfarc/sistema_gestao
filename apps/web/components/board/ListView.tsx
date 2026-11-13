@@ -27,6 +27,7 @@ import { useBoardId, useCreationForm, useMyUserId, useThresholds } from "./Board
 import { CreateFormConfig } from "./CreateFormConfig";
 import { EMPTY_FILTERS, ListToolbar, SortHeader, type ListFilters, type SortKey } from "./ListToolbar";
 import { AddProperty, FieldEditor, FieldMenu } from "./fieldControls";
+import { WrapSelect, WrapText } from "./cells";
 
 /** Prazo vencido e card fora de etapa concluída (comparação por dia, sem fuso). */
 function overdueOf(card: CardView, doneStages: Set<string>): boolean {
@@ -62,6 +63,40 @@ export function ListView({
   const [configuring, setConfiguring] = useState(false);
   const [prioritized, setPrioritized] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
+  // Largura das colunas: ajustável arrastando a borda do cabeçalho, lembrada
+  // por pipeline neste navegador. As colunas não cabem? A tabela rola de lado.
+  const [widths, setWidths] = useState<Record<string, number>>({});
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(`ecco_colunas_${boardId}`) ?? "{}");
+      if (saved && typeof saved === "object") setWidths(saved);
+    } catch {
+      // Sem armazenamento: usa as larguras padrão.
+    }
+  }, [boardId]);
+  function saveWidths(next: Record<string, number>) {
+    setWidths(next);
+    try {
+      window.localStorage.setItem(`ecco_colunas_${boardId}`, JSON.stringify(next));
+    } catch {
+      // Vale só até recarregar.
+    }
+  }
+  const DEFAULT_W: Record<string, number> = {
+    number: 76, title: 280, stage: 160, solicitante: 160, responsavel: 160, prazo: 128, rice: 84,
+  };
+  const widthOf = (key: string) => widths[key] ?? DEFAULT_W[key] ?? 190;
+  function resizer(key: string, label: string) {
+    return (
+      <ColumnResizer
+        label={label}
+        width={widthOf(key)}
+        onChange={(w) => setWidths((cur) => ({ ...cur, [key]: w }))}
+        onCommit={(w) => saveWidths({ ...widths, [key]: w })}
+      />
+    );
+  }
+
   // Filtros rápidos da Lista nova: resumo clicável, responsável e etapa.
   const [quick, setQuick] = useState<{ stageId: string; assigneeId: string; overdue: boolean }>({
     stageId: "",
@@ -148,9 +183,6 @@ export function ListView({
     onPatchCard(cardId, { requester: personOf(userId) });
     await setCardRequester(cardId, userId || null).catch(() => router.refresh());
   }
-
-  const cellInput =
-    "w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400";
 
   // RICE/priorização pertencem ao pipeline de demandas — marcado pelo formulário
   // de criação, não por adivinhar nome de campo.
@@ -400,6 +432,16 @@ export function ListView({
           >
             <Download className="h-4 w-4" aria-hidden="true" /> Baixar planilha
           </button>
+          {Object.keys(widths).length > 0 && (
+            <button
+              type="button"
+              onClick={() => saveWidths({})}
+              title="Voltar todas as colunas à largura padrão"
+              className="min-h-10 rounded-lg px-2 text-[13px] font-semibold text-primary hover:underline"
+            >
+              Larguras padrão
+            </button>
+          )}
         </div>
       </div>
 
@@ -413,18 +455,34 @@ export function ListView({
       />
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table
+          className="table-fixed text-left text-sm"
+          style={{
+            width:
+              ["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)]
+                .reduce((sum, k) => sum + widthOf(k), 0),
+            minWidth: "100%",
+          }}
+        >
+          <colgroup>
+            {["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)].map(
+              (k) => (
+                <col key={k} style={{ width: widthOf(k) }} />
+              ),
+            )}
+          </colgroup>
           <thead className="tabela-cab border-b border-neutral-200">
             <tr>
-              <SortHeader label="#" sortKey="number" current={sort.key} dir={sort.dir} onSort={toggleSort} />
-              <SortHeader label="Título" sortKey="title" current={sort.key} dir={sort.dir} onSort={toggleSort} />
-              <SortHeader label="Etapa" sortKey="stage" current={sort.key} dir={sort.dir} onSort={toggleSort} />
+              <SortHeader label="#" sortKey="number" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("number", "#")} />
+              <SortHeader label="Título" sortKey="title" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("title", "Título")} />
+              <SortHeader label="Etapa" sortKey="stage" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("stage", "Etapa")} />
               <SortHeader
                 label="Solicitante"
                 sortKey="solicitante"
                 current={sort.key}
                 dir={sort.dir}
                 onSort={toggleSort}
+                resizer={resizer("solicitante", "Solicitante")}
               />
               <SortHeader
                 label="Responsável"
@@ -432,17 +490,19 @@ export function ListView({
                 current={sort.key}
                 dir={sort.dir}
                 onSort={toggleSort}
+                resizer={resizer("responsavel", "Responsável")}
               />
-              <SortHeader label="Prazo" sortKey="prazo" current={sort.key} dir={sort.dir} onSort={toggleSort} />
+              <SortHeader label="Prazo" sortKey="prazo" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("prazo", "Prazo")} />
               {isDemandas && (
-                <SortHeader label="RICE" sortKey="rice" current={sort.key} dir={sort.dir} onSort={toggleSort} />
+                <SortHeader label="RICE" sortKey="rice" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("rice", "RICE")} />
               )}
               {fields.map((f) => (
-                <th key={f.id} className="min-w-36 whitespace-nowrap px-3 py-2 font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    {f.name}
+                <th key={f.id} className="relative px-3 py-2.5 font-bold">
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <span className="truncate" title={f.name}>{f.name}</span>
                     {canConfigure && <FieldMenu field={f} onChanged={reload} />}
                   </span>
+                  {resizer(f.id, f.name)}
                 </th>
               ))}
             </tr>
@@ -458,7 +518,7 @@ export function ListView({
             {visible.map((card) => (
               <tr key={card.id} className="hover:bg-neutral-100/70">
                 <td
-                  className="cursor-pointer whitespace-nowrap px-3 py-2 font-medium text-neutral-500"
+                  className="cursor-pointer whitespace-nowrap px-3 py-2 align-top font-medium text-neutral-500"
                   onClick={() => onOpenCard(card.id)}
                   title="Abrir card"
                 >
@@ -469,33 +529,38 @@ export function ListView({
                     </span>
                   )}
                 </td>
-                <td className="min-w-40 px-3 py-1.5">
-                  <input
+                <td className="px-3 py-1.5 align-top">
+                  <WrapText
                     // `key`: se o título mudar por fora (outra pessoa), o campo acompanha.
                     key={card.title}
                     defaultValue={card.title}
+                    aria-label={`Título do card #${card.number}`}
                     onBlur={(e) => saveTitle(card.id, e.target.value, card.title)}
-                    className={cellInput + " text-neutral-800"}
+                    className="font-medium text-neutral-800"
                   />
                 </td>
-                <td className="min-w-32 px-3 py-1.5">
-                  <select
+                <td className="px-3 py-1.5 align-top">
+                  <WrapSelect
                     value={card.stageId}
-                    onChange={(e) => onMove(card.id, e.target.value)}
-                    className={cellInput + " pr-6 text-neutral-600"}
+                    label={stageName(card.stageId)}
+                    onChange={(v) => onMove(card.id, v)}
+                    ariaLabel={`Etapa do card #${card.number}`}
+                    className="text-neutral-700"
                   >
                     {stages.map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
                       </option>
                     ))}
-                  </select>
+                  </WrapSelect>
                 </td>
-                <td className="min-w-36 px-3 py-1.5">
-                  <select
+                <td className="px-3 py-1.5 align-top">
+                  <WrapSelect
                     value={card.requester?.id ?? ""}
-                    onChange={(e) => changeRequester(card.id, e.target.value)}
-                    className={cellInput + " pr-6 text-neutral-600"}
+                    label={card.requester?.name ?? "—"}
+                    onChange={(v) => changeRequester(card.id, v)}
+                    ariaLabel={`Solicitante do card #${card.number}`}
+                    className="text-neutral-700"
                   >
                     <option value="">—</option>
                     {members.map((m) => (
@@ -503,13 +568,15 @@ export function ListView({
                         {m.name}
                       </option>
                     ))}
-                  </select>
+                  </WrapSelect>
                 </td>
-                <td className="min-w-36 px-3 py-1.5">
-                  <select
+                <td className="px-3 py-1.5 align-top">
+                  <WrapSelect
                     value={card.assignee?.id ?? ""}
-                    onChange={(e) => changeResponsible(card.id, e.target.value)}
-                    className={cellInput + " pr-6 text-neutral-600"}
+                    label={card.assignee?.name ?? "—"}
+                    onChange={(v) => changeResponsible(card.id, v)}
+                    ariaLabel={`Responsável do card #${card.number}`}
+                    className="text-neutral-700"
                   >
                     <option value="">—</option>
                     {members.map((m) => (
@@ -517,11 +584,11 @@ export function ListView({
                         {m.name}
                       </option>
                     ))}
-                  </select>
+                  </WrapSelect>
                 </td>
                 <td
                   className={
-                    "num whitespace-nowrap px-3 py-2 " + (isOverdue(card) ? "font-bold text-danger" : "text-neutral-700")
+                    "num px-3 py-2 align-top " + (isOverdue(card) ? "font-bold text-danger" : "text-neutral-700")
                   }
                 >
                   {card.dueDate
@@ -530,14 +597,14 @@ export function ListView({
                   {isOverdue(card) && <span className="ml-1 text-xs">atrasado</span>}
                 </td>
                 {isDemandas && (
-                  <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-neutral-700">
+                  <td className="whitespace-nowrap px-3 py-2 text-right align-top font-medium text-neutral-700">
                     {demandOf.get(card.id)?.rice?.toFixed(1) ?? (
                       <span className="text-neutral-500">—</span>
                     )}
                   </td>
                 )}
                 {fields.map((f) => (
-                  <td key={f.id} className="min-w-36 px-3 py-1.5">
+                  <td key={f.id} className="px-3 py-1.5 align-top">
                     <FieldEditor
                       field={f}
                       value={values[`${card.id}|${f.id}`]}
@@ -554,5 +621,66 @@ export function ListView({
         </table>
       </div>
     </div>
+  );
+}
+
+/**
+ * Alça na borda direita do cabeçalho: arrastar muda a largura da coluna;
+ * pelo teclado, setas para os lados (de 16 em 16 px). Discreta até passar o
+ * mouse, para não poluir o cabeçalho.
+ */
+function ColumnResizer({
+  label,
+  width,
+  onChange,
+  onCommit,
+}: {
+  label: string;
+  width: number;
+  onChange: (w: number) => void;
+  onCommit: (w: number) => void;
+}) {
+  const clamp = (w: number) => Math.round(Math.min(640, Math.max(60, w)));
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Largura da coluna ${label}`}
+      aria-valuenow={width}
+      aria-valuemin={60}
+      aria-valuemax={640}
+      tabIndex={0}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const start = width;
+        let last = start;
+        const move = (ev: PointerEvent) => {
+          last = clamp(start + ev.clientX - startX);
+          onChange(last);
+        };
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          document.body.style.cursor = "";
+          onCommit(last);
+        };
+        document.body.style.cursor = "col-resize";
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        const next = clamp(width + (e.key === "ArrowRight" ? 16 : -16));
+        onChange(next);
+        onCommit(next);
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="group absolute -right-1.5 top-0 z-10 flex h-full w-3 cursor-col-resize touch-none justify-center outline-none"
+    >
+      <span className="h-full w-px bg-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:w-0.5 group-focus-visible:bg-primary group-focus-visible:opacity-100" />
+    </span>
   );
 }

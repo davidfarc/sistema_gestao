@@ -27,6 +27,7 @@ import {
 } from "@/lib/board/actions";
 import type { FieldDef, FieldType, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { useBoardId } from "./BoardContext";
+import { WrapSelect, WrapText } from "./cells";
 
 const TYPES: { type: FieldType; label: string; Icon: LucideIcon }[] = [
   { type: "text", label: "Texto", Icon: Type },
@@ -98,7 +99,7 @@ export function FieldEditor({
         {field.type === "checkbox" ? (
           <input type="checkbox" checked={value?.bool ?? false} disabled className="h-4 w-4 rounded border-neutral-300" />
         ) : (
-          <span className="truncate">{displayValue(field, value, members)}</span>
+          <span className={compact ? "whitespace-normal break-words" : "truncate"}>{displayValue(field, value, members)}</span>
         )}
         <Lock className="h-3 w-3 shrink-0 text-neutral-500" />
       </span>
@@ -107,16 +108,13 @@ export function FieldEditor({
 
   switch (field.type) {
     case "long_text":
-      // Na lista vira uma linha só (senão cada linha da tabela fica com a
-      // altura do textarea, mesmo vazia). O texto inteiro segue editável no card.
+      // Na Lista o texto quebra linha e a linha cresce: nada fica escondido.
       if (compact) {
         return (
-          <input
-            type="text"
-            {...(live
-              ? { value: value?.text ?? "", onChange: (e) => onSave(e.target.value, { text: e.target.value || null }) }
-              : { defaultValue: value?.text ?? "", onBlur: (e) => onSave(e.target.value, { text: e.target.value || null }) })}
-            className={cls}
+          <WrapText
+            key={value?.text ?? ""}
+            defaultValue={value?.text ?? ""}
+            onBlur={(e) => onSave(e.target.value, { text: e.target.value || null })}
           />
         );
       }
@@ -159,6 +157,23 @@ export function FieldEditor({
       );
     case "select":
     case "status":
+      if (compact) {
+        return (
+          <WrapSelect
+            value={value?.text ?? ""}
+            label={field.options.find((o) => o.id === value?.text)?.label ?? "—"}
+            onChange={(v) => onSave(v, { text: v || null })}
+            ariaLabel={field.name}
+          >
+            <option value="">—</option>
+            {field.options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </WrapSelect>
+        );
+      }
       return (
         <select
           value={value?.text ?? ""}
@@ -174,6 +189,23 @@ export function FieldEditor({
         </select>
       );
     case "member":
+      if (compact) {
+        return (
+          <WrapSelect
+            value={value?.memberId ?? ""}
+            label={members.find((m) => m.id === value?.memberId)?.name ?? "—"}
+            onChange={(v) => onSave(v, { memberId: v || null })}
+            ariaLabel={field.name}
+          >
+            <option value="">—</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </WrapSelect>
+        );
+      }
       return (
         <select
           value={value?.memberId ?? ""}
@@ -189,6 +221,16 @@ export function FieldEditor({
         </select>
       );
     default:
+      if (compact && !live) {
+        return (
+          <WrapText
+            key={value?.text ?? ""}
+            defaultValue={value?.text ?? ""}
+            onBlur={(e) => onSave(e.target.value, { text: e.target.value || null })}
+            placeholder={field.type === "link" ? "https://…" : ""}
+          />
+        );
+      }
       return (
         <input
           type="text"
