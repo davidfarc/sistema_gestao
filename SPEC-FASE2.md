@@ -387,9 +387,14 @@ Aplicado no sistema todo, exceto o menu lateral (continua azul-marinho, `--color
 - cabeçalho de tabela em caixa alta sobre faixa cinza (`.tabela-cab`), etiqueta com ponto
   (`.chip`), face do card com título mais forte e sem sombra.
 
-Ainda não: a **Lista nova** (resumo clicável no topo, filtros rápidos lado a lado, ordenar por
-qualquer coluna, planilha, destaque de atrasado/parado) e o **modo escuro**, que a simulação tem
-e o sistema ainda não.
+**Lista nova (13/11):** resumo clicável no topo (um número por etapa e os atrasados; clicar
+filtra), filtros rápidos lado a lado (responsável, incluindo "sem responsável"; etapa; só
+atrasados), coluna **Prazo** ordenável com atrasado em vermelho, e **Baixar planilha** (CSV com as
+linhas e colunas na tela). Mantido tudo o que a Lista já fazia: edição na célula, colunas por
+propriedade, filtro por qualquer propriedade, RICE e estrela no pipeline de demandas.
+
+Ainda não: destaque de card **parado** na Lista (o quadro ainda não carrega a data de entrada na
+etapa) e o **modo escuro**, que a simulação tem e o sistema ainda não.
 
 Também em 13/11: telas de erro com "Recarregar" (`app/global-error.tsx`, `app/(app)/error.tsx`);
 quando o erro é de versão antiga depois de uma publicação, a página recarrega sozinha uma vez.

@@ -19,7 +19,8 @@ export type SortKey =
   | "solicitante"
   | "responsavel"
   | "rice"
-  | "orcamento";
+  | "orcamento"
+  | "prazo";
 
 export interface ListFilters {
   query: string;
