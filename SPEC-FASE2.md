@@ -376,6 +376,24 @@ como o pipeline da Produção Pedagógica marcar o tipo).
 Situação: migration testada em Postgres local; telas passam em typecheck e build, "Minhas
 demandas" conferida em navegador com dados de exemplo; **falta aplicar a 0041 e testar na prévia**.
 
+### E.7 Visual novo, primeira etapa (13/11)
+
+Aplicado no sistema todo, exceto o menu lateral (continua azul-marinho, `--color-brand`):
+
+- cores da Produção Pedagógica: ação em azul-petróleo `#1E5A6E`, fundo `#F3F5F4`, texto `#16252A`;
+  a escala `neutral` do Tailwind foi redefinida em `globals.css`, então todas as telas mudaram
+  juntas; cores de alerta (ok, aviso, erro, info) também;
+- fontes Literata (títulos), Figtree (texto) e IBM Plex Mono (números e cronômetros);
+- cabeçalho de tabela em caixa alta sobre faixa cinza (`.tabela-cab`), etiqueta com ponto
+  (`.chip`), face do card com título mais forte e sem sombra.
+
+Ainda não: a **Lista nova** (resumo clicável no topo, filtros rápidos lado a lado, ordenar por
+qualquer coluna, planilha, destaque de atrasado/parado) e o **modo escuro**, que a simulação tem
+e o sistema ainda não.
+
+Também em 13/11: telas de erro com "Recarregar" (`app/global-error.tsx`, `app/(app)/error.tsx`);
+quando o erro é de versão antiga depois de uma publicação, a página recarrega sozinha uma vez.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.

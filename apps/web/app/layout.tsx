@@ -1,22 +1,31 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Manrope } from "next/font/google";
+import { Figtree, IBM_Plex_Mono, Literata } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { DialogA11y } from "@/components/shell/DialogA11y";
 
 import "./globals.css";
 
-const manrope = Manrope({
+// Visual da Produção Pedagógica (aprovado em 12/11): Literata nos títulos,
+// Figtree no texto, IBM Plex Mono em números e cronômetros.
+const literata = Literata({
   variable: "--font-headline",
   subsets: ["latin"],
-  weight: ["400", "700", "800"],
+  weight: ["500", "600"],
   display: "swap",
 });
 
-const inter = Inter({
+const figtree = Figtree({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
   display: "swap",
 });
 
@@ -40,7 +49,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${manrope.variable} ${inter.variable}`}>
+    <html lang="pt-BR" className={`${literata.variable} ${figtree.variable} ${plexMono.variable}`}>
       <body>
         {children}
         <DialogA11y />

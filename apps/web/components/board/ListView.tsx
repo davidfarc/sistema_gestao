@@ -255,7 +255,7 @@ export function ListView({
 
       <div className="overflow-x-auto rounded-xl border border-neutral-200">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+          <thead className="tabela-cab border-b border-neutral-200">
             <tr>
               <SortHeader label="#" sortKey="number" current={sort.key} dir={sort.dir} onSort={toggleSort} />
               <SortHeader label="Título" sortKey="title" current={sort.key} dir={sort.dir} onSort={toggleSort} />

@@ -47,10 +47,10 @@ function dueInfo(due: string): { label: string; cls: string; hint: string } {
 export function CardTile({ card }: { card: CardView }) {
   const due = card.dueDate ? dueInfo(card.dueDate) : null;
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+    <div className="rounded-lg border border-neutral-200 bg-white p-3.5">
       <div className="text-xs font-medium text-neutral-500">#{card.number}</div>
 
-      <p className="mt-1 text-sm font-medium leading-snug text-neutral-800">
+      <p className="mt-1 text-[15px] font-bold leading-snug text-neutral-800">
         {card.title}
       </p>
 
