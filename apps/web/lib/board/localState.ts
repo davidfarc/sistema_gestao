@@ -69,6 +69,8 @@ export interface CardRow {
   position: number | string;
   requester_id: string | null;
   archived_at?: string | null;
+  /** Emendas (migration 0042); ausente antes dela. */
+  rework_count?: number | null;
 }
 
 /**
@@ -89,14 +91,23 @@ export function applyCardRow(
     current.title === row.title &&
     current.stageId === row.stage_id &&
     current.dueDate === row.due_date &&
-    current.position === position
+    current.position === position &&
+    (row.rework_count == null || current.reworkCount === undefined || current.reworkCount === row.rework_count)
   ) {
     return cards; // eco de uma mudança que esta tela mesma já aplicou
   }
   return sortCards(
     cards.map((c) =>
       c.id === row.id
-        ? { ...withStage(c, row.stage_id, gated), title: row.title, dueDate: row.due_date, position }
+        ? {
+            ...withStage(c, row.stage_id, gated),
+            title: row.title,
+            dueDate: row.due_date,
+            position,
+            ...(row.rework_count != null && c.reworkCount !== undefined
+              ? { reworkCount: Number(row.rework_count) }
+              : {}),
+          }
         : c,
     ),
   );

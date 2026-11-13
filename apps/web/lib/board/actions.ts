@@ -13,6 +13,7 @@ import {
   type RuleViolation,
   type Thresholds,
 } from "@ecco/core";
+import { BOARD_TEMPLATES, templateOptions } from "./templates";
 import { revalidatePath } from "next/cache";
 
 import { provisionAndGetActor, requireActor, requireAlcadaManager } from "@/lib/actor";
@@ -282,8 +283,13 @@ export async function createCardWithFields(
 
 // ── Pipelines (boards) — criar / renomear / arquivar (só Gestor) ─────────────
 
-/** Cria um pipeline com 3 colunas padrão (A fazer / Fazendo / Feito). */
-export async function createBoard(name: string): Promise<string> {
+/**
+ * Cria um pipeline: em branco, com 3 colunas padrão (A fazer / Fazendo / Feito),
+ * ou a partir de um modelo (`lib/board/templates.ts`), com etapas, propriedades
+ * e opções prontas.
+ */
+export async function createBoard(name: string, templateId?: string): Promise<string> {
+  const template = templateId ? BOARD_TEMPLATES.find((t) => t.id === templateId) : undefined;
   const actor = await requireActor("board:configure");
   const db = createAdminClient();
   const orgId = actor.organizationId as string;
@@ -295,20 +301,51 @@ export async function createBoard(name: string): Promise<string> {
     .single();
   if (error) throw new Error(error.message);
 
-  const defaults: { name: string; category: string }[] = [
+  const defaults: { name: string; category: string; countsRework?: boolean }[] = template?.stages ?? [
     { name: "A fazer", category: "backlog" },
     { name: "Fazendo", category: "in_progress" },
     { name: "Feito", category: "done" },
   ];
-  await db.from("stage").insert(
-    defaults.map((s, i) => ({
-      organization_id: orgId,
-      board_id: board.id,
-      name: s.name,
-      category: s.category,
-      position: i,
-    })),
-  );
+  const stageRows = defaults.map((s, i) => ({
+    organization_id: orgId,
+    board_id: board.id,
+    name: s.name,
+    category: s.category,
+    position: i,
+  }));
+  const withRework = defaults.some((s) => s.countsRework);
+  const { error: stageErr } = await db
+    .from("stage")
+    .insert(withRework ? stageRows.map((r, i) => ({ ...r, counts_rework: !!defaults[i]!.countsRework })) : stageRows);
+  // Sem a migration 0042 a etapa de emenda não existe: cria as etapas sem ela.
+  if (stageErr && withRework) await db.from("stage").insert(stageRows);
+  else if (stageErr) throw new Error(stageErr.message);
+
+  if (template) {
+    if (template.fields.length > 0) {
+      await db.from("field_definition").insert(
+        template.fields.map((f, i) => ({
+          organization_id: orgId,
+          board_id: board.id,
+          name: f.name,
+          type: f.type,
+          config: f.options ? { options: templateOptions(f.options) } : {},
+          show_on_card_face: !!f.showOnCard,
+          show_on_create: !!f.showOnCreate,
+          is_filterable: true,
+          position: i,
+        })),
+      );
+    }
+    const o = template.options;
+    const flags = { my_tasks: !!o.myTasks, time_tracking: !!o.timeTracking, own_panel: !!o.ownPanel };
+    const { error: flagErr } = await db.from("board").update(flags).eq("id", board.id);
+    if (flagErr) {
+      // Sem a 0042: liga ao menos "Minhas demandas" e o cronômetro (0041).
+      const { own_panel: _skip, ...rest } = flags;
+      await db.from("board").update(rest).eq("id", board.id);
+    }
+  }
 
   revalidatePath("/board");
   return board.id;
@@ -1721,6 +1758,31 @@ export async function setStageCategory(stageId: string, category: string): Promi
   const { error } = await db.from("stage").update({ category }).eq("id", stageId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+/**
+ * Marca (ou desmarca) a etapa como "de emenda": cada vez que um card entra nela,
+ * o contador de emendas do card sobe (gatilho da migration 0042).
+ */
+export async function setStageCountsRework(
+  stageId: string,
+  on: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireActor("stage:manage");
+  const { error } = await createAdminClient()
+    .from("stage")
+    .update({ counts_rework: on })
+    .eq("id", stageId);
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("counts_rework")
+        ? "Falta aplicar a atualização do banco (migration 0042)."
+        : "Não foi possível salvar. Tente de novo.",
+    };
+  }
+  revalidatePath("/board");
+  return { ok: true };
 }
 
 /** Define (ou remove, com null) o limite de cards em andamento da etapa. */

@@ -407,6 +407,28 @@ etapa) e o **modo escuro**, que a simulação tem e o sistema ainda não.
 Também em 13/11: telas de erro com "Recarregar" (`app/global-error.tsx`, `app/(app)/error.tsx`);
 quando o erro é de versão antiga depois de uma publicação, a página recarrega sozinha uma vez.
 
+### E.8 Pipeline Produção Pedagógica e painel por pipeline (código pronto em 13/11)
+
+- **Modelo ao criar pipeline:** em "Novo pipeline" há o campo **Modelo**. "Produção Pedagógica"
+  cria as etapas Em produção → Aguardando análise (revisão) → Em emenda → Aprovado (concluído); as
+  propriedades Segmento (Infantil, Fundamental 1, Fundamental 2) e Tipo de material (Básico, Up
+  Grades, Escrita do Zero, Revisão Diagramado), que aparecem no card, e Início, Finalização e Link
+  do autor; o prazo é o do próprio card. Já liga "Minhas demandas", o cronômetro e o painel
+  próprio. Depois de criado é um pipeline comum: tudo pode mudar. Os modelos ficam em
+  `lib/board/templates.ts`.
+- **Emendas:** qualquer etapa pode ser marcada como **Etapa de emenda** (menu ⋯ da etapa). Cada vez
+  que um card entra nela, o contador do card sobe (gatilho no banco, `card.rework_count`, vale para
+  qualquer caminho que mude a etapa). O número aparece na face do card (selo âmbar) e numa coluna
+  **Emendas** da Lista, ordenável e na planilha.
+- **Painel por pipeline:** opção "Painel próprio em Painéis" nas opções do pipeline (engrenagem).
+  Cada pipeline com a opção ganha uma aba em Painéis (`/painel/pipeline/<id>`): cards por etapa e
+  atrasados; cards por responsável e por cada propriedade de opção (barras por etapa); emendas por
+  opção; horas médias por opção nos cards concluídos e horas registradas hoje (só com `time:read`);
+  dias da criação à conclusão e % concluídos sem emenda; lista de atrasados. É genérico: as quebras
+  saem das propriedades de opção do pipeline, sem nome de campo fixo no código.
+- Migration `0042_rework_and_panels.sql`. Antes dela o quadro funciona igual (sem emendas e sem a
+  opção de painel); o modelo cria o pipeline sem a etapa de emenda marcada.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -452,6 +474,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 | `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | ✅ Aplicada em 13/11 (cronômetro funcionando) |
+| `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

@@ -10,6 +10,7 @@ export function BoardOptionsDialog({
   boardName,
   myTasks,
   timeTracking,
+  ownPanel,
   onClose,
   onSaved,
 }: {
@@ -17,11 +18,13 @@ export function BoardOptionsDialog({
   boardName: string;
   myTasks: boolean;
   timeTracking: boolean;
+  ownPanel: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [mt, setMt] = useState(myTasks);
   const [tt, setTt] = useState(timeTracking);
+  const [op, setOp] = useState(ownPanel);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +32,11 @@ export function BoardOptionsDialog({
     setBusy(true);
     setError(null);
     try {
-      const res = await setBoardOptions(boardId, { myTasks: mt, timeTracking: tt });
+      const res = await setBoardOptions(boardId, {
+        myTasks: mt,
+        timeTracking: tt,
+        ...(op !== ownPanel ? { ownPanel: op } : {}),
+      });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -69,6 +76,16 @@ export function BoardOptionsDialog({
               <span className="block text-neutral-600">
                 Cronômetro nos cards (iniciar, pausar, retomar). Mede o tempo gasto em cada tarefa para
                 planejar prazos; não é registro de jornada.
+              </span>
+            </span>
+          </label>
+          <label className={row}>
+            <input type="checkbox" checked={op} onChange={(e) => setOp(e.target.checked)} className="mt-0.5" />
+            <span>
+              <span className="font-medium text-neutral-800">Painel próprio em “Painéis”</span>
+              <span className="block text-neutral-600">
+                Uma aba só deste pipeline: cards por etapa, por responsável e por propriedade, emendas,
+                tempo até concluir e atrasados.
               </span>
             </span>
           </label>

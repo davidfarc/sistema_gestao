@@ -45,6 +45,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     intake: string;
     my_tasks?: boolean | null;
     time_tracking?: boolean | null;
+    own_panel?: boolean | null;
   } | null = null;
   if (boardId) {
     const { data } = await db
@@ -83,7 +84,8 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
   if (!board) return null;
 
   const [stagesRes, cardsRes, fieldsRes, gateRes, prioRes] = await Promise.all([
-    db.from("stage").select("id, name, category, position, wip_limit").eq("board_id", board.id).order("position"),
+    // `*`: `counts_rework` (0042) pode ainda não existir.
+    db.from("stage").select("*").eq("board_id", board.id).order("position"),
     db
       .from("card")
       .select("id, number, title, stage_id, due_date, requester_id, position")
@@ -120,6 +122,14 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
 
   const cardsRaw = cardsRes.data ?? [];
   const cardIds = cardsRaw.map((c) => c.id);
+
+  // Emendas: só se o pipeline tem etapa de emenda (e a migration 0042 existe).
+  const hasRework = (stagesRes.data ?? []).some((s) => s.counts_rework === true);
+  const reworkOf = new Map<string, number>();
+  if (hasRework && cardIds.length > 0) {
+    const { data: rw } = await db.from("card").select("id, rework_count").in("id", cardIds);
+    for (const r of rw ?? []) reworkOf.set(r.id, Number(r.rework_count ?? 0));
+  }
   const showFields: ChipField[] = (fieldsRes.data ?? []).map((f) => ({
     id: f.id,
     name: f.name,
@@ -198,6 +208,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     name: s.name,
     category: s.category,
     wipLimit: s.wip_limit ?? null,
+    countsRework: s.counts_rework === true,
   }));
 
   const cards: CardView[] = cardsRaw.map((c) => {
@@ -225,6 +236,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
       commentCount: commentsOf.get(c.id) ?? 0,
       awaitingPrioritization: gatedStages.has(c.stage_id) && !prioritizedCards.has(c.id),
       prioritized: prioritizedCards.has(c.id),
+      ...(hasRework ? { reworkCount: reworkOf.get(c.id) ?? 0 } : {}),
     };
   });
 
@@ -239,6 +251,7 @@ export async function loadBoard(boardId?: string): Promise<BoardData | null> {
     members: [],
     myTasks: board.my_tasks === true,
     timeTracking: board.time_tracking === true,
+    ownPanel: board.own_panel === true,
     gatedStageIds: [...gatedStages],
     loadedAt: Date.now(),
   };

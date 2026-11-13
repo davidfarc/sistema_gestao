@@ -21,7 +21,8 @@ export type SortKey =
   | "responsavel"
   | "rice"
   | "orcamento"
-  | "prazo";
+  | "prazo"
+  | "emendas";
 
 export interface ListFilters {
   query: string;

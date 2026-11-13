@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { PainelTabs } from "@/components/painel/PainelTabs";
 import { provisionAndGetActor } from "@/lib/actor";
+import { loadPanelBoards } from "@/lib/reports/boardPanel";
 import { fmtHours } from "@/lib/time/format";
 import { isoDay, loadTimeRows, sumBy, type TimeRow } from "@/lib/time/report";
 
@@ -22,7 +23,7 @@ export default async function TempoPage({
   const actor = await provisionAndGetActor();
   if (!actor?.permissions.has("time:read")) notFound();
 
-  const sp = await searchParams;
+  const [sp, panels] = await Promise.all([searchParams, loadPanelBoards()]);
   const today = isoDay(new Date());
   const weekAgo = isoDay(new Date(Date.now() - 6 * 86_400_000));
   const from = DAY.test(sp.de ?? "") ? sp.de! : weekAgo;
@@ -45,7 +46,7 @@ export default async function TempoPage({
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">
       <h1 className="text-2xl">Painéis</h1>
-      <PainelTabs current="tempo" showTime />
+      <PainelTabs current="tempo" showTime panels={panels} />
 
       <form className="mt-5 flex flex-wrap items-end gap-3" method="get">
         <label className="grid gap-1 text-sm text-neutral-700">

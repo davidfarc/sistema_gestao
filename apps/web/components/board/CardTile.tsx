@@ -1,4 +1,4 @@
-import { CheckSquare, Clock, ListOrdered, MessageSquare } from "lucide-react";
+import { CheckSquare, Clock, ListOrdered, MessageSquare, Undo2 } from "lucide-react";
 import Link from "next/link";
 
 import type { CardView } from "@/lib/board/types";
@@ -130,6 +130,16 @@ export function CardTile({ card }: { card: CardView }) {
             >
               <CheckSquare className="h-3 w-3" aria-hidden="true" />
               {card.checklist.done}/{card.checklist.total}
+            </span>
+          )}
+          {!!card.reworkCount && (
+            <span
+              title={`Devolvido para emenda ${card.reworkCount} ${card.reworkCount === 1 ? "vez" : "vezes"}`}
+              className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800"
+            >
+              <Undo2 className="h-3 w-3" aria-hidden="true" />
+              {card.reworkCount}
+              <span className="sr-only"> {card.reworkCount === 1 ? "emenda" : "emendas"}</span>
             </span>
           )}
           {!!card.commentCount && (

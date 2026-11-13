@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { StageCategory } from "@/lib/board/types";
 import { PainelTabs } from "@/components/painel/PainelTabs";
 import { provisionAndGetActor } from "@/lib/actor";
+import { loadPanelBoards } from "@/lib/reports/boardPanel";
 import { loadPipelineOverview, STALLED_DAYS, type PipelineOverview } from "@/lib/reports/overview";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +23,16 @@ const DOT: Record<StageCategory, string> = {
  * que enxerga (o banco aplica o mesmo escopo do quadro).
  */
 export default async function PainelPage() {
-  const [pipelines, actor] = await Promise.all([loadPipelineOverview(), provisionAndGetActor()]);
+  const [pipelines, actor, panels] = await Promise.all([
+    loadPipelineOverview(),
+    provisionAndGetActor(),
+    loadPanelBoards(),
+  ]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">
       <h1 className="text-2xl">Painéis</h1>
-      <PainelTabs current="geral" showTime={actor?.permissions.has("time:read") ?? false} />
+      <PainelTabs current="geral" showTime={actor?.permissions.has("time:read") ?? false} panels={panels} />
       <p className="mt-3 text-sm text-secondary">
         Situação dos pipelines agora. “Parado” = há mais de {STALLED_DAYS} dias na mesma etapa.
       </p>
