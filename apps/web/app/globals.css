@@ -11,16 +11,17 @@
   /* Visual da Produção Pedagógica (aprovado em 12/11/2026), no sistema todo.
      Cores da marca trocadas em 16/11 para o verde do site da editora
      (editoraeccoprime.com.br): verde-escuro do topo do site no menu lateral,
-     verde das faixas e títulos nos botões e links. */
+     verde vivo nos botões e links (contraste 6:1 com o branco) e o
+     verde-limão do site como destaque do item ativo do menu. */
   --color-brand: #092c23;
-  --color-primary: #1d453a;
-  --color-primary-high: #153a30;
+  --color-primary: #12703f;
+  --color-primary-high: #0c5a31;
   --color-on-primary: #ffffff;
   --color-secondary: #5a6a6e;
 
   /* Acento */
   --color-tertiary: #002504;
-  --color-tertiary-fixed: #a3f69c;
+  --color-tertiary-fixed: #a2c53e;
   --color-on-tertiary: #ffffff;
 
   /* Semânticas */

@@ -458,7 +458,7 @@ Modelo (confirmado pelo David em 16/11):
 - **Minhas demandas sem troca de etapa:** o card mostra a etapa só para leitura. Mudar de etapa fica
   no Kanban, na Lista e com o card aberto.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
-  site da editora (lidas das imagens do site): menu `#092c23`, botões e links `#1d453a`.
+  site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
 ### E.3 Ordem sugerida
 
