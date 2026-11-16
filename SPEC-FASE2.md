@@ -114,11 +114,14 @@ Usa as mesmas consultas de D.2.
 > quando chega mensagem, e o servidor chama a Twilio para responder. O risco de banimento da versão
 > anterior deixa de existir.
 
-> **Ajuste de 16/11 (mesmo dia), em discussão:** o David prefere voltar à **API não oficial**
-> (Evolution API ou Z-API) com um **número descartável**, pelo custo e por não ter a janela de 24 h
-> nem modelos de mensagem. A Twilio serviria só para obter o número. Pendente: escolher entre Z-API
-> (serviço hospedado, sem servidor nosso) e Evolution API num computador da escola (com Cloudflare
-> Tunnel). O código terá uma interface de provedor para trocar sem reescrever o agente.
+> **Decisão final de 16/11: API não oficial com a Evolution API**, rodando num computador da escola
+> sempre ligado (Docker), alcançado pelo sistema por um Cloudflare Tunnel, com um **número
+> descartável** (chip próprio num Android barato; número virtual da Twilio foi descartado porque o
+> WhatsApp comum costuma recusar). Motivos: custo zero por mensagem e sem a janela de 24 h nem
+> modelos de mensagem. Risco aceito: o número pode ser bloqueado; troca-se o chip e pareia de novo.
+> Onde este capítulo fala em Twilio, webhook assinado da Twilio e modelos da Meta, vale a Evolution
+> API: webhook com segredo próprio, envio pela API dela e mensagens livres a qualquer hora. O código
+> tem uma interface de provedor para trocar depois sem reescrever o agente.
 >
 > **Decidido em 16/11:** só telefones cadastrados falam com o agente; o telefone entra no cadastro
 > do usuário, com convite para preencher no primeiro acesso. Quem libera demanda: **gestor de área
@@ -207,8 +210,15 @@ WhatsApp ──► Twilio ──► POST /webhook (Worker `ecco-whatsapp`, assin
 | C4 Fluxo | Liberação pela gestora ou diretor; lembrete de 3 dias e alerta de atraso, com resposta virando comentário | 2,5 |
 | **Total C** | | **~13,5** |
 
-**Pendente com o David:** provedor do WhatsApp (Z-API ou Evolution API) e o número; chave da API
-do Claude; cadastro dos telefones da equipe.
+**Pendente com o David:** computador da escola com a Evolution API e o túnel; aparelho para o chip;
+chave da API do Claude; cadastro dos telefones da equipe.
+
+**Andamento de C**
+
+| Etapa | Situação |
+|---|---|
+| C1 telefone no cadastro | Código pronto em 16/11: tabela `user_phone` (0044; cada um lê o seu, a gestão lê todos), convite "Complete seu cadastro" para quem não tem telefone (adiável por 7 dias), "Meu telefone" em Avisos, telefone na edição do usuário e aviso "sem telefone" na lista. Normalização em `core/phone.ts` (com as formas com e sem o nono dígito, para casar com o WhatsApp) |
+| C1 Worker, webhook e envio | A fazer (depende da Evolution API instalada para testar) |
 
 ---
 
@@ -525,7 +535,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 | `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | ✅ Aplicada em 13/11 (cronômetro funcionando) |
 | `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | ✅ Aplicada em 16/11 (testada na prévia) |
-| `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | **A aplicar** |
+| `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
+| `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   GateBlockedError,
   firstPosition,
+  formatPhone,
   placeInColumn,
   positionAfter,
   validateThresholds,
@@ -984,12 +985,15 @@ export async function loadRoles(): Promise<RoleOption[]> {
 export async function loadUsers(): Promise<UserRow[]> {
   await requireActor("user:manage");
   const db = createAdminClient();
-  const [usersRes, ursRes, rolesRes, membersRes] = await Promise.all([
+  const [usersRes, ursRes, rolesRes, membersRes, phonesRes] = await Promise.all([
     db.from("app_user").select("id, name, email, is_internal, cargo, archived_at").order("name"),
     db.from("user_role").select("user_id, role_id"),
     db.from("role").select("id, name, permissions"),
     db.from("board_member").select("board_id, user_id"),
+    // Antes da migration 0044 a tabela não existe: a consulta falha e a coluna fica vazia.
+    db.from("user_phone").select("user_id, phone"),
   ]);
+  const phoneOf = new Map((phonesRes.data ?? []).map((p) => [p.user_id, formatPhone(p.phone)]));
   const roleName = new Map((rolesRes.data ?? []).map((r) => [r.id, r.name]));
   const roleSeesAll = new Map(
     (rolesRes.data ?? []).map((r) => [r.id, Array.isArray(r.permissions) && r.permissions.includes("board:configure")]),
@@ -1014,6 +1018,7 @@ export async function loadUsers(): Promise<UserRow[]> {
       archived: u.archived_at != null,
       seesAllBoards: u.is_internal && !!roleId && roleSeesAll.get(roleId) === true,
       boardIds: boardsOf.get(u.id) ?? [],
+      phone: phoneOf.get(u.id) ?? null,
     };
   });
 }

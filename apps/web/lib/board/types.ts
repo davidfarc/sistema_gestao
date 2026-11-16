@@ -328,6 +328,8 @@ export interface UserRow {
   cargo: string | null;
   /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
   archived: boolean;
+  /** Telefone (WhatsApp), formatado; null se não cadastrado. */
+  phone: string | null;
   /** O papel enxerga todos os pipelines (`board:configure`, só interno). */
   seesAllBoards: boolean;
   /** Pipelines em que a pessoa é membro (o que ela enxerga, se não vê todos). */

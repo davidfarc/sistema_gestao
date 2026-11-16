@@ -1,3 +1,4 @@
+import { PhoneField } from "@/components/profile/PhoneField";
 import { PushToggle } from "@/components/avisos/PushToggle";
 import { NotificationsList } from "@/components/avisos/NotificationsList";
 import { InstallHint } from "@/components/shell/InstallHint";
@@ -13,6 +14,7 @@ export default function AvisosPage() {
       <div className="mt-5 grid gap-4">
         <InstallHint dismissible={false} />
         <PushToggle />
+        <PhoneField />
         <NotificationsList />
       </div>
     </main>

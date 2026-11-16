@@ -12,6 +12,7 @@ import {
   setUserName,
   setUserRole,
 } from "@/lib/board/actions";
+import { setUserPhone } from "@/lib/profile/actions";
 import type { BoardSummary, RoleOption, UserRow } from "@/lib/board/types";
 import { CARGOS } from "@/lib/demandas/cargos";
 
@@ -114,7 +115,12 @@ export function UsersTable({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-neutral-600">{u.email}</td>
+                  <td className="px-4 py-2 text-neutral-600">
+                    {u.email}
+                    <span className={"block text-xs " + (u.phone ? "text-neutral-500" : "text-amber-700")}>
+                      {u.phone ?? (u.internal && !u.archived ? "sem telefone" : "")}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">
                     <span
                       className={
@@ -187,7 +193,7 @@ export function UsersTable({
                         type="button"
                         onClick={() => setEditing(u)}
                         disabled={savingId === u.id}
-                        title="Editar nome"
+                        title="Editar nome e telefone"
                         aria-label={`Editar ${u.name}`}
                         className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                       >
@@ -253,7 +259,7 @@ export function UsersTable({
   );
 }
 
-/** Edita o nome exibido. Papel, cargo e acesso são editados direto na linha. */
+/** Edita o nome exibido e o telefone. Papel, cargo e acesso são editados direto na linha. */
 function EditNameModal({
   user,
   onClose,
@@ -264,6 +270,7 @@ function EditNameModal({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -273,7 +280,11 @@ function EditNameModal({
     setBusy(true);
     setError(null);
     try {
-      await setUserName(user.id, name);
+      if (name.trim() !== user.name) await setUserName(user.id, name);
+      if (phone.trim() !== (user.phone ?? "")) {
+        const res = await setUserPhone(user.id, phone);
+        if (!res.ok) throw new Error(res.error);
+      }
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível salvar.");
@@ -311,6 +322,21 @@ function EditNameModal({
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
             />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">Telefone (WhatsApp)</span>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(84) 99999-8888"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            />
+            <span className="mt-1 block text-xs text-neutral-600">
+              É por ele que o assistente do WhatsApp reconhece a pessoa. Deixe vazio para remover.
+            </span>
           </label>
 
           <p className="text-xs text-neutral-600">
