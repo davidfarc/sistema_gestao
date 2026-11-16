@@ -106,90 +106,99 @@ Usa as mesmas consultas de D.2.
 
 ---
 
-## C. WhatsApp — agente dedicado (API não oficial)
+## C. WhatsApp — agente de demandas (Twilio, API oficial)
 
-> Decidido em 12/11/2026: **um único número remetente**, dedicado ao sistema, que funciona
-> como agente. Riscos de C.4 conhecidos e aceitos.
+> **Redesenhado em 16/11/2026** a pedido do David. Substitui a decisão de 12/11 (API não oficial com
+> gateway em VPS): o número passa a ser contratado na **Twilio**, que usa a API oficial do WhatsApp.
+> Com isso **não há gateway, VPS nem computador ligado na escola**: a Twilio chama o nosso servidor
+> quando chega mensagem, e o servidor chama a Twilio para responder. O risco de banimento da versão
+> anterior deixa de existir.
 
-### C.1 O que o agente faz
+### C.1 O que o agente faz (primeiro pipeline: Manutenção)
 
-Qualquer pessoa da equipe, com telefone cadastrado, conversa com o número do sistema:
+1. **Abrir demanda por texto ou áudio.** O professor escreve ou fala ("o ar-condicionado da minha
+   sala não funciona"). O agente pergunta o que falta até ter o mínimo do pipeline; na Manutenção, o
+   **número da sala**, pedindo para conferir a placa na porta quando a pessoa der um nome em vez do
+   número. Com tudo em mãos, cria o card e responde com o **número do pedido**.
+2. **Não duplicar.** Antes de criar, o agente procura card aberto do mesmo pipeline com a mesma sala
+   e o mesmo problema. Se achar, **não cria outro**: registra um comentário no card existente ("novo
+   pedido em DD/MM, por Fulano"), inclui a pessoa como acompanhante e avisa: "já existe o pedido
+   #N; registrei o seu reforço e você passa a receber as atualizações".
+3. **Consultar.** "Como está o pedido 142?" → etapa, responsável, prazo e última atualização.
+4. **Avisar quem pediu** a cada avanço: mudou de etapa, ganhou responsável, foi concluído.
+5. **Avisar a gestão:** a gestora de área do pipeline recebe a demanda nova; o responsável recebe
+   quando é atribuído.
+6. **Liberação.** A demanda nasce travada na entrada. Só anda quando a **gestora de área do
+   pipeline** ou um **diretor** a move e atribui o responsável (pela tela, como hoje).
+7. **Cobrar atualização.** Card em andamento sem novidade há 3 dias (configurável por pipeline):
+   o responsável recebe um lembrete e pode responder ali mesmo; a resposta vira comentário no card.
+   Prazo vencido também gera alerta.
 
-| A pessoa escreve | O agente faz |
-|---|---|
-| "Preciso de 3 notebooks para a coordenação até dia 20" | **Cria o card** no pipeline certo (pergunta qual, se houver dúvida), com a pessoa como solicitante, e devolve o link |
-| "No card 142, pode marcar a revisão como feita e passar para diagramação" | **Atualiza o card**: comenta, marca checklist, muda prazo ou responsável, move de etapa (respeitando as regras de fluxo) |
-| "Como está o livro de Ciências do 7º ano?" / "O que tenho para hoje?" | **Responde com a situação**: etapa, responsável, prazo, último movimento; ou a lista dos cards da pessoa |
-| Áudio ou foto | Áudio é transcrito e tratado como texto; foto vira anexo do card em questão |
+### C.2 Regras
 
-E, na saída, o mesmo número **avisa**: menção, atribuição, prazo vencendo e mensagem direta
-não lida há mais de X minutos.
-
-### C.2 Regras do agente
-
-- **Quem fala é identificado pelo telefone** (`app_user.phone`). Número desconhecido não
-  recebe resposta e não cria nada.
-- O agente age **com as permissões da pessoa**: só enxerga e altera o que ela poderia pela
-  tela. Toda escrita passa pelo mesmo caminho do servidor (`CardService.move`, gates, auditoria)
-  e fica no histórico como "via WhatsApp".
-- **Confirma antes de alterar** quando houver ambiguidade (mais de um card possível, mover
-  para etapa concluída, trocar responsável). Criação de card não pede confirmação: devolve o
-  link e a pessoa corrige se precisar.
-- Não apaga nada e não mexe em configurações, usuários, Gestão de Vila nem Novos alunos.
-- A interpretação das mensagens usa um modelo de linguagem (API do Claude) com as
-  **mesmas ferramentas do MCP (seção D)**, mais as de escrita (`criar_card`, `comentar`,
-  `mover_card`, `atualizar_card`). Por isso D vem antes de C.
+- **Quem fala é identificado pelo telefone** cadastrado no usuário (`app_user.phone`). Número
+  desconhecido recebe uma resposta padrão e não cria nada.
+- O agente age **com as permissões da pessoa** e pelas mesmas portas do servidor (criação pela caixa
+  de entrada do pipeline, `CardService.move`, escopo de `lib/board/scope.ts`). Tudo fica no histórico
+  como "via WhatsApp".
+- **O que o agente sabe de cada pipeline é configurável**, sem código: em "Atendimento pelo
+  WhatsApp" (opções do pipeline) a gestão liga o atendimento, escreve as **instruções** (as salas, o
+  que há em cada uma, que tipo de demanda cabe ali) e define os dias do lembrete. As perguntas
+  obrigatórias saem das **propriedades marcadas como obrigatórias** na criação (ex.: Sala, Tipo).
+- Não apaga nada, não mexe em configurações, usuários, Gestão de Vila nem Novos alunos, e não tem
+  acesso a dados de alunos.
+- **Janela de 24 horas (regra do WhatsApp):** resposta livre só vale até 24 h depois da última
+  mensagem da pessoa. Avisos fora dessa janela (avanço de etapa dias depois, lembrete) precisam de
+  **modelos de mensagem aprovados pela Meta**, cadastrados na Twilio. Os textos dos modelos saem
+  daqui; o cadastro é feito pelo David.
 
 ### C.3 Como funciona
 
 ```
-WhatsApp do número do sistema
-        ▲ │
-        │ ▼   sessão do WhatsApp Web, pareada por QR code
-Gateway (Evolution API, em Docker, num servidor sempre ligado)
-        │ webhook assinado                    ▲ envio (HTTP)
-        ▼                                     │
-POST /api/whatsapp/webhook ─► fila `whatsapp_inbox` ─► agente (modelo + ferramentas) ─► `whatsapp_outbox`
+WhatsApp ──► Twilio ──► POST /webhook (Worker `ecco-whatsapp`, assinatura conferida)
+                              │ grava em `whatsapp_message` e responde 200 na hora
+                              ▼
+                      agente: modelo de linguagem (API do Claude) + ferramentas
+                      (buscar_cards, criar_card, comentar, acompanhar, situacao)
+                              │
+                              ▼
+                      Twilio (envio) ──► WhatsApp
 ```
 
-- **Onde roda o gateway:** ele mantém uma conexão permanente, então precisa de um servidor
-  sempre ligado. ⚠️ **O Supabase não oferece isso** — ele hospeda banco, login e funções
-  curtas, não contêineres. O que dá para fazer na conta da Eccoprime é **guardar os dados
-  do gateway no Postgres do Supabase** (schema próprio, `whatsapp_gateway`); o programa em si
-  precisa de um VPS pequeno à parte (1 vCPU / 1–2 GB, ~R$ 30–60/mês). **Pendente: escolher o
-  provedor do VPS.**
-- No sistema: `app_user.phone` (E.164) e `whatsapp_opt_in`; filas `whatsapp_inbox` e
-  `whatsapp_outbox` (com tentativas, padrão *outbox* da central de anamneses); histórico curto
-  da conversa por pessoa (para o agente entender "esse card"); tela Configurações → WhatsApp
-  (QR code, estado da conexão, mensagem de teste); preferências de aviso por pessoa.
-- A interface `WhatsAppProvider` que já existe (`lib/anamnese/whatsapp.ts`) é reaproveitada.
+- **Worker separado** (`apps/whatsapp`), como o do MCP: o Worker principal está perto do limite de
+  3 MiB. Ele grava pelo banco com a identidade da pessoa.
+- **Áudio:** a Twilio entrega o arquivo; a transcrição roda no próprio Cloudflare (Workers AI,
+  modelo Whisper), sem conta nova.
+- **Avisos de saída:** gatilhos do sistema (card criado, movido, atribuído) entram numa fila
+  (`whatsapp_outbox`, com tentativas); a rotina agendada cuida dos lembretes de 3 dias e de atraso.
+- **Banco:** `app_user.phone`; `card_follower` (quem acompanha um card); `whatsapp_conversation` e
+  `whatsapp_message` (histórico curto, para o agente entender "esse pedido"); `whatsapp_outbox`;
+  opções por pipeline (`whatsapp_enabled`, `whatsapp_instructions`, `update_reminder_days`); regra de
+  fluxo nova "liberação pela gestão".
+- **Segredos (só no Cloudflare):** credenciais da Twilio e chave da API do Claude.
 
-### C.4 Riscos (aceitos) e cuidados
+### C.4 Riscos e cuidados
 
-- **Viola os termos do WhatsApp**: o número pode ser banido sem aviso. Por isso o chip é
-  **dedicado ao sistema** — perder o número não pode custar nada além do chip.
-- Cuidados para reduzir bloqueio: o agente só responde a quem escreveu ou aceitou receber
-  avisos; limite de mensagens por minuto; nada de disparo em massa.
-- **Só equipe interna.** Famílias continuam por e-mail.
-- Se o gateway cair ou o número for banido, o sistema segue funcionando: avisos pelo
-  sininho e pelo push (B), e as mensagens recebidas ficam na fila.
-- **Dados:** o texto das mensagens passa pelo gateway e pelo modelo de linguagem. O agente
-  não tem acesso a dados de alunos, e as respostas trazem título, etapa, prazo e link — não
-  a descrição inteira do card.
+- **Aprovação do número pela Meta** (verificação da empresa) pode levar dias. Enquanto isso, o
+  desenvolvimento usa o **ambiente de teste da Twilio** (número compartilhado, entra-se com um código).
+- **Custo por mensagem:** a Twilio e a Meta cobram por mensagem/conversa, e o modelo de linguagem por
+  uso. Estimar depois do primeiro mês real; limite de mensagens por pessoa por hora desde o início.
+- **Dados:** o texto e o áudio passam pela Twilio, pelo Cloudflare e pelo modelo de linguagem. As
+  respostas trazem número, título, etapa e prazo, não a descrição inteira.
+- Se a Twilio ou o modelo falharem, o sistema segue normal; as mensagens ficam na fila.
 
-### C.5 Esforço
+### C.5 Etapas e esforço
 
-| Item | Dias |
-|---|---|
-| VPS + gateway (subir, proteger, parear, dados no Supabase) | 1,5 |
-| Telefone e opt-in, filas, provedor, tela de conexão | 3 |
-| Avisos de saída e preferências por pessoa | 1,5 |
-| Agente: webhook, identificação, ferramentas de escrita, confirmações, histórico | 5 |
-| Áudio e foto | 1,5 |
-| **Total C** | **~12,5** |
+| Etapa | O que entrega | Dias |
+|---|---|---|
+| C1 Base | Telefone no usuário, Worker, webhook com assinatura, envio, fila, tela Configurações → WhatsApp, teste no ambiente da Twilio | 3 |
+| C2 Agente | Abrir demanda com perguntas guiadas, checagem de duplicado, consulta de situação, áudio, opções por pipeline | 5 |
+| C3 Avisos | Acompanhantes, avisos a quem pediu, à gestora e ao responsável; modelos de mensagem | 3 |
+| C4 Fluxo | Liberação pela gestora ou diretor; lembrete de 3 dias e alerta de atraso, com resposta virando comentário | 2,5 |
+| **Total C** | | **~13,5** |
 
-Custo mensal: VPS (R$ 30–60) + chip + uso do modelo de linguagem (centavos por conversa;
-estimar após o primeiro mês de uso real).
+**Pendente com o David:** conta Twilio com WhatsApp; chave da API do Claude; quais cargos contam
+como "diretor"; cadastro dos telefones da equipe.
 
 ---
 
@@ -479,7 +488,7 @@ O visual novo mexe em todas as telas e deve partir de uma base já validada.
 | A. Quadro | ~11 | — |
 | B. Mobile | ~12,5 | — |
 | D. MCP | ~7,5 | Possível plano pago do Cloudflare (US$ 5) se o segundo Worker exigir |
-| C. WhatsApp (agente) | ~12,5 | VPS do gateway (R$ 30–60) + chip dedicado + uso do modelo de linguagem |
+| C. WhatsApp (agente) | ~13,5 | Twilio (número + mensagens) + uso do modelo de linguagem. Sem VPS |
 | **Total** | **~44** | |
 
 **Decidido (12/11/2026):** ordem A → B → D → C; WhatsApp com um único número dedicado,
