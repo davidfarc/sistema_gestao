@@ -328,4 +328,8 @@ export interface UserRow {
   cargo: string | null;
   /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
   archived: boolean;
+  /** O papel enxerga todos os pipelines (`board:configure`, só interno). */
+  seesAllBoards: boolean;
+  /** Pipelines em que a pessoa é membro (o que ela enxerga, se não vê todos). */
+  boardIds: string[];
 }

@@ -429,6 +429,27 @@ quando o erro é de versão antiga depois de uma publicação, a página recarre
 - Migration `0042_rework_and_panels.sql`. Antes dela o quadro funciona igual (sem emendas e sem a
   opção de painel); o modelo cria o pipeline sem a etapa de emenda marcada.
 
+### E.9 Alçadas de acesso por pipeline (16/11)
+
+Modelo (confirmado pelo David em 16/11):
+
+| Papel | Pipelines que enxerga | Relatórios (Painéis, Tempo por tarefa) | Configura |
+|---|---|---|---|
+| Gestor Master | Todos | Todos | Tudo: pipelines, propriedades globais, papéis, usuários |
+| Gestor | Todos | Todos | Pipelines, propriedades, usuários (não edita papéis) |
+| Gestor de área | Só os marcados para ele | Só dos pipelines dele, inclusive o tempo da equipe neles | Etapas e cards dos pipelines dele |
+| Membro interno | Só os marcados para ele | Visão geral e painéis dos pipelines dele; o próprio tempo | — |
+| Externo | Só os cards atribuídos a ele | — | — |
+
+- **Onde se define:** Configurações → Usuários, coluna **Pipelines**: "Todos" para quem vê tudo;
+  para os demais, um botão com a contagem que abre a lista de pipelines para marcar. "Nenhum" fica
+  em destaque. A mesma lista continua editável por pipeline, no seletor de pipelines.
+- Pipeline novo não entra automaticamente para ninguém: o Gestor marca quem enxerga.
+- Visão geral, painel próprio e Tempo por tarefa já leem com o RLS da pessoa, então mostram só o
+  que ela enxerga. A 0043 dá `time:read` ao Gestor de área; a policy de `time_entry` limita aos
+  cards que ele enxerga.
+- Escritas conferem o escopo no servidor (ver "Segurança").
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -474,7 +495,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0039_mcp_reports.sql` | Permissão `report:read`; tabelas `api_token` e `api_token_call`; funções `report_*`; `mcp_call` | ✅ Aplicada em 12/11 |
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 | `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | ✅ Aplicada em 13/11 (cronômetro funcionando) |
-| `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | **A aplicar** |
+| `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | ✅ Aplicada em 16/11 (testada na prévia) |
+| `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 
@@ -564,6 +586,14 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
   `sala_state_set(p_org, …)` confiam num parâmetro de quem chama e eram executáveis por
   `authenticated`/`anon` via `/rest/v1/rpc` (confirmado em 12/11). A 0038, já aplicada, restringe
   a `service_role`; vale para produção e prévia, que usam o mesmo banco.
+- **Escritas sem checagem de escopo (corrigido no ramo, 16/11).** As telas já escondiam do Gestor
+  de área os pipelines dos quais ele não é membro, mas as gravações do servidor (mover, editar
+  card, comentar, checklist, anexo, responsável, propriedades, etapas, priorização) usavam a chave
+  de serviço e só conferiam a permissão do papel, não o pipeline. Quem tivesse o id de um card ou
+  de uma etapa de outro pipeline podia mexer nele. Agora toda escrita passa por
+  `lib/board/scope.ts`, que consulta o mesmo RLS das telas (`can_see_board` / `can_see_card`) e
+  responde "não encontrado" fora do escopo. Gestor e Gestor Master (`board:configure`) seguem vendo
+  tudo. **O `main` continua com a falha até este ramo ser publicado.**
 - Regra daqui para frente: toda função `security definer` nasce com
   `revoke all … from public, anon, authenticated` e só recebe o `grant` de quem precisa.
 
