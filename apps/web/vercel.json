@@ -3,7 +3,7 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "https://ecco-sistema.dafarc.workers.dev/:path*",
+      "destination": "https://gestao.eccoprime.com.br/:path*",
       "permanent": false
     }
   ]

@@ -33,7 +33,7 @@
   O build que vale é o do Cloudflare (Linux). Exige Modo de Desenvolvedor do Windows
   só para o `opennextjs-cloudflare build` local não falhar com EPERM.
 - **Supabase Auth:** endereços do Worker liberados em Authentication → URL Configuration
-  (Redirect URLs `https://ecco-sistema.dafarc.workers.dev/**` e `https://*-ecco-sistema.dafarc.workers.dev/**`).
+  (Site URL `https://gestao.eccoprime.com.br`; Redirect URLs `https://gestao.eccoprime.com.br/**`, `https://ecco-sistema.dafarc.workers.dev/**` e `https://*-ecco-sistema.dafarc.workers.dev/**`).
 - **Vercel desligada em 09/11/2026:** `apps/web/vercel.json` faz o endereço antigo
   (ecco-sistema.vercel.app) redirecionar para o Cloudflare. O projeto Vercel não foi apagado.
   A seção abaixo é histórica.

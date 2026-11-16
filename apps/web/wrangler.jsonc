@@ -6,7 +6,8 @@
   "name": "ecco-sistema",
   // worker.ts = app do OpenNext + rotina agendada de "Novos alunos".
   "main": "worker.ts",
-  // Endereço provisório <nome>.dafarc.workers.dev e prévias por ramo/versão.
+  // O endereço oficial é gestao.eccoprime.com.br (domínio próprio, no painel).
+  // <nome>.dafarc.workers.dev segue ativo e serve as prévias por ramo/versão.
   "workers_dev": true,
   "preview_urls": true,
   "compatibility_date": "2026-11-01",
@@ -50,7 +51,8 @@
   // GOOGLE_CLIENT_SECRET) ficam só no Cloudflare.
   "vars": {
     "INTERNAL_EMAIL_DOMAIN": "editoraeccoprime.com.br,eccoprime.com.br,adm.eccoprime.com.br",
-    "APP_URL": "https://ecco-sistema.dafarc.workers.dev",
+    // Endereço oficial (domínio próprio ligado ao Worker no painel do Cloudflare).
+    "APP_URL": "https://gestao.eccoprime.com.br",
     // Remetente dos e-mails da central (subdomínio habilitado em Email Sending).
     "MAIL_FROM": "Eccoprime <nao-responder@msg.eccoprime.com.br>",
     // Cliente OAuth do Google (o mesmo do login); o segredo GOOGLE_CLIENT_SECRET
