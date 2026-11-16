@@ -594,6 +594,26 @@ como modelo, mas passando pelo servidor (`CardService.move`), não por SQL.
   `lib/board/scope.ts`, que consulta o mesmo RLS das telas (`can_see_board` / `can_see_card`) e
   responde "não encontrado" fora do escopo. Gestor e Gestor Master (`board:configure`) seguem vendo
   tudo. **O `main` continua com a falha até este ramo ser publicado.**
+- **Revisão de segurança de 16/11.** Conferidos: login e provisionamento, middleware, rotas de API,
+  todas as ações do servidor (permissão e escopo), HTML e links vindos de dados, segredos no
+  repositório e dependências. Corrigido no ramo:
+  - *Login só pelo Google* (`lib/auth.ts`): a sessão só vale se a identidade veio do Google. O acesso
+    interno é decidido pelo domínio do e-mail; uma conta criada por e-mail e senha direto na API do
+    Supabase poderia declarar um e-mail da organização. Complemento no painel do Supabase: deixar
+    ligado só o provedor Google (Email e anônimo desligados).
+  - *Cabeçalhos de segurança* em todas as respostas (`next.config.ts`): `X-Frame-Options: DENY` e
+    `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, HSTS, `Permissions-Policy`; sem
+    `X-Powered-By`.
+  - *Fora dos buscadores:* `X-Robots-Tag: noindex, nofollow` em tudo, meta `robots` no layout e
+    `/robots.txt` com `Disallow: /` (também no Worker do MCP).
+  - *Dependências:* Next 15.5.20 → 15.5.29 (três avisos críticos de execução remota de código),
+    Tiptap/ProseMirror (XSS ao colar) e zod 3 atualizados. Restam avisos "altos" só em ferramentas
+    de build (glob, postcss, sharp, prisma config), que não rodam no Worker, e um do zod que só
+    fecha na versão 4 (troca maior, fica para depois).
+  - Sem achados: redirecionamento aberto no login (destino só interno), `dangerouslySetInnerHTML`
+    (não há), segredos versionados (não há), cron (segredo com comparação em tempo constante).
+  - Fica como está, por decisão anterior: imagens coladas na descrição ficam num bucket público com
+    nome aleatório (quem tem o link vê a imagem sem login).
 - Regra daqui para frente: toda função `security definer` nasce com
   `revoke all … from public, anon, authenticated` e só recebe o `grant` de quem precisa.
 

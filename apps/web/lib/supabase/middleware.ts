@@ -50,6 +50,8 @@ export async function updateSession(request: NextRequest) {
     path === "/manifest.webmanifest" ||
     // Service worker das notificações: o navegador o rebusca por conta própria.
     path === "/sw.js" ||
+    // Pedido aos buscadores para não varrerem o sistema: precisa responder sem login.
+    path === "/robots.txt" ||
     path.startsWith("/api/anamnese/public/") ||
     path === "/api/anamnese/cron/process";
 

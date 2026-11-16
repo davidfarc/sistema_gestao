@@ -32,6 +32,13 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Sistema de Gestão Eccoprime",
   description: "Sistema de gestão da Eccoprime: quadros, conversas, painéis e os módulos da escola e da editora.",
+  // Sistema interno: fora de qualquer buscador (ver também next.config.ts e app/robots.ts).
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: { index: false, follow: false, noimageindex: true, nosnippet: true },
+  },
   // Instalável no celular (o manifesto vem de app/manifest.ts).
   appleWebApp: { capable: true, title: "Eccoprime", statusBarStyle: "default" },
   icons: {

@@ -21,6 +21,14 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (!claims?.sub) return null;
+  // Só entra quem se identificou pelo Google. O acesso interno é decidido pelo
+  // domínio do e-mail, então o e-mail precisa ter sido confirmado pelo Google:
+  // uma conta criada por e-mail e senha (ou anônima) direto na API do Supabase
+  // poderia declarar um endereço da organização sem ser dona dele.
+  // `app_metadata` é escrito só pelo servidor de Auth (o usuário não o altera).
+  if (claims.is_anonymous === true) return null;
+  const providers = (claims.app_metadata as { providers?: unknown } | undefined)?.providers;
+  if (Array.isArray(providers) && !providers.includes("google")) return null;
   return {
     id: claims.sub,
     email: claims.email,
