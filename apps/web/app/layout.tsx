@@ -48,7 +48,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#001e40",
+  themeColor: "#092c23",
   // Deixa o app instalado ocupar a tela toda; as bordas seguras (entalhe, barra
   // de gestos) são respeitadas com env(safe-area-inset-*) no CSS.
   viewportFit: "cover",

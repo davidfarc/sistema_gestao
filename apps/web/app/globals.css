@@ -9,10 +9,12 @@
   color-scheme: light;
 
   /* Visual da Produção Pedagógica (aprovado em 12/11/2026), no sistema todo.
-     A cor de ação é o azul-petróleo; o azul-marinho fica só no menu lateral. */
-  --color-brand: #001e40;
-  --color-primary: #1e5a6e;
-  --color-primary-high: #174858;
+     Cores da marca trocadas em 16/11 para o verde do site da editora
+     (editoraeccoprime.com.br): verde-escuro do topo do site no menu lateral,
+     verde das faixas e títulos nos botões e links. */
+  --color-brand: #092c23;
+  --color-primary: #1d453a;
+  --color-primary-high: #153a30;
   --color-on-primary: #ffffff;
   --color-secondary: #5a6a6e;
 
