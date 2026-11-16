@@ -114,6 +114,16 @@ Usa as mesmas consultas de D.2.
 > quando chega mensagem, e o servidor chama a Twilio para responder. O risco de banimento da versão
 > anterior deixa de existir.
 
+> **Ajuste de 16/11 (mesmo dia), em discussão:** o David prefere voltar à **API não oficial**
+> (Evolution API ou Z-API) com um **número descartável**, pelo custo e por não ter a janela de 24 h
+> nem modelos de mensagem. A Twilio serviria só para obter o número. Pendente: escolher entre Z-API
+> (serviço hospedado, sem servidor nosso) e Evolution API num computador da escola (com Cloudflare
+> Tunnel). O código terá uma interface de provedor para trocar sem reescrever o agente.
+>
+> **Decidido em 16/11:** só telefones cadastrados falam com o agente; o telefone entra no cadastro
+> do usuário, com convite para preencher no primeiro acesso. Quem libera demanda: **gestor de área
+> do pipeline, Gestor e Gestor Master** (não há cargo "diretor" nessa regra).
+
 ### C.1 O que o agente faz (primeiro pipeline: Manutenção)
 
 1. **Abrir demanda por texto ou áudio.** O professor escreve ou fala ("o ar-condicionado da minha
@@ -197,8 +207,8 @@ WhatsApp ──► Twilio ──► POST /webhook (Worker `ecco-whatsapp`, assin
 | C4 Fluxo | Liberação pela gestora ou diretor; lembrete de 3 dias e alerta de atraso, com resposta virando comentário | 2,5 |
 | **Total C** | | **~13,5** |
 
-**Pendente com o David:** conta Twilio com WhatsApp; chave da API do Claude; quais cargos contam
-como "diretor"; cadastro dos telefones da equipe.
+**Pendente com o David:** provedor do WhatsApp (Z-API ou Evolution API) e o número; chave da API
+do Claude; cadastro dos telefones da equipe.
 
 ---
 
