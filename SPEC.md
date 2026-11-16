@@ -26,7 +26,7 @@ quatro frentes:
 | **Configurações** | Usuários, papéis/permissões, alçadas | `/configuracoes/*` |
 | **Início** | Painel com atalhos cadastrados pelo gestor | `/` |
 
-**Endereço de produção:** https://ecco-sistema.dafarc.workers.dev
+**Endereço de produção:** https://gestao.eccoprime.com.br (o antigo, https://ecco-sistema.dafarc.workers.dev, segue ativo e serve as prévias)
 (o antigo `ecco-sistema.vercel.app` redireciona para cá).
 
 ---
@@ -433,7 +433,7 @@ subdomínio `msg.eccoprime.com.br` habilitado em Email Sending.
 
 **Supabase Auth** (projeto SP): cliente OAuth Google com redirect
 `https://rcjjwoajuvnrgeuzsgsj.supabase.co/auth/v1/callback`; endereços liberados em URL Configuration:
-`https://ecco-sistema.dafarc.workers.dev/**` e `https://*-ecco-sistema.dafarc.workers.dev/**` (prévias).
+`https://gestao.eccoprime.com.br/**`, `https://ecco-sistema.dafarc.workers.dev/**` e `https://*-ecco-sistema.dafarc.workers.dev/**` (prévias).
 
 **Publicação:** push no `main` publica; outros ramos geram **prévia** (`upload`), sem
 publicar. Detalhes em `DEPLOY.md`.
@@ -450,7 +450,7 @@ publicar. Detalhes em `DEPLOY.md`.
 | Banco no Supabase de São Paulo | ✅ Migrado em 10/11/2026 (o de Ohio ficou parado como reserva) |
 | Novos alunos — central integrada, acesso por papéis, página pública | ✅ Em produção |
 | Novos alunos — e-mail, Google Agenda e rotina a cada 5 min | ✅ Em produção (conferir um ciclo completo: agendar → e-mail → evento na agenda → lembrete) |
-| Domínio próprio (ex.: `sistema.eccoprime.com.br`) | ⏳ A decidir |
+| Domínio próprio `gestao.eccoprime.com.br` | ✅ 16/11 |
 | Atualizar a Vila com os dados posteriores a julho e desligar o Firebase | ⏳ |
 | API REST `/api/v1`, MCP, WhatsApp, tela de volumes, emendas por página | 💤 Fora do escopo atual |
 

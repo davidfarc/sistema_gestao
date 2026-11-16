@@ -20,7 +20,7 @@ export default {
       console.warn("Rotina de Novos alunos ignorada: CRON_SECRET não configurado.");
       return;
     }
-    const url = `${env.APP_URL ?? "https://ecco-sistema.dafarc.workers.dev"}/api/anamnese/cron/process`;
+    const url = `${env.APP_URL ?? "https://gestao.eccoprime.com.br"}/api/anamnese/cron/process`;
     const req = new Request(url, { method: "POST", headers: { Authorization: `Bearer ${env.CRON_SECRET.trim()}` } });
     ctx.waitUntil(
       app.fetch(req, env, ctx).then(async (res: Response) => {

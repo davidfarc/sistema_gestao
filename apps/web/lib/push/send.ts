@@ -42,7 +42,7 @@ export function vapidKeys(): VapidKeys | null {
   return {
     publicKey,
     privateKey,
-    subject: process.env.VAPID_SUBJECT || process.env.APP_URL || "https://ecco-sistema.dafarc.workers.dev",
+    subject: process.env.VAPID_SUBJECT || process.env.APP_URL || "https://gestao.eccoprime.com.br",
   };
 }
 
