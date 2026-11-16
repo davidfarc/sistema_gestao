@@ -5,7 +5,7 @@ import { PainelTabs } from "@/components/painel/PainelTabs";
 import type { BoardPanel, PanelStage, StackRow, ValueRow } from "@/lib/reports/boardPanel";
 import { fmtHours } from "@/lib/time/format";
 
-const IN_PROGRESS = ["#1e5a6e", "#0891b2", "#7c3aed"];
+const IN_PROGRESS = ["#12703f", "#0891b2", "#7c3aed"];
 
 /** Cor de cada etapa nos gráficos: pela categoria (emenda em âmbar). */
 function stageColors(stages: PanelStage[]): Map<string, string> {
@@ -87,14 +87,14 @@ export function BoardPanelView({
                 title={`Horas médias por ${b.fieldName.toLowerCase()}`}
                 note="Média do tempo cronometrado nos cards concluídos. Base para planejar prazos."
               >
-                <Values rows={b.avgHours} color="#1e5a6e" format={(v) => `${v.toFixed(1).replace(".", ",")}h`} />
+                <Values rows={b.avgHours} color="#12703f" format={(v) => `${v.toFixed(1).replace(".", ",")}h`} />
               </Box>
             ),
         )}
         {panel.hoursToday && (
           <Box title="Horas registradas hoje" note="Tempo com cronômetro ligado neste pipeline. Não é registro de jornada.">
             {panel.hoursToday.length ? (
-              <Values rows={panel.hoursToday} color="#1e5a6e" format={(v) => fmtHours(v * 3600)} />
+              <Values rows={panel.hoursToday} color="#12703f" format={(v) => fmtHours(v * 3600)} />
             ) : (
               <p className="text-sm text-neutral-500">Ninguém registrou tempo hoje.</p>
             )}

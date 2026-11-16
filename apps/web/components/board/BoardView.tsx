@@ -461,7 +461,7 @@ export function BoardView({
           )}
           <div
             className={
-              "rounded-lg border border-neutral-200 p-0.5 text-sm " + (board.myTasks ? "flex" : "hidden md:flex")
+              "flex rounded-lg border border-neutral-200 p-0.5 text-sm"
             }
           >
             {board.myTasks && (
@@ -509,10 +509,9 @@ export function BoardView({
             myUserId={myUserId}
             timeTracking={board.timeTracking}
             onOpenCard={openCard}
-            onMove={(cardId, stageId) => move(cardId, stageId)}
           />
         </div>
-      ) : isMobile ? (
+      ) : isMobile && view !== "list" ? (
         <div className="min-h-0 flex-1">
           <MobileBoard
             stages={board.stages}

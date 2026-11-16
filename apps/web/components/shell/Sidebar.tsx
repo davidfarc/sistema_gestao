@@ -120,8 +120,8 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
                   className={clsx(
                     "relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
                     active
-                      ? "bg-white/10 font-semibold text-white"
-                      : "text-white/70 hover:bg-white/5 hover:text-white",
+                      ? "bg-white/15 font-semibold text-white shadow-[inset_3px_0_0_var(--color-tertiary-fixed)]"
+                      : "text-white/85 hover:bg-white/10 hover:text-white",
                     item.disabled && "pointer-events-none opacity-40",
                     !showLabels && "justify-center",
                   )}
