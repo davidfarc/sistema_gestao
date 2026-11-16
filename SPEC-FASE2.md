@@ -450,6 +450,16 @@ Modelo (confirmado pelo David em 16/11):
   cards que ele enxerga.
 - Escritas conferem o escopo no servidor (ver "Segurança").
 
+### E.10 Ajustes de 16/11 (pedido do David)
+
+- **Lista no celular:** o botão Kanban/Lista aparece também no celular e a Lista abre de verdade
+  (a tabela rola de lado). Antes o celular mostrava sempre uma etapa por vez, mesmo com "Lista"
+  escolhida. O Kanban do celular continua sendo uma etapa por vez.
+- **Minhas demandas sem troca de etapa:** o card mostra a etapa só para leitura. Mudar de etapa fica
+  no Kanban, na Lista e com o card aberto.
+- **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
+  site da editora (pendente: valores exatos da cor).
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.

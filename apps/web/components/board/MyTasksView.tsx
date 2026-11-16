@@ -37,7 +37,6 @@ export function MyTasksView({
   myUserId,
   timeTracking,
   onOpenCard,
-  onMove,
 }: {
   boardId: string;
   cards: CardView[];
@@ -45,7 +44,6 @@ export function MyTasksView({
   myUserId: string | null;
   timeTracking: boolean;
   onOpenCard: (id: string) => void;
-  onMove: (cardId: string, stageId: string) => void;
 }) {
   const [time, setTime] = useState<MyTime | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -325,20 +323,10 @@ export function MyTasksView({
                     </div>
                   )}
 
-                  <label className="grid min-w-0 gap-1 text-sm text-neutral-700">
-                    <span className="sr-only">Mover #{c.number} para</span>
-                    <select
-                      value={c.stageId}
-                      onChange={(e) => onMove(c.id, e.target.value)}
-                      className="w-full min-w-0 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
-                    >
-                      {stages.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.id === c.stageId ? `Etapa: ${s.name}` : `Mover para: ${s.name}`}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {/* Só leitura: a etapa muda no Kanban, na Lista ou com o card aberto. */}
+                  <p className="min-w-0 break-words text-sm text-neutral-600">
+                    Etapa: <span className="font-semibold text-neutral-800">{stageName.get(c.stageId) ?? "—"}</span>
+                  </p>
                 </article>
               );
             })}
