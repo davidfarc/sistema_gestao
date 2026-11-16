@@ -83,7 +83,7 @@ export function ListView({
     }
   }
   const DEFAULT_W: Record<string, number> = {
-    number: 76, title: 280, stage: 160, solicitante: 160, responsavel: 160, prazo: 128, rice: 84,
+    number: 76, title: 280, stage: 160, solicitante: 160, responsavel: 160, prazo: 128, emendas: 100, rice: 84,
   };
   const widthOf = (key: string) => widths[key] ?? DEFAULT_W[key] ?? 190;
   function resizer(key: string, label: string) {
@@ -187,6 +187,8 @@ export function ListView({
   // RICE/priorização pertencem ao pipeline de demandas — marcado pelo formulário
   // de criação, não por adivinhar nome de campo.
   const isDemandas = creationForm === "custom:demandas";
+  // Coluna "Emendas" só em pipeline com etapa de emenda.
+  const hasRework = stages.some((s) => s.countsRework);
 
   /**
    * Dados de demanda por card (RICE, tipo, urgência…), calculados no cliente —
@@ -239,6 +241,8 @@ export function ListView({
           return (nullsLast(da?.rice) - nullsLast(dbb?.rice)) * dir;
         case "prazo":
           return (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") * dir;
+        case "emendas":
+          return ((a.reworkCount ?? 0) - (b.reworkCount ?? 0)) * dir;
         case "orcamento":
           return (nullsLast(da?.fields.orcamento) - nullsLast(dbb?.fields.orcamento)) * dir;
         default:
@@ -257,7 +261,7 @@ export function ListView({
   /** Planilha (CSV) com as linhas e colunas que estão na tela. */
   function downloadCsv() {
     const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const head = ["#", "Título", "Etapa", "Solicitante", "Responsável", "Prazo", ...(isDemandas ? ["RICE"] : []), ...fields.map((f) => f.name)];
+    const head = ["#", "Título", "Etapa", "Solicitante", "Responsável", "Prazo", ...(hasRework ? ["Emendas"] : []), ...(isDemandas ? ["RICE"] : []), ...fields.map((f) => f.name)];
     const nameOf = (id: string) => members.find((m) => m.id === id)?.name;
     const rows = visible.map((c) => [
       c.number,
@@ -266,6 +270,7 @@ export function ListView({
       c.requester?.name ?? "",
       c.assignee?.name ?? "",
       c.dueDate ? new Date(c.dueDate.slice(0, 10) + "T12:00").toLocaleDateString("pt-BR") : "",
+      ...(hasRework ? [c.reworkCount ?? 0] : []),
       ...(isDemandas ? [demandOf.get(c.id)?.rice?.toFixed(1).replace(".", ",") ?? ""] : []),
       ...fields.map((f) => {
         const chip = resolveChip(f, values[`${c.id}|${f.id}`], nameOf);
@@ -459,13 +464,13 @@ export function ListView({
           className="table-fixed text-left text-sm"
           style={{
             width:
-              ["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)]
+              ["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(hasRework ? ["emendas"] : []), ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)]
                 .reduce((sum, k) => sum + widthOf(k), 0),
             minWidth: "100%",
           }}
         >
           <colgroup>
-            {["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)].map(
+            {["number", "title", "stage", "solicitante", "responsavel", "prazo", ...(hasRework ? ["emendas"] : []), ...(isDemandas ? ["rice"] : []), ...fields.map((f) => f.id)].map(
               (k) => (
                 <col key={k} style={{ width: widthOf(k) }} />
               ),
@@ -493,6 +498,9 @@ export function ListView({
                 resizer={resizer("responsavel", "Responsável")}
               />
               <SortHeader label="Prazo" sortKey="prazo" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("prazo", "Prazo")} />
+              {hasRework && (
+                <SortHeader label="Emendas" sortKey="emendas" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("emendas", "Emendas")} />
+              )}
               {isDemandas && (
                 <SortHeader label="RICE" sortKey="rice" current={sort.key} dir={sort.dir} onSort={toggleSort} resizer={resizer("rice", "RICE")} />
               )}
@@ -596,6 +604,11 @@ export function ListView({
                     : "—"}
                   {isOverdue(card) && <span className="ml-1 text-xs">atrasado</span>}
                 </td>
+                {hasRework && (
+                  <td className={"num px-3 py-2 align-top " + (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")}>
+                    {card.reworkCount ?? 0}
+                  </td>
+                )}
                 {isDemandas && (
                   <td className="whitespace-nowrap px-3 py-2 text-right align-top font-medium text-neutral-700">
                     {demandOf.get(card.id)?.rice?.toFixed(1) ?? (

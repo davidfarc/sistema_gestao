@@ -50,6 +50,8 @@ export interface CardView {
   awaitingPrioritization?: boolean;
   /** Já passou pela fila de priorização (para recalcular o selo ao mover). */
   prioritized?: boolean;
+  /** Quantas vezes o card foi devolvido para uma etapa de emenda. */
+  reworkCount?: number;
 }
 
 /** Linha da lista de cards arquivados de um pipeline. */
@@ -164,6 +166,8 @@ export interface StageView {
   category: StageCategory;
   /** Limite de cards em andamento na etapa (null = sem limite). */
   wipLimit?: number | null;
+  /** Etapa de emenda: cada entrada de um card aqui soma uma emenda a ele. */
+  countsRework?: boolean;
 }
 
 export interface BoardData {
@@ -181,6 +185,8 @@ export interface BoardData {
   myTasks: boolean;
   /** Mostra o cronômetro de tempo por tarefa (opção do pipeline). */
   timeTracking: boolean;
+  /** Tem painel próprio em "Painéis" (opção do pipeline). */
+  ownPanel: boolean;
   /** Etapas de checkpoint da priorização (cards nelas "aguardam priorização"). */
   gatedStageIds: string[];
   /** Quando o servidor montou estes dados (ms) — para a tela saber se estão velhos. */
@@ -322,4 +328,8 @@ export interface UserRow {
   cargo: string | null;
   /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
   archived: boolean;
+  /** O papel enxerga todos os pipelines (`board:configure`, só interno). */
+  seesAllBoards: boolean;
+  /** Pipelines em que a pessoa é membro (o que ela enxerga, se não vê todos). */
+  boardIds: string[];
 }

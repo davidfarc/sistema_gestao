@@ -4,6 +4,7 @@ import { CardService, positionAfter, positionBetween, type Actor } from "@ecco/c
 import { revalidatePath } from "next/cache";
 
 import { requireActor } from "@/lib/actor";
+import { assertCardScope } from "@/lib/board/scope";
 import { loadFieldValuesByBoard, loadFields } from "@/lib/board/actions";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import type { FieldValueRaw } from "@/lib/board/types";
@@ -248,6 +249,7 @@ export async function prioritizeCard(
   note?: string,
 ): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
   const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
 
   const { data: card } = await db
@@ -339,6 +341,7 @@ export async function deprioritizeCard(
   cardId: string,
 ): Promise<{ ok: true; warning?: string } | { ok: false; error: string }> {
   const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
@@ -387,7 +390,8 @@ export async function movePriority(
   cardId: string,
   direction: "up" | "down",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
 
   const { data: me } = await db

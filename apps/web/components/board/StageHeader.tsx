@@ -8,6 +8,7 @@ import {
   renameStage,
   reorderStage,
   setStageCategory,
+  setStageCountsRework,
   setStageWipLimit,
 } from "@/lib/board/actions";
 import type { StageCategory } from "@/lib/board/types";
@@ -34,7 +35,7 @@ export function StageHeader({
   isFirst,
   isLast,
 }: {
-  stage: { id: string; name: string; category: StageCategory; wipLimit?: number | null };
+  stage: { id: string; name: string; category: StageCategory; wipLimit?: number | null; countsRework?: boolean };
   count: number;
   canConfigure: boolean;
   onError: (message: string) => void;
@@ -73,6 +74,15 @@ export function StageHeader({
       return;
     }
     await setStageWipLimit(stage.id, n);
+    router.refresh();
+  }
+  async function toggleRework() {
+    setMenuOpen(false);
+    const res = await setStageCountsRework(stage.id, !stage.countsRework);
+    if (!res.ok) {
+      onError(res.error);
+      return;
+    }
     router.refresh();
   }
   async function move(dir: "left" | "right") {
@@ -173,6 +183,12 @@ export function StageHeader({
                 </label>
                 <MenuBtn onClick={changeWip}>
                   Limite de cards{stage.wipLimit ? ` (${stage.wipLimit})` : "…"}
+                </MenuBtn>
+                <MenuBtn onClick={toggleRework}>
+                  {stage.countsRework ? "✓ " : ""}Etapa de emenda
+                  <span className="block text-xs text-neutral-500">
+                    Cada card que entra aqui soma uma emenda
+                  </span>
                 </MenuBtn>
                 <div className="my-1 border-t border-neutral-100" />
                 <MenuBtn onClick={remove} danger>

@@ -244,18 +244,26 @@ async function logEdit(cardId: string, actorId: string, text: string) {
 /** Liga ou desliga, no pipeline, a visão "Minhas demandas" e o controle de tempo. */
 export async function setBoardOptions(
   boardId: string,
-  options: { myTasks: boolean; timeTracking: boolean },
+  options: { myTasks: boolean; timeTracking: boolean; ownPanel?: boolean },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const actor = await requireActor("board:configure");
+  // `own_panel` (0042) só vai quando muda: assim o resto salva mesmo antes da migration.
+  const patch: Record<string, boolean> = {
+    my_tasks: !!options.myTasks,
+    time_tracking: !!options.timeTracking,
+  };
+  if (options.ownPanel !== undefined) patch.own_panel = !!options.ownPanel;
   const { error } = await createAdminClient()
     .from("board")
-    .update({ my_tasks: !!options.myTasks, time_tracking: !!options.timeTracking })
+    .update(patch)
     .eq("id", boardId)
     .eq("organization_id", actor.organizationId as string);
   if (error) {
     return {
       ok: false,
-      error: error.message.includes("my_tasks")
+      error: error.message.includes("own_panel")
+        ? "Falta aplicar a atualização do banco (migration 0042)."
+        : error.message.includes("my_tasks")
         ? "Falta aplicar a atualização do banco (migration 0041)."
         : "Não foi possível salvar. Tente de novo.",
     };

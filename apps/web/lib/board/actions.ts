@@ -13,6 +13,16 @@ import {
   type RuleViolation,
   type Thresholds,
 } from "@ecco/core";
+import { BOARD_TEMPLATES, templateOptions } from "./templates";
+import {
+  assertAttachmentScope,
+  assertBoardScope,
+  assertCardScope,
+  assertChecklistItemScope,
+  assertChecklistScope,
+  assertFieldScope,
+  assertStageScope,
+} from "./scope";
 import { revalidatePath } from "next/cache";
 
 import { provisionAndGetActor, requireActor, requireAlcadaManager } from "@/lib/actor";
@@ -246,7 +256,8 @@ export async function createCardInStage(
 
 /** Troca o solicitante do card (nativo, ao lado do responsável). */
 export async function setCardRequester(cardId: string, userId: string | null): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { error } = await db
     .from("card")
@@ -282,8 +293,13 @@ export async function createCardWithFields(
 
 // ── Pipelines (boards) — criar / renomear / arquivar (só Gestor) ─────────────
 
-/** Cria um pipeline com 3 colunas padrão (A fazer / Fazendo / Feito). */
-export async function createBoard(name: string): Promise<string> {
+/**
+ * Cria um pipeline: em branco, com 3 colunas padrão (A fazer / Fazendo / Feito),
+ * ou a partir de um modelo (`lib/board/templates.ts`), com etapas, propriedades
+ * e opções prontas.
+ */
+export async function createBoard(name: string, templateId?: string): Promise<string> {
+  const template = templateId ? BOARD_TEMPLATES.find((t) => t.id === templateId) : undefined;
   const actor = await requireActor("board:configure");
   const db = createAdminClient();
   const orgId = actor.organizationId as string;
@@ -295,20 +311,51 @@ export async function createBoard(name: string): Promise<string> {
     .single();
   if (error) throw new Error(error.message);
 
-  const defaults: { name: string; category: string }[] = [
+  const defaults: { name: string; category: string; countsRework?: boolean }[] = template?.stages ?? [
     { name: "A fazer", category: "backlog" },
     { name: "Fazendo", category: "in_progress" },
     { name: "Feito", category: "done" },
   ];
-  await db.from("stage").insert(
-    defaults.map((s, i) => ({
-      organization_id: orgId,
-      board_id: board.id,
-      name: s.name,
-      category: s.category,
-      position: i,
-    })),
-  );
+  const stageRows = defaults.map((s, i) => ({
+    organization_id: orgId,
+    board_id: board.id,
+    name: s.name,
+    category: s.category,
+    position: i,
+  }));
+  const withRework = defaults.some((s) => s.countsRework);
+  const { error: stageErr } = await db
+    .from("stage")
+    .insert(withRework ? stageRows.map((r, i) => ({ ...r, counts_rework: !!defaults[i]!.countsRework })) : stageRows);
+  // Sem a migration 0042 a etapa de emenda não existe: cria as etapas sem ela.
+  if (stageErr && withRework) await db.from("stage").insert(stageRows);
+  else if (stageErr) throw new Error(stageErr.message);
+
+  if (template) {
+    if (template.fields.length > 0) {
+      await db.from("field_definition").insert(
+        template.fields.map((f, i) => ({
+          organization_id: orgId,
+          board_id: board.id,
+          name: f.name,
+          type: f.type,
+          config: f.options ? { options: templateOptions(f.options) } : {},
+          show_on_card_face: !!f.showOnCard,
+          show_on_create: !!f.showOnCreate,
+          is_filterable: true,
+          position: i,
+        })),
+      );
+    }
+    const o = template.options;
+    const flags = { my_tasks: !!o.myTasks, time_tracking: !!o.timeTracking, own_panel: !!o.ownPanel };
+    const { error: flagErr } = await db.from("board").update(flags).eq("id", board.id);
+    if (flagErr) {
+      // Sem a 0042: liga ao menos "Minhas demandas" e o cronômetro (0041).
+      const { own_panel: _skip, ...rest } = flags;
+      await db.from("board").update(rest).eq("id", board.id);
+    }
+  }
 
   revalidatePath("/board");
   return board.id;
@@ -425,6 +472,11 @@ export async function moveCard(
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   const actor = await provisionAndGetActor();
   if (!actor) return { ok: false, reason: "Sessão expirada. Entre novamente." };
+  try {
+    await assertCardScope(actor, cardId);
+  } catch {
+    return { ok: false, reason: "Card não encontrado." };
+  }
 
   const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
   // Etapa de origem e tempo de permanência: lidos ANTES do movimento, porque o
@@ -485,7 +537,8 @@ export async function updateCard(input: {
   title?: string;
   description?: string;
 }): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertCardScope(actor, input.id);
   const db = createAdminClient();
   const patch: Record<string, unknown> = {};
   if (input.title !== undefined) patch.title = input.title.trim() || "Novo card";
@@ -685,7 +738,8 @@ async function nextPosition(
 }
 
 export async function addChecklist(cardId: string, name: string): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
   if (!card) throw new Error("Card não encontrado.");
@@ -700,7 +754,8 @@ export async function addChecklist(cardId: string, name: string): Promise<void> 
 }
 
 export async function addChecklistItem(checklistId: string, text: string): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertChecklistScope(actor, checklistId);
   const db = createAdminClient();
   const position = await nextPosition(db, "checklist_item", "checklist_id", checklistId);
   const { error } = await db
@@ -710,7 +765,8 @@ export async function addChecklistItem(checklistId: string, text: string): Promi
 }
 
 export async function setChecklistItemDone(itemId: string, done: boolean): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertChecklistItemScope(actor, itemId);
   const db = createAdminClient();
   const { data: item } = await db
     .from("checklist_item")
@@ -722,8 +778,7 @@ export async function setChecklistItemDone(itemId: string, done: boolean): Promi
   if (error) throw new Error(error.message);
 
   // Log de atividade: quem marcou/desmarcou o quê (feed estilo Trello).
-  const actor = await provisionAndGetActor();
-  if (actor && item) {
+  if (item) {
     const { data: cl } = await db
       .from("checklist")
       .select("card_id")
@@ -770,14 +825,16 @@ export async function loadActivity(cardId: string): Promise<ActivityView[]> {
 }
 
 export async function deleteChecklistItem(itemId: string): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertChecklistItemScope(actor, itemId);
   const db = createAdminClient();
   const { error } = await db.from("checklist_item").delete().eq("id", itemId);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteChecklist(checklistId: string): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertChecklistScope(actor, checklistId);
   const db = createAdminClient();
   const { error } = await db.from("checklist").delete().eq("id", checklistId);
   if (error) throw new Error(error.message);
@@ -805,7 +862,8 @@ export async function addAttachment(
   url: string,
   label: string,
 ): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   if (!url.trim()) throw new Error("Informe um link.");
   const { data: card } = await db.from("card").select("organization_id").eq("id", cardId).single();
@@ -821,7 +879,8 @@ export async function addAttachment(
 }
 
 export async function deleteAttachment(id: string): Promise<void> {
-  await requireActor("card:update");
+  const actor = await requireActor("card:update");
+  await assertAttachmentScope(actor, id);
   const db = createAdminClient();
   const { error } = await db.from("attachment").delete().eq("id", id);
   if (error) throw new Error(error.message);
@@ -861,6 +920,7 @@ export async function setCardResponsible(
   userId: string | null,
 ): Promise<void> {
   const actor = await requireActor("card:assign");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
@@ -924,12 +984,20 @@ export async function loadRoles(): Promise<RoleOption[]> {
 export async function loadUsers(): Promise<UserRow[]> {
   await requireActor("user:manage");
   const db = createAdminClient();
-  const [usersRes, ursRes, rolesRes] = await Promise.all([
+  const [usersRes, ursRes, rolesRes, membersRes] = await Promise.all([
     db.from("app_user").select("id, name, email, is_internal, cargo, archived_at").order("name"),
     db.from("user_role").select("user_id, role_id"),
-    db.from("role").select("id, name"),
+    db.from("role").select("id, name, permissions"),
+    db.from("board_member").select("board_id, user_id"),
   ]);
   const roleName = new Map((rolesRes.data ?? []).map((r) => [r.id, r.name]));
+  const roleSeesAll = new Map(
+    (rolesRes.data ?? []).map((r) => [r.id, Array.isArray(r.permissions) && r.permissions.includes("board:configure")]),
+  );
+  const boardsOf = new Map<string, string[]>();
+  for (const m of membersRes.data ?? []) {
+    boardsOf.set(m.user_id, [...(boardsOf.get(m.user_id) ?? []), m.board_id]);
+  }
   const roleOfUser = new Map<string, string>();
   for (const ur of ursRes.data ?? []) roleOfUser.set(ur.user_id, ur.role_id);
 
@@ -944,8 +1012,40 @@ export async function loadUsers(): Promise<UserRow[]> {
       roleName: roleId ? (roleName.get(roleId) ?? null) : null,
       cargo: u.cargo ?? null,
       archived: u.archived_at != null,
+      seesAllBoards: u.is_internal && !!roleId && roleSeesAll.get(roleId) === true,
+      boardIds: boardsOf.get(u.id) ?? [],
     };
   });
+}
+
+/**
+ * Define de uma vez os pipelines que a pessoa enxerga (membro). Vale para quem
+ * não vê todos: Gestor de área e Membro interno. Só Gestor.
+ */
+export async function setUserBoards(userId: string, boardIds: string[]): Promise<void> {
+  const actor = await requireActor("board:configure");
+  const db = createAdminClient();
+  const [{ data: boards }, { data: current }] = await Promise.all([
+    db.from("board").select("id").eq("organization_id", actor.organizationId as string),
+    db.from("board_member").select("board_id").eq("user_id", userId),
+  ]);
+  const valid = new Set((boards ?? []).map((b) => b.id));
+  const wanted = new Set(boardIds.filter((id) => valid.has(id)));
+  const had = new Set((current ?? []).map((m) => m.board_id));
+  const add = [...wanted].filter((id) => !had.has(id));
+  const remove = [...had].filter((id) => valid.has(id) && !wanted.has(id));
+  if (add.length) {
+    const { error } = await db
+      .from("board_member")
+      .upsert(add.map((board_id) => ({ board_id, user_id: userId })), { onConflict: "board_id,user_id" });
+    if (error) throw new Error(error.message);
+  }
+  if (remove.length) {
+    const { error } = await db.from("board_member").delete().eq("user_id", userId).in("board_id", remove);
+    if (error) throw new Error(error.message);
+  }
+  revalidatePath("/configuracoes/usuarios");
+  revalidatePath("/board");
 }
 
 /** Define o cargo (organograma) de um usuário — usado nas alçadas de demandas. */
@@ -1252,6 +1352,7 @@ export async function addComment(
   const text = body.trim();
   if (!text) return;
   const actor = await requireActor("comment:create");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
@@ -1452,7 +1553,8 @@ export async function addField(
   options?: { label: string; color: string }[],
   global = false,
 ): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertBoardScope(actor, boardId);
   const db = createAdminClient();
   const { data: board } = await db
     .from("board")
@@ -1503,7 +1605,8 @@ export async function updateField(
   options: { label: string; color: string }[] | undefined,
   scope: { global: boolean; boardId: string },
 ): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
   const { data: existing } = await db
     .from("field_definition")
@@ -1535,7 +1638,8 @@ export async function updateField(
 }
 
 export async function deleteField(fieldId: string): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
   const { error } = await db.from("field_definition").delete().eq("id", fieldId);
   if (error) throw new Error(error.message);
@@ -1556,7 +1660,8 @@ export async function moveField(
   fieldId: string,
   direction: "left" | "right",
 ): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
 
   const { data } = await db
@@ -1581,7 +1686,8 @@ export async function moveField(
 }
 
 export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
   const { error } = await db
     .from("field_definition")
@@ -1593,7 +1699,8 @@ export async function toggleFieldOnCard(fieldId: string, show: boolean): Promise
 
 /** Marca/desmarca "pedir na criação" (aparece no formulário genérico). */
 export async function toggleFieldOnCreate(fieldId: string, show: boolean): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
   const { error } = await db
     .from("field_definition")
@@ -1605,7 +1712,8 @@ export async function toggleFieldOnCreate(fieldId: string, show: boolean): Promi
 
 /** Marca/desmarca "obrigatório" no formulário de criação. */
 export async function toggleFieldRequired(fieldId: string, required: boolean): Promise<void> {
-  await requireActor("field:manage");
+  const actor = await requireActor("field:manage");
+  await assertFieldScope(actor, fieldId);
   const db = createAdminClient();
   const { error } = await db
     .from("field_definition")
@@ -1621,6 +1729,7 @@ export async function setFieldValue(
   value: string | number | boolean | null,
 ): Promise<void> {
   const actor = await requireActor("card:update");
+  await assertCardScope(actor, cardId);
   const db = createAdminClient();
   const { data: field } = await db
     .from("field_definition")
@@ -1678,7 +1787,8 @@ export async function setFieldValue(
 // ── Configuração de etapas (colunas) — só Gestor (board:configure) ───────────
 
 export async function addStage(boardId: string, name: string): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertBoardScope(actor, boardId);
   const db = createAdminClient();
   const { data: board } = await db
     .from("board")
@@ -1705,7 +1815,8 @@ export async function addStage(boardId: string, name: string): Promise<void> {
 }
 
 export async function renameStage(stageId: string, name: string): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
   const db = createAdminClient();
   const { error } = await db
     .from("stage")
@@ -1716,16 +1827,44 @@ export async function renameStage(stageId: string, name: string): Promise<void> 
 }
 
 export async function setStageCategory(stageId: string, category: string): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
   const db = createAdminClient();
   const { error } = await db.from("stage").update({ category }).eq("id", stageId);
   if (error) throw new Error(error.message);
   revalidatePath("/board");
 }
 
+/**
+ * Marca (ou desmarca) a etapa como "de emenda": cada vez que um card entra nela,
+ * o contador de emendas do card sobe (gatilho da migration 0042).
+ */
+export async function setStageCountsRework(
+  stageId: string,
+  on: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
+  const { error } = await createAdminClient()
+    .from("stage")
+    .update({ counts_rework: on })
+    .eq("id", stageId);
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("counts_rework")
+        ? "Falta aplicar a atualização do banco (migration 0042)."
+        : "Não foi possível salvar. Tente de novo.",
+    };
+  }
+  revalidatePath("/board");
+  return { ok: true };
+}
+
 /** Define (ou remove, com null) o limite de cards em andamento da etapa. */
 export async function setStageWipLimit(stageId: string, limit: number | null): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
   const value = limit != null && Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
   const db = createAdminClient();
   const { error } = await db.from("stage").update({ wip_limit: value }).eq("id", stageId);
@@ -1734,7 +1873,8 @@ export async function setStageWipLimit(stageId: string, limit: number | null): P
 }
 
 export async function deleteStage(stageId: string): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
   const db = createAdminClient();
   const { count } = await db
     .from("card")
@@ -1750,7 +1890,8 @@ export async function deleteStage(stageId: string): Promise<void> {
 
 /** Troca a etapa de lugar com a vizinha (reordena as colunas). */
 export async function reorderStage(stageId: string, direction: "left" | "right"): Promise<void> {
-  await requireActor("stage:manage");
+  const actor = await requireActor("stage:manage");
+  await assertStageScope(actor, stageId);
   const db = createAdminClient();
   const { data: st } = await db.from("stage").select("board_id").eq("id", stageId).single();
   if (!st) throw new Error("Etapa não encontrada.");

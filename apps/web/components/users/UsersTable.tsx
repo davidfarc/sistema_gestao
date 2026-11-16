@@ -7,18 +7,30 @@ import { useState, type FormEvent } from "react";
 import {
   createUser,
   setUserArchived,
+  setUserBoards,
   setUserCargo,
   setUserName,
   setUserRole,
 } from "@/lib/board/actions";
-import type { RoleOption, UserRow } from "@/lib/board/types";
+import type { BoardSummary, RoleOption, UserRow } from "@/lib/board/types";
 import { CARGOS } from "@/lib/demandas/cargos";
 
-export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOption[] }) {
+export function UsersTable({
+  users,
+  roles,
+  boards,
+  canSetBoards,
+}: {
+  users: UserRow[];
+  roles: RoleOption[];
+  boards: BoardSummary[];
+  canSetBoards: boolean;
+}) {
   const router = useRouter();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [boardsFor, setBoardsFor] = useState<UserRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -37,6 +49,9 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
     setSavingId(null);
     router.refresh();
   }
+
+  const activeIds = new Set(boards.map((b) => b.id));
+  const activeCount = (u: UserRow) => u.boardIds.filter((id) => activeIds.has(id)).length;
 
   const change = (userId: string, roleId: string) =>
     roleId ? run(userId, () => setUserRole(userId, roleId)) : undefined;
@@ -84,6 +99,7 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
                 <th className="px-4 py-2 font-medium">Acesso</th>
                 <th className="px-4 py-2 font-medium">Papel</th>
                 <th className="px-4 py-2 font-medium">Cargo</th>
+                <th className="px-4 py-2 font-medium">Pipelines</th>
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -142,6 +158,30 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
                     </select>
                   </td>
                   <td className="px-4 py-2">
+                    {!u.internal ? (
+                      <span className="text-xs text-neutral-500">pelos cards atribuídos</span>
+                    ) : u.seesAllBoards ? (
+                      <span className="text-xs text-neutral-600">Todos</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setBoardsFor(u)}
+                        disabled={!canSetBoards || savingId === u.id}
+                        title={canSetBoards ? "Escolher os pipelines que esta pessoa enxerga" : undefined}
+                        className={
+                          "rounded-lg border px-2 py-1 text-xs font-medium disabled:opacity-60 " +
+                          (activeCount(u) === 0
+                            ? "border-amber-300 bg-amber-50 text-amber-800"
+                            : "border-neutral-300 text-neutral-700 hover:bg-neutral-50")
+                        }
+                      >
+                        {activeCount(u) === 0
+                          ? "Nenhum"
+                          : `${activeCount(u)} ${activeCount(u) === 1 ? "pipeline" : "pipelines"}`}
+                      </button>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
@@ -182,6 +222,18 @@ export function UsersTable({ users, roles }: { users: UserRow[]; roles: RoleOpti
           onClose={() => setAdding(false)}
           onCreated={() => {
             setAdding(false);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {boardsFor && (
+        <BoardsModal
+          user={boardsFor}
+          boards={boards}
+          onClose={() => setBoardsFor(null)}
+          onSaved={() => {
+            setBoardsFor(null);
             router.refresh();
           }}
         />
@@ -401,6 +453,117 @@ function AddUserModal({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/** Pipelines que a pessoa enxerga (Gestor de área e membro interno). */
+function BoardsModal({
+  user,
+  boards,
+  onClose,
+  onSaved,
+}: {
+  user: UserRow;
+  boards: BoardSummary[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [picked, setPicked] = useState(() => new Set(user.boardIds));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function toggle(id: string, on: boolean) {
+    setPicked((cur) => {
+      const next = new Set(cur);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      await setUserBoards(user.id, [...picked]);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:pt-24" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="boards-modal-title"
+        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+          <h3 id="boards-modal-title" className="text-sm font-semibold text-neutral-800">
+            Pipelines de {user.name}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-neutral-600 hover:bg-neutral-100"
+            aria-label="Fechar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-neutral-600">
+            Marque os pipelines que esta pessoa enxerga. Ela vê os cards, o quadro e os painéis só
+            deles; o resto fica escondido.
+          </p>
+          <div className="mt-3 flex gap-3 text-xs">
+            <button type="button" onClick={() => setPicked(new Set(boards.map((b) => b.id)))} className="font-medium text-primary hover:underline">
+              Marcar todos
+            </button>
+            <button type="button" onClick={() => setPicked(new Set())} className="font-medium text-primary hover:underline">
+              Desmarcar todos
+            </button>
+          </div>
+          <ul className="mt-2 max-h-80 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200">
+            {boards.map((b) => (
+              <li key={b.id}>
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-2 text-sm text-neutral-800 hover:bg-neutral-50">
+                  <input
+                    type="checkbox"
+                    checked={picked.has(b.id)}
+                    onChange={(e) => toggle(b.id, e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="break-words">{b.name}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {error && (
+            <p role="alert" className="mt-3 text-sm text-red-700">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-neutral-200 px-4 py-3">
+          <button type="button" onClick={onClose} className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+          >
+            {busy ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

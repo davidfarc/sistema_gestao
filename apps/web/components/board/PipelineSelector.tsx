@@ -1,5 +1,6 @@
 "use client";
 
+import { BOARD_TEMPLATES } from "@/lib/board/templates";
 import clsx from "clsx";
 import {
   Archive,
@@ -43,6 +44,7 @@ export function PipelineSelector({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [templateId, setTemplateId] = useState("");
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
   const [membersFor, setMembersFor] = useState<BoardSummary | null>(null);
@@ -75,10 +77,11 @@ export function PipelineSelector({
   async function submitNew() {
     if (!newName.trim() || busy) return;
     setBusy(true);
-    const id = await createBoard(newName);
+    const id = await createBoard(newName, templateId || undefined);
     setBusy(false);
     setCreating(false);
     setNewName("");
+    setTemplateId("");
     go(id);
   }
 
@@ -217,21 +220,47 @@ export function PipelineSelector({
           {canConfigure && (
             <div className="border-t border-neutral-100 p-1">
               {creating ? (
-                <div className="flex items-center gap-1 px-2 py-1">
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && submitNew()}
-                    placeholder="Nome do pipeline"
-                    className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-sm outline-none"
-                  />
-                  <button type="button" onClick={submitNew} disabled={busy} className="p-1 text-primary" aria-label="Criar">
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button type="button" onClick={() => setCreating(false)} className="p-1 text-neutral-600" aria-label="Cancelar">
-                    <X className="h-4 w-4" />
-                  </button>
+                <div className="grid gap-1.5 px-2 py-1">
+                  <div className="flex items-center gap-1">
+                    <input
+                      autoFocus
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && submitNew()}
+                      placeholder="Nome do pipeline"
+                      className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1 text-sm outline-none"
+                    />
+                    <button type="button" onClick={submitNew} disabled={busy} className="p-1 text-primary" aria-label="Criar">
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button type="button" onClick={() => setCreating(false)} className="p-1 text-neutral-600" aria-label="Cancelar">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <label className="grid gap-0.5 text-xs text-neutral-600">
+                    Modelo
+                    <select
+                      value={templateId}
+                      onChange={(e) => {
+                        const t = BOARD_TEMPLATES.find((x) => x.id === e.target.value);
+                        setTemplateId(e.target.value);
+                        if (t && !newName.trim()) setNewName(t.label);
+                      }}
+                      className="w-full rounded border border-neutral-300 px-1.5 py-1 text-sm text-neutral-800"
+                    >
+                      <option value="">Em branco (A fazer, Fazendo, Feito)</option>
+                      {BOARD_TEMPLATES.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {templateId && (
+                    <p className="text-xs text-neutral-600">
+                      {BOARD_TEMPLATES.find((t) => t.id === templateId)?.description}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <button
