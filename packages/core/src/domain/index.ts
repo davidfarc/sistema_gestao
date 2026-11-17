@@ -54,6 +54,7 @@ export const ACTIONS = [
   "card:create",
   "card:update",
   "card:move",
+  "card:transfer", // enviar cards para QUALQUER pipeline da organização (sem ser membro do destino)
   "card:assign",
   "comment:create",
   "channel:read",

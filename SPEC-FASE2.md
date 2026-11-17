@@ -521,6 +521,13 @@ Modelo (confirmado pelo David em 16/11):
   `robots.txt` e a troca de código do `/auth/callback`. O que resta é quase todo do próprio Next
   (~2 MiB sem compressão), das páginas e do motor do Prisma (864 KiB comprimido, só usado por Novos
   alunos). Ganho maior daqui em diante pede separar Novos alunos em outro Worker ou o plano pago.
+- **Aviso de atribuição nas Conversas (17/11):** quem é definido como responsável já recebia o
+  aviso no sininho e o push; agora recebe também uma mensagem direta de quem atribuiu, com o link
+  "Abrir o card", e o aviso do sininho mostra o nome do card e do pipeline.
+- **Permissão `card:transfer` (17/11):** "Enviar cards para qualquer pipeline", em Configurações →
+  Papéis. Com ela, o botão "Enviar para outro pipeline" lista todos os pipelines da organização;
+  sem ela, só os de que a pessoa participa ou com a caixa de entrada aberta para ela (antes, só o
+  Gestor, que vê todos, conseguia enviar para qualquer um). Nenhum papel a recebe por padrão.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 

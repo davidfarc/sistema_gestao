@@ -32,6 +32,11 @@ export const ACTION_GROUPS: ActionGroup[] = [
       { action: "card:create", label: "Criar cards", hint: "Abrir novas demandas e tarefas." },
       { action: "card:update", label: "Editar cards", hint: "Alterar título, descrição e propriedades." },
       { action: "card:move", label: "Mover entre etapas", hint: "Arrastar o card no Kanban." },
+      {
+        action: "card:transfer",
+        label: "Enviar cards para qualquer pipeline",
+        hint: "No botão “Enviar para outro pipeline”, permite escolher qualquer pipeline da organização. Sem isto, só aparecem os pipelines de que a pessoa participa ou que têm a caixa de entrada aberta para ela.",
+      },
       { action: "card:assign", label: "Definir responsável", hint: "Atribuir cards a outras pessoas." },
       { action: "comment:create", label: "Comentar", hint: "Escrever nos comentários e mencionar." },
     ],
