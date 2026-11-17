@@ -69,6 +69,7 @@ export function CardContent({
   const [title, setTitle] = useState(data.title);
   const [description, setDescription] = useState(data.description ?? "");
   const [values, setValues] = useState(data.values);
+  const [dueDate, setDueDate] = useState(data.dueDate ? data.dueDate.slice(0, 10) : "");
   const [transferring, setTransferring] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -103,6 +104,12 @@ export function CardContent({
     }
     if (next === data.title) return;
     updateCard({ id: data.id, title: next }).then(onChanged);
+  }
+
+  function saveDueDate(day: string) {
+    setDueDate(day);
+    if (day === (data.dueDate ? data.dueDate.slice(0, 10) : "")) return;
+    updateCard({ id: data.id, dueDate: day || null }).then(onChanged);
   }
 
   function saveDescription(html: string) {
@@ -209,6 +216,28 @@ export function CardContent({
               </dl>
             </Section>
           )}
+
+          <Section title="Prazo">
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                onBlur={(e) => saveDueDate(e.target.value)}
+                aria-label="Prazo do card"
+                className="min-h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+              />
+              {dueDate && (
+                <button
+                  type="button"
+                  onClick={() => saveDueDate("")}
+                  className="min-h-10 rounded-lg px-2 text-sm font-medium text-primary hover:underline"
+                >
+                  Remover prazo
+                </button>
+              )}
+            </div>
+          </Section>
 
           <Section title="Pessoas">
             <div className="grid gap-3 sm:grid-cols-2">

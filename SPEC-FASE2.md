@@ -486,6 +486,10 @@ Modelo (confirmado pelo David em 16/11):
   escolhida. O Kanban do celular continua sendo uma etapa por vez.
 - **Minhas demandas sem troca de etapa:** o card mostra a etapa só para leitura. Mudar de etapa fica
   no Kanban, na Lista e com o card aberto.
+- **Prazo editável (17/11):** o prazo do card (coluna "Prazo", presente em todos os quadros) era só
+  leitura: nenhuma tela gravava. Agora edita-se na Lista (campo de data na célula) e no card aberto
+  (seção "Prazo", com "Remover prazo"). Grava por `updateCard` (permissão `card:update` + escopo) e
+  registra no histórico ("definiu/mudou/removeu o prazo").
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 

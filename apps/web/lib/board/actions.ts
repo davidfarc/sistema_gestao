@@ -537,6 +537,8 @@ export async function updateCard(input: {
   id: string;
   title?: string;
   description?: string;
+  /** Prazo do card (AAAA-MM-DD); null remove o prazo. */
+  dueDate?: string | null;
 }): Promise<void> {
   const actor = await requireActor("card:update");
   await assertCardScope(actor, input.id);
@@ -544,10 +546,29 @@ export async function updateCard(input: {
   const patch: Record<string, unknown> = {};
   if (input.title !== undefined) patch.title = input.title.trim() || "Novo card";
   if (input.description !== undefined) patch.description = input.description;
+  let dueChange: { from: string | null; to: string | null } | null = null;
+  if (input.dueDate !== undefined) {
+    const to = input.dueDate ? input.dueDate.slice(0, 10) : null;
+    if (to !== null && !isRealDate(to)) throw new Error("Data de prazo inválida.");
+    const { data: cur } = await db.from("card").select("due_date").eq("id", input.id).maybeSingle();
+    const from = (cur?.due_date as string | null) ?? null;
+    if (from !== to) {
+      patch.due_date = to;
+      dueChange = { from, to };
+    }
+  }
   if (Object.keys(patch).length === 0) return;
   const { error } = await db.from("card").update(patch).eq("id", input.id);
   if (error) throw new Error(error.message);
+  if (dueChange) await recordActivity(input.id, actor.userId as string, "due_date_changed", dueChange);
   revalidatePath("/board");
+}
+
+/** "AAAA-MM-DD" que existe no calendário (recusa 2026-02-31 e afins). */
+function isRealDate(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const d = new Date(`${day}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day;
 }
 
 /**
@@ -608,7 +629,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
   const db = await createClient(); // sessão → RLS
   const { data: card } = await db
     .from("card")
-    .select("id, number, title, description, board_id, stage_id, archived_at")
+    .select("id, number, title, description, board_id, stage_id, archived_at, due_date")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return null;
@@ -634,6 +655,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     stageId: card.stage_id,
     stageName: stageRes.data?.name ?? "",
     archivedAt: card.archived_at ?? null,
+    dueDate: card.due_date ?? null,
     fields,
     values,
     detail,

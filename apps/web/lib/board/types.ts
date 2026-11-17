@@ -308,6 +308,8 @@ export interface CardPageData {
   stageName: string;
   /** Preenchido quando o card está arquivado (fora dos quadros, listas e relatórios). */
   archivedAt: string | null;
+  /** Prazo do card (AAAA-MM-DD), a mesma data da coluna "Prazo" dos quadros. */
+  dueDate: string | null;
   fields: FieldDef[];
   values: Record<string, FieldValueRaw>; // por fieldId
   detail: CardDetailData;

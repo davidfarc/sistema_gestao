@@ -83,7 +83,7 @@ export function ListView({
     }
   }
   const DEFAULT_W: Record<string, number> = {
-    number: 76, title: 280, stage: 160, solicitante: 160, responsavel: 160, prazo: 128, emendas: 100, rice: 84,
+    number: 76, title: 280, stage: 160, solicitante: 160, responsavel: 160, prazo: 150, emendas: 100, rice: 84,
   };
   const widthOf = (key: string) => widths[key] ?? DEFAULT_W[key] ?? 190;
   function resizer(key: string, label: string) {
@@ -174,6 +174,12 @@ export function ListView({
     if (!next || next === current) return;
     onPatchCard(cardId, { title: next });
     await updateCard({ id: cardId, title: next }).catch(() => router.refresh());
+  }
+  async function saveDue(cardId: string, day: string, current: string | null) {
+    const next = day || null;
+    if (next === (current ? current.slice(0, 10) : null)) return;
+    onPatchCard(cardId, { dueDate: next });
+    await updateCard({ id: cardId, dueDate: next }).catch(() => router.refresh());
   }
   async function changeResponsible(cardId: string, userId: string) {
     onPatchCard(cardId, { assignee: personOf(userId) });
@@ -594,15 +600,21 @@ export function ListView({
                     ))}
                   </WrapSelect>
                 </td>
-                <td
-                  className={
-                    "num px-3 py-2 align-top " + (isOverdue(card) ? "font-bold text-danger" : "text-neutral-700")
-                  }
-                >
-                  {card.dueDate
-                    ? new Date(card.dueDate.slice(0, 10) + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-                    : "—"}
-                  {isOverdue(card) && <span className="ml-1 text-xs">atrasado</span>}
+                <td className="px-3 py-1.5 align-top">
+                  <input
+                    type="date"
+                    // `key`: se o prazo mudar por fora (outra pessoa), o campo acompanha.
+                    key={card.dueDate ?? ""}
+                    defaultValue={card.dueDate ? card.dueDate.slice(0, 10) : ""}
+                    aria-label={`Prazo do card #${card.number}`}
+                    onBlur={(e) => saveDue(card.id, e.target.value, card.dueDate)}
+                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                    className={
+                      "num w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400 " +
+                      (isOverdue(card) ? "font-bold text-danger" : card.dueDate ? "text-neutral-700" : "text-neutral-500")
+                    }
+                  />
+                  {isOverdue(card) && <span className="block px-1 text-xs font-bold text-danger">atrasado</span>}
                 </td>
                 {hasRework && (
                   <td className={"num px-3 py-2 align-top " + (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")}>

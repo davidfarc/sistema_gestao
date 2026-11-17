@@ -27,6 +27,14 @@ function describe(a: ActivityView): string {
       const old = a.payload.oldNumber != null ? ` (era #${a.payload.oldNumber})` : "";
       return `enviou o card de “${from}” para “${to}”${old}`;
     }
+    case "due_date_changed": {
+      const day = (v: unknown) =>
+        typeof v === "string" ? new Date(`${v.slice(0, 10)}T12:00`).toLocaleDateString("pt-BR") : null;
+      const to = day(a.payload.to);
+      const from = day(a.payload.from);
+      if (!to) return "removeu o prazo";
+      return from ? `mudou o prazo de ${from} para ${to}` : `definiu o prazo para ${to}`;
+    }
     default:
       return a.kind;
   }
