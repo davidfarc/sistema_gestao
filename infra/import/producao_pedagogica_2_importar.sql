@@ -11,7 +11,8 @@
 --
 -- Conversão:
 --   material                     → card (nome → título; criado_em → data de criação)
---   prazo                        → prazo do card
+--   prazo                        → prazo do card (sem prazo e sem propriedade de
+--                                  finalização: usa a data de fim)
 --   membro_email                 → responsável (usuário com o mesmo e-mail)
 --   status + parecer             → etapa: aprovado → concluída; emenda → etapa de
 --                                  emenda; entregue (ou reentregue) → revisão;
@@ -27,6 +28,18 @@
 --
 -- A função só roda pelo SQL Editor (sem acesso pela API). Não contém dados.
 -- ============================================================================
+
+-- Compara rótulos sem acento, maiúsculas, espaços ou pontuação, e trata
+-- "Up Grades" / "Upgrades" / "Up grade" como "Upgrade".
+create or replace function public.import_pp_norm(p text) returns text
+language sql immutable as $$
+  select regexp_replace(
+           regexp_replace(
+             lower(translate(coalesce(p, ''), 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')),
+             'up\s*grades?', 'upgrade', 'g'),
+           '[^a-z0-9]+', '', 'g')
+$$;
+revoke all on function public.import_pp_norm(text) from public, anon, authenticated;
 
 create or replace function public.import_producao_pedagogica(
   p_board  text,
@@ -55,6 +68,10 @@ declare
   v_card     uuid;
   v_desc     text;
   v_opt      text;
+  v_lbl      text;
+  n_prazo    int := 0;
+  n_prazo_fim int := 0;
+  convertidos text[] := '{}';
   v_n        int;
   v_sit      text;
   v_entregue boolean;
@@ -114,12 +131,12 @@ begin
      and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) in ('finalizacao', 'fim', 'data final', 'data de finalizacao') limit 1;
   select id into f_link from field_definition
    where board_id = b.id and archived_at is null and type in ('link', 'text')
-     and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) = 'link do autor' limit 1;
+     and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) in ('link do autor', 'pasta de trabalho') limit 1;
   if f_seg.id  is null then avisos := array_append(avisos, 'Propriedade "Segmento" (de opções) não existe no pipeline: o segmento não será importado.'::text); end if;
   if f_tipo.id is null then avisos := array_append(avisos, 'Propriedade "Tipo de material" (de opções) não existe no pipeline: o tipo não será importado.'::text); end if;
   if f_inicio  is null then avisos := array_append(avisos, 'Propriedade de data "Início" (ou "Data inicial") não existe no pipeline: o início não será importado.'::text); end if;
-  if f_fim     is null then avisos := array_append(avisos, 'Propriedade de data "Finalização" (ou "Data final") não existe no pipeline: a finalização não será importada.'::text); end if;
-  if f_link    is null then avisos := array_append(avisos, 'Propriedade "Link do autor" não existe no pipeline: o link não será importado.'::text); end if;
+  -- Sem propriedade de finalização: a data de fim entra no PRAZO do card quando o material não tinha prazo.
+  if f_link    is null then avisos := array_append(avisos, 'Propriedade "Pasta de trabalho" (ou "Link do autor") não existe no pipeline: o link não será importado.'::text); end if;
 
   select coalesce(max(position), 0) into v_pos from card where board_id = b.id;
 
@@ -186,10 +203,12 @@ begin
       end if;
 
       v_pos := v_pos + 1000;
+      if m.d_prazo is not null then n_prazo := n_prazo + 1;
+      elsif f_fim is null and m.d_fim is not null then n_prazo_fim := n_prazo_fim + 1; end if;
       insert into card (organization_id, board_id, stage_id, title, description, due_date, position,
                         created_at, updated_at, stage_entered_at, completed_at, rework_count)
       values (b.organization_id, b.id, v_stage, coalesce(nullif(trim(m.nome), ''), 'Material sem nome'), v_desc,
-              m.d_prazo, v_pos, m.t_criado, m.t_atualizado,
+              coalesce(m.d_prazo, case when f_fim is null then m.d_fim end), v_pos, m.t_criado, m.t_atualizado,
               coalesce(m.p_atualizado, m.t_entrega, m.t_atualizado),
               case when v_sit = 'aprovado' then coalesce(m.p_atualizado, m.t_atualizado) end,
               m.p_emendas)
@@ -204,8 +223,22 @@ begin
 
       -- Segmento e tipo: opção pelo rótulo; a que não existe é acrescentada.
       if f_seg.id is not null and trim(coalesce(m.segmento, '')) <> '' then
-        select o ->> 'id' into v_opt from jsonb_array_elements(coalesce(f_seg.config -> 'options', '[]'::jsonb)) o
-         where lower(trim(o ->> 'label')) = lower(trim(m.segmento)) limit 1;
+        v_opt := null; v_lbl := null;
+        select o ->> 'id', o ->> 'label' into v_opt, v_lbl
+          from jsonb_array_elements(coalesce(f_seg.config -> 'options', '[]'::jsonb)) o
+         where public.import_pp_norm(o ->> 'label') = public.import_pp_norm(m.segmento) limit 1;
+        if v_opt is null then
+          -- Sem igual: a opção que é o começo do nome antigo ("Básico Infantil" → "Básico").
+          select o ->> 'id', o ->> 'label' into v_opt, v_lbl
+            from jsonb_array_elements(coalesce(f_seg.config -> 'options', '[]'::jsonb)) o
+           where public.import_pp_norm(o ->> 'label') <> ''
+             and public.import_pp_norm(m.segmento) like public.import_pp_norm(o ->> 'label') || '%'
+           order by length(public.import_pp_norm(o ->> 'label')) desc limit 1;
+        end if;
+        if v_opt is not null and trim(v_lbl) <> trim(m.segmento)
+           and not ((trim(m.segmento) || ' → ' || trim(v_lbl)) = any (convertidos)) then
+          convertidos := array_append(convertidos, trim(m.segmento) || ' → ' || trim(v_lbl));
+        end if;
         if v_opt is null then
           v_opt := 'imp' || substr(md5(lower(trim(m.segmento))), 1, 8);
           f_seg.config := jsonb_set(coalesce(f_seg.config, '{}'::jsonb), '{options}',
@@ -218,8 +251,22 @@ begin
         values (f_seg.id, v_card, b.organization_id, v_opt);
       end if;
       if f_tipo.id is not null and trim(coalesce(m.tipo, '')) <> '' then
-        select o ->> 'id' into v_opt from jsonb_array_elements(coalesce(f_tipo.config -> 'options', '[]'::jsonb)) o
-         where lower(trim(o ->> 'label')) = lower(trim(m.tipo)) limit 1;
+        v_opt := null; v_lbl := null;
+        select o ->> 'id', o ->> 'label' into v_opt, v_lbl
+          from jsonb_array_elements(coalesce(f_tipo.config -> 'options', '[]'::jsonb)) o
+         where public.import_pp_norm(o ->> 'label') = public.import_pp_norm(m.tipo) limit 1;
+        if v_opt is null then
+          -- Sem igual: a opção que é o começo do nome antigo ("Básico Infantil" → "Básico").
+          select o ->> 'id', o ->> 'label' into v_opt, v_lbl
+            from jsonb_array_elements(coalesce(f_tipo.config -> 'options', '[]'::jsonb)) o
+           where public.import_pp_norm(o ->> 'label') <> ''
+             and public.import_pp_norm(m.tipo) like public.import_pp_norm(o ->> 'label') || '%'
+           order by length(public.import_pp_norm(o ->> 'label')) desc limit 1;
+        end if;
+        if v_opt is not null and trim(v_lbl) <> trim(m.tipo)
+           and not ((trim(m.tipo) || ' → ' || trim(v_lbl)) = any (convertidos)) then
+          convertidos := array_append(convertidos, trim(m.tipo) || ' → ' || trim(v_lbl));
+        end if;
         if v_opt is null then
           v_opt := 'imp' || substr(md5(lower(trim(m.tipo))), 1, 8);
           f_tipo.config := jsonb_set(coalesce(f_tipo.config, '{}'::jsonb), '{options}',
@@ -273,7 +320,10 @@ begin
       'dias_de_diario_usados', n_diario,
       'dias_de_diario_no_arquivo', (select count(*) from import_pp_diario where trim(coalesce(texto, '')) <> ''),
       'responsaveis_sem_usuario', to_jsonb(sem_usuario),
+      'opcoes_convertidas', to_jsonb(convertidos),
       'opcoes_acrescentadas', to_jsonb(opcoes_novas),
+      'prazo_vindo_do_prazo_antigo', n_prazo,
+      'prazo_vindo_da_finalizacao', n_prazo_fim,
       'avisos', to_jsonb(avisos));
 
     -- Simulação: desfaz tudo o que este bloco gravou (o resumo já está montado).
