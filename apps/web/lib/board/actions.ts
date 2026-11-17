@@ -539,6 +539,8 @@ export async function updateCard(input: {
   description?: string;
   /** Prazo do card (AAAA-MM-DD); null remove o prazo. */
   dueDate?: string | null;
+  /** Correção manual do número de emendas (a contagem automática continua valendo). */
+  reworkCount?: number;
 }): Promise<void> {
   const actor = await requireActor("card:update");
   await assertCardScope(actor, input.id);
@@ -557,10 +559,22 @@ export async function updateCard(input: {
       dueChange = { from, to };
     }
   }
+  let reworkChange: { from: number; to: number } | null = null;
+  if (input.reworkCount !== undefined) {
+    const to = Math.floor(Number(input.reworkCount));
+    if (!Number.isFinite(to) || to < 0 || to > 999) throw new Error("Número de emendas inválido.");
+    const { data: cur } = await db.from("card").select("rework_count").eq("id", input.id).maybeSingle();
+    const from = Number(cur?.rework_count ?? 0);
+    if (from !== to) {
+      patch.rework_count = to;
+      reworkChange = { from, to };
+    }
+  }
   if (Object.keys(patch).length === 0) return;
   const { error } = await db.from("card").update(patch).eq("id", input.id);
   if (error) throw new Error(error.message);
   if (dueChange) await recordActivity(input.id, actor.userId as string, "due_date_changed", dueChange);
+  if (reworkChange) await recordActivity(input.id, actor.userId as string, "rework_changed", reworkChange);
   revalidatePath("/board");
 }
 
@@ -629,17 +643,19 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
   const db = await createClient(); // sessão → RLS
   const { data: card } = await db
     .from("card")
-    .select("id, number, title, description, board_id, stage_id, archived_at, due_date")
+    .select("id, number, title, description, board_id, stage_id, archived_at, due_date, rework_count")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return null;
 
-  const [boardRes, stageRes, detail, fields, valuesRaw] = await Promise.all([
+  const [boardRes, stageRes, detail, fields, valuesRaw, reworkStage] = await Promise.all([
     db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
     db.from("stage").select("name").eq("id", card.stage_id).maybeSingle(),
     loadCardDetail(cardId),
     loadFields(card.board_id),
     loadCardFieldValues(cardId),
+    // O pipeline conta emendas? (tem alguma etapa marcada como "de emenda")
+    db.from("stage").select("id").eq("board_id", card.board_id).eq("counts_rework", true).limit(1),
   ]);
 
   const values: Record<string, FieldValueRaw> = {};
@@ -656,6 +672,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     stageName: stageRes.data?.name ?? "",
     archivedAt: card.archived_at ?? null,
     dueDate: card.due_date ?? null,
+    reworkCount: (reworkStage.data ?? []).length > 0 ? Number(card.rework_count ?? 0) : null,
     fields,
     values,
     detail,

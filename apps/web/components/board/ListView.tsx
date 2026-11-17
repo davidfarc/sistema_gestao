@@ -181,6 +181,12 @@ export function ListView({
     onPatchCard(cardId, { dueDate: next });
     await updateCard({ id: cardId, dueDate: next }).catch(() => router.refresh());
   }
+  async function saveRework(cardId: string, raw: string, current: number) {
+    const next = Math.floor(Number(raw));
+    if (raw.trim() === "" || !Number.isFinite(next) || next < 0 || next > 999 || next === current) return;
+    onPatchCard(cardId, { reworkCount: next });
+    await updateCard({ id: cardId, reworkCount: next }).catch(() => router.refresh());
+  }
   async function changeResponsible(cardId: string, userId: string) {
     onPatchCard(cardId, { assignee: personOf(userId) });
     await setCardResponsible(cardId, userId || null).catch(() => router.refresh());
@@ -617,8 +623,24 @@ export function ListView({
                   {isOverdue(card) && <span className="block px-1 text-xs font-bold text-danger">atrasado</span>}
                 </td>
                 {hasRework && (
-                  <td className={"num px-3 py-2 align-top " + (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")}>
-                    {card.reworkCount ?? 0}
+                  <td className="px-3 py-1.5 align-top">
+                    <input
+                      type="number"
+                      min={0}
+                      max={999}
+                      step={1}
+                      inputMode="numeric"
+                      // `key`: quando a contagem automática ou outra pessoa muda o número, o campo acompanha.
+                      key={card.reworkCount ?? 0}
+                      defaultValue={card.reworkCount ?? 0}
+                      aria-label={`Emendas do card #${card.number}`}
+                      onBlur={(e) => saveRework(card.id, e.target.value, card.reworkCount ?? 0)}
+                      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                      className={
+                        "num w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400 " +
+                        (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")
+                      }
+                    />
                   </td>
                 )}
                 {isDemandas && (

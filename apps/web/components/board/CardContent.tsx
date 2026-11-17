@@ -1,7 +1,7 @@
 "use client";
 
 import { Archive, ArrowRightLeft } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { setCardArchived, setFieldValue, updateCard } from "@/lib/board/actions";
 import { canEditField } from "@/lib/board/types";
@@ -70,6 +70,10 @@ export function CardContent({
   const [description, setDescription] = useState(data.description ?? "");
   const [values, setValues] = useState(data.values);
   const [dueDate, setDueDate] = useState(data.dueDate ? data.dueDate.slice(0, 10) : "");
+  const [rework, setRework] = useState(String(data.reworkCount ?? 0));
+  // O número muda por fora (contagem automática ao mover o card): o campo acompanha.
+  useEffect(() => setRework(String(data.reworkCount ?? 0)), [data.reworkCount]);
+  useEffect(() => setDueDate(data.dueDate ? data.dueDate.slice(0, 10) : ""), [data.dueDate]);
   const [transferring, setTransferring] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -110,6 +114,17 @@ export function CardContent({
     setDueDate(day);
     if (day === (data.dueDate ? data.dueDate.slice(0, 10) : "")) return;
     updateCard({ id: data.id, dueDate: day || null }).then(onChanged);
+  }
+
+  function saveRework(raw: string) {
+    const next = Math.floor(Number(raw));
+    if (raw.trim() === "" || !Number.isFinite(next) || next < 0 || next > 999) {
+      setRework(String(data.reworkCount ?? 0));
+      return;
+    }
+    setRework(String(next));
+    if (next === (data.reworkCount ?? 0)) return;
+    updateCard({ id: data.id, reworkCount: next }).then(onChanged);
   }
 
   function saveDescription(html: string) {
@@ -238,6 +253,29 @@ export function CardContent({
               )}
             </div>
           </Section>
+
+          {data.reworkCount !== null && (
+            <Section title="Emendas">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={999}
+                  step={1}
+                  inputMode="numeric"
+                  value={rework}
+                  onChange={(e) => setRework(e.target.value)}
+                  onBlur={(e) => saveRework(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+                  aria-label="Número de emendas"
+                  className="num min-h-10 w-24 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                />
+                <p className="min-w-0 flex-1 text-sm text-neutral-600">
+                  Sobe sozinho a cada entrada do card numa etapa de emenda. Corrija aqui se precisar.
+                </p>
+              </div>
+            </Section>
+          )}
 
           <Section title="Pessoas">
             <div className="grid gap-3 sm:grid-cols-2">

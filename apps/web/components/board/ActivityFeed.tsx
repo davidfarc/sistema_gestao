@@ -35,6 +35,8 @@ function describe(a: ActivityView): string {
       if (!to) return "removeu o prazo";
       return from ? `mudou o prazo de ${from} para ${to}` : `definiu o prazo para ${to}`;
     }
+    case "rework_changed":
+      return `corrigiu as emendas de ${a.payload.from ?? 0} para ${a.payload.to ?? 0}`;
     default:
       return a.kind;
   }

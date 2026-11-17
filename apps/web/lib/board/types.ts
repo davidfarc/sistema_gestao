@@ -310,6 +310,8 @@ export interface CardPageData {
   archivedAt: string | null;
   /** Prazo do card (AAAA-MM-DD), a mesma data da coluna "Prazo" dos quadros. */
   dueDate: string | null;
+  /** Emendas do card; null quando o pipeline não tem etapa de emenda. */
+  reworkCount: number | null;
   fields: FieldDef[];
   values: Record<string, FieldValueRaw>; // por fieldId
   detail: CardDetailData;
