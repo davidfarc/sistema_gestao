@@ -236,11 +236,12 @@ em linguagem natural: "o que a equipe fez esta semana?", "quais pipelines estão
 |---|---|
 | `listar_pipelines` | Pipelines visíveis, com etapas e contagem de cards |
 | `resumo_pipeline(pipeline, período)` | Cards por etapa, criados × concluídos, atrasados, parados, tempo médio por etapa e do início ao fim |
-| `atividades(período, pipeline?, usuário?)` | Linha do tempo: criações, movimentações, atribuições, comentários, checklists |
+| `atividades(período, pipeline?, usuário?, pular?)` | Linha do tempo: criações, movimentações, atribuições, prazos, emendas, comentários, checklists. Paginada (`truncado`, `proxima_pagina`), com hora de São Paulo e ações em lote agrupadas (0048) |
+| `tempo_por_tarefa(período, pipeline?, usuário?)` | Horas do cronômetro: total, por pessoa, pipeline, dia e card; quem está cronometrando agora (0048). Sem `time:read`, só o próprio tempo |
 | `produtividade_usuario(usuário?, período)` | Por pessoa: cards concluídos, movimentações, comentários, itens de checklist, cards em aberto e atrasados, tempo médio de conclusão |
 | `produtividade_pipeline(período)` | Comparativo entre pipelines: vazão semanal, tempo de ciclo, gargalo (etapa com maior permanência) |
 | `buscar_cards(texto, filtros)` | Cards por título, responsável, etapa, prazo |
-| `detalhe_card(id ou #número)` | Card com campos, checklist, comentários e histórico |
+| `detalhe_card(id ou #número)` | Card com campos, checklist, comentários, emendas, horas registradas e histórico |
 
 As contas ficam em funções SQL no Postgres (`report_*`), usadas também pelo Painel (B.4).
 `produtividade_*` depende dos dados novos da seção A (`fromStageId`, `completed_at`); para
@@ -718,6 +719,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
 | `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | ✅ Aplicada em 17/11 |
 | `0047_card_read_all.sql` | Permissão `card:read_all` nos papéis existentes e `can_see_card` passa a conferi-la | **A aplicar** |
+| `0048_mcp_reports_v2.sql` | MCP: `report_time` (horas), `atividades` paginada com lotes agrupados e hora local, detalhe do card com emendas e tempo, alcance respeitando `card:read_all`. Só troca funções | **A aplicar** (depois, republicar o Worker `ecco-mcp`) |
 
 ### Bloco A — Quadro (código completo)
 

@@ -49,10 +49,10 @@ test("notificação não tem resposta (202)", async () => {
   assert.equal(await res.text(), "");
 });
 
-test("tools/list traz as 7 ferramentas, todas marcadas como somente leitura", async () => {
+test("tools/list traz as 8 ferramentas, todas marcadas como somente leitura", async () => {
   const { d } = deps();
   const body = (await (await handleRequest(post(rpc("tools/list")), d)).json()) as any;
-  assert.equal(body.result.tools.length, 7);
+  assert.equal(body.result.tools.length, 8);
   assert.deepEqual(
     body.result.tools.map((t: any) => t.name).sort(),
     TOOLS.map((t) => t.name).sort(),

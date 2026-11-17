@@ -1,7 +1,7 @@
 /**
- * As 7 ferramentas do MCP (SPEC-FASE2 §D.2). Aqui fica só a "vitrine": nome,
+ * As 8 ferramentas do MCP (SPEC-FASE2 §D.2). Aqui fica só a "vitrine": nome,
  * descrição e formato dos argumentos, que é o que o assistente lê para decidir
- * qual usar. As contas ficam no banco (funções `report_*`, migration 0039).
+ * qual usar. As contas ficam no banco (funções `report_*`, migrations 0039 e 0048).
  */
 
 export interface ToolDef {
@@ -69,13 +69,24 @@ export const TOOLS: ToolDef[] = [
   tool(
     "atividades",
     "Atividades no período",
-    "Linha do tempo do que aconteceu: cards criados, movimentações entre etapas, trocas de responsável, itens de checklist e comentários, do mais recente para o mais antigo. Use para 'o que a equipe fez esta semana?'. Filtrar por outra pessoa exige permissão de gestão.",
+    "Linha do tempo do que aconteceu: cards criados, movimentações entre etapas, trocas de responsável, prazos e emendas alterados, itens de checklist e comentários, do mais recente para o mais antigo. Cada evento traz 'quando' (UTC) e 'quando_local' (São Paulo). Ações em lote (ex.: importação de muitos cards no mesmo instante) vêm como UMA linha com 'lote' e 'quantidade'. Sempre confira 'truncado': se for verdadeiro, chame de novo com pular = 'proxima_pagina' até acabar antes de contar ou resumir. 'total_de_acoes' conta cada lote uma vez; 'total_de_eventos' conta card a card. Filtrar por outra pessoa exige permissão de gestão.",
     {
       ...periodo,
       pipeline,
       usuario,
-      limite: { type: "integer", minimum: 1, maximum: 300, description: "Máximo de eventos (padrão 100)." },
+      limite: { type: "integer", minimum: 1, maximum: 300, description: "Máximo de linhas por página (padrão 100)." },
+      pular: { type: "integer", minimum: 0, description: "Quantas linhas pular (use o 'proxima_pagina' da resposta anterior)." },
+      agrupar_lotes: {
+        type: "boolean",
+        description: "Juntar ações em lote numa linha só (padrão: sim). Use false para ver card a card.",
+      },
     },
+  ),
+  tool(
+    "tempo_por_tarefa",
+    "Horas registradas (cronômetro)",
+    "Horas apontadas no cronômetro dos cards, no período: total, por pessoa, por pipeline, por dia e por card (os 50 com mais horas), além de quem está com o cronômetro ligado agora. Use para 'quantas horas a equipe trabalhou?' e 'em que card foi gasto mais tempo?'. Só conta pipelines com o controle de tempo ligado e o que as pessoas de fato cronometraram; não é folha de ponto. Quem não tem a permissão de ver o tempo da equipe vê só o próprio.",
+    { ...periodo, pipeline, usuario },
   ),
   tool(
     "produtividade_usuario",
@@ -106,7 +117,7 @@ export const TOOLS: ToolDef[] = [
   tool(
     "detalhe_card",
     "Detalhe de um card",
-    "Tudo de um card: etapa, responsável, solicitante, prazo, descrição, propriedades, checklists, comentários recentes e histórico de movimentações. Informe o id (vem de buscar_cards) ou o número com o pipeline.",
+    "Tudo de um card: etapa, responsável, solicitante, prazo, descrição, propriedades, checklists, comentários recentes, emendas, horas registradas no cronômetro e histórico (movimentações e alterações). Informe o id (vem de buscar_cards) ou o número com o pipeline.",
     {
       card: { type: "string", description: "Id do card, ou o número (ex.: '#142')." },
       pipeline: { ...pipeline, description: "Necessário quando 'card' é um número que existe em mais de um pipeline." },
@@ -122,5 +133,8 @@ export const INSTRUCTIONS =
   "Você enxerga exatamente os pipelines que o dono do token enxerga. Comece por listar_pipelines para conhecer os nomes. " +
   "Períodos usam 'dias' (padrão 30) ou 'de'/'ate' em AAAA-MM-DD, no fuso de São Paulo. " +
   "'Parado' significa mais de 7 dias na mesma etapa; 'atrasado' é prazo vencido em card não concluído. " +
+  "Em 'atividades', horários vêm em UTC ('quando') e em São Paulo ('quando_local'); use o local para dizer o dia. Se 'truncado' vier verdadeiro, pagine com 'pular' antes de tirar conclusões. Linhas com 'lote' são ações automáticas (importações): não as conte como trabalho de uma pessoa. " +
+  "Horas trabalhadas vêm de tempo_por_tarefa (cronômetro dos cards), não da contagem de eventos. " +
+  "Cards de teste podem existir misturados aos reais: na dúvida, pergunte. " +
   "Tempos por etapa de movimentações antigas são reconstruídos pelo histórico e podem ser aproximados. " +
   "Dados de alunos e famílias (Gestão de Vila, Novos alunos) não estão disponíveis aqui.";
