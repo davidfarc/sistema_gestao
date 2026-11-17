@@ -534,6 +534,16 @@ Modelo (confirmado pelo David em 16/11):
   barra, em laço. Agora o cabeçalho só tem largura própria no Kanban e na Lista, medida pela
   própria área com 1px de folga, e a página reserva sempre o espaço da barra vertical
   (`scrollbar-gutter: stable`). Reproduzido e conferido com larguras fracionárias nas três visões.
+- **Abrir "Novo card" e a Lista sem espera (18/11):** o clique em "Novo card" fazia três idas ao
+  servidor em fila (recarregar o quadro inteiro por causa do `?novo=1`, buscar propriedades e
+  pessoas, buscar modelos de checklist). Agora: (1) o endereço muda por `history.replaceState`, sem
+  pedir o quadro de novo; (2) propriedades, valores, pessoas e modelos são buscados uma vez, em
+  segundo plano, logo depois de o quadro aparecer (`BoardExtras`, numa chamada só) e reaproveitados
+  pelos três formulários e pela Lista, que abre com as colunas prontas e confere por trás; (3) ao
+  salvar, o formulário some na hora, o card aparece na primeira etapa como "salvando…" e é trocado
+  pelo card de verdade quando o servidor responde; se o servidor recusar, o formulário volta com o
+  erro e tudo o que foi digitado. Conferido em navegador local: janela em ~130 ms, Lista em
+  ~140 ms, e o caminho de falha.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 

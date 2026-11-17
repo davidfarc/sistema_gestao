@@ -43,6 +43,7 @@ import { stopTimersOnCard } from "@/lib/time/stop";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  ChecklistTemplate,
   ActivityView,
   AttachmentView,
   CardDetailData,
@@ -721,19 +722,23 @@ export async function loadListData(boardId: string): Promise<{
   values: { cardId: string; value: FieldValueRaw }[];
   members: MemberOption[];
   prioritizedCardIds: string[];
+  /** Modelos de checklist do pipeline (vazio antes da migration 0045). */
+  templates: ChecklistTemplate[];
 }> {
   const db = await createClient(); // sessão → RLS
-  const [fields, values, members, prio] = await Promise.all([
+  const [fields, values, members, prio, tpl] = await Promise.all([
     loadFields(boardId),
     loadFieldValuesByBoard(boardId),
     loadMembers(),
     db.from("prioritization").select("card_id").eq("board_id", boardId).is("archived_at", null),
+    db.from("checklist_template").select("id, name, items").eq("board_id", boardId).order("name"),
   ]);
   return {
     fields,
     values,
     members,
     prioritizedCardIds: (prio.data ?? []).map((p) => p.card_id),
+    templates: (tpl.data ?? []).map((t) => ({ id: t.id, name: t.name, items: (t.items ?? []) as string[] })),
   };
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, Link2 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 
 import { createCard } from "@/lib/board/actions";
 import { TemplatePicker } from "./TemplatePicker";
@@ -19,29 +19,63 @@ import { GenericCreateForm } from "./GenericCreateForm";
  * QUAL formulário aparece continua sendo o `creation_form` do pipeline — o link
  * não carrega essa informação, então segue valendo se o modo mudar depois.
  */
-export function NewCardDialog({ canCreate = true }: { canCreate?: boolean }) {
+export function NewCardDialog({
+  canCreate = true,
+  optimistic,
+}: {
+  canCreate?: boolean;
+  /**
+   * Criação sem espera, fornecida pelo quadro: `begin` mostra o card na coluna
+   * assim que a gravação começa, `commit` troca pelo card de verdade e `abort`
+   * o retira se o servidor recusar. Sem isto, a tela recarrega ao criar.
+   */
+  optimistic?: {
+    begin: (title: string) => string;
+    commit: (tempId: string, cardId: string) => void;
+    abort: (tempId: string) => void;
+  };
+}) {
   const router = useRouter();
-  const pathname = usePathname();
   const params = useSearchParams();
+  // Gravando: o formulário some da tela (continua montado, com o que foi
+  // digitado) e volta só se o servidor recusar.
+  const [saving, setSaving] = useState(false);
+  const tempId = useRef<string | null>(null);
   const boardId = useBoardId();
   const mode = useCreationForm();
 
   const open = params.get(NOVO_PARAM) === "1";
 
   function setOpen(next: boolean) {
-    const q = new URLSearchParams(params.toString());
+    const q = new URLSearchParams(window.location.search);
     if (next) q.set(NOVO_PARAM, "1");
     else q.delete(NOVO_PARAM);
     const qs = q.toString();
-    const url = qs ? `${pathname}?${qs}` : pathname;
-    // `replace`: abrir e fechar o formulário não deve empilhar histórico —
-    // o "voltar" do navegador tem que sair do quadro, não desfazer o modal.
-    router.replace(url, { scroll: false });
+    // `history.replaceState` (e não `router.replace`): muda o endereço sem
+    // pedir o quadro de novo ao servidor, então o formulário abre na hora. O
+    // Next mantém `useSearchParams` em dia com ele. "Replace" porque abrir e
+    // fechar o formulário não deve empilhar histórico.
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   }
 
-  function done() {
+  function saving_(title: string) {
+    if (!optimistic) return;
+    tempId.current = optimistic.begin(title);
+    setSaving(true);
+  }
+
+  function failed() {
+    if (tempId.current && optimistic) optimistic.abort(tempId.current);
+    tempId.current = null;
+    setSaving(false);
+  }
+
+  function done(cardId: string) {
     setOpen(false);
-    router.refresh();
+    setSaving(false);
+    if (optimistic && tempId.current) optimistic.commit(tempId.current, cardId);
+    else router.refresh();
+    tempId.current = null;
   }
 
   const customKey = mode.startsWith("custom:") ? mode.slice("custom:".length) : null;
@@ -53,21 +87,25 @@ export function NewCardDialog({ canCreate = true }: { canCreate?: boolean }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-primary-high"
+        disabled={saving}
+        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-primary-high disabled:opacity-60"
       >
-        + Novo card
+        {saving ? "Criando…" : "+ Novo card"}
       </button>
 
-      {open &&
-        (!canCreate ? (
-          <SemPermissao onClose={() => setOpen(false)} />
-        ) : mode === "generic" ? (
-          <GenericCreateForm boardId={boardId} onClose={() => setOpen(false)} onCreated={done} />
-        ) : CustomForm ? (
-          <CustomForm boardId={boardId} onClose={() => setOpen(false)} onCreated={done} />
-        ) : (
-          <SimpleCreate boardId={boardId} onClose={() => setOpen(false)} onCreated={done} />
-        ))}
+      {open && (
+        <div hidden={saving}>
+          {!canCreate ? (
+            <SemPermissao onClose={() => setOpen(false)} />
+          ) : mode === "generic" ? (
+            <GenericCreateForm boardId={boardId} onClose={() => setOpen(false)} onCreated={done} onSaving={saving_} onFailed={failed} />
+          ) : CustomForm ? (
+            <CustomForm boardId={boardId} onClose={() => setOpen(false)} onCreated={done} onSaving={saving_} onFailed={failed} />
+          ) : (
+            <SimpleCreate boardId={boardId} onClose={() => setOpen(false)} onCreated={done} onSaving={saving_} onFailed={failed} />
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -144,10 +182,14 @@ export function SimpleCreate({
   boardId,
   onClose,
   onCreated,
+  onSaving,
+  onFailed,
 }: {
   boardId: string;
   onClose: () => void;
   onCreated: (cardId: string) => void;
+  onSaving?: (title: string) => void;
+  onFailed?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
@@ -161,11 +203,13 @@ export function SimpleCreate({
       return;
     }
     setError(null);
+    onSaving?.(title.trim());
     startTransition(async () => {
       try {
         onCreated(await createCard(boardId, title, templateIds));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao criar o card.");
+        onFailed?.();
       }
     });
   }

@@ -23,7 +23,7 @@ import { memberView } from "@/lib/board/avatar";
 import { resolveChip } from "@/lib/board/chips";
 import { matchesFilter } from "@/lib/board/filters";
 import { computeDemand } from "@/lib/demandas/eval";
-import { useBoardId, useCreationForm, useMyUserId, useThresholds } from "./BoardContext";
+import { useBoardExtras, useBoardId, useCreationForm, useMyUserId, useThresholds } from "./BoardContext";
 import { CreateFormConfig } from "./CreateFormConfig";
 import { EMPTY_FILTERS, ListToolbar, SortHeader, type ListFilters, type SortKey } from "./ListToolbar";
 import { AddProperty, FieldEditor, FieldMenu } from "./fieldControls";
@@ -61,12 +61,15 @@ export function ListView({
   const boardId = useBoardId();
   const creationForm = useCreationForm();
   const myUserId = useMyUserId();
-  const [fields, setFields] = useState<FieldDef[]>([]);
-  const [values, setValues] = useState<Record<string, FieldValueRaw>>({});
-  const [members, setMembers] = useState<MemberOption[]>([]);
+  const extras = useBoardExtras();
+  const [fields, setFields] = useState<FieldDef[]>(extras.data?.fields ?? []);
+  const [values, setValues] = useState<Record<string, FieldValueRaw>>(() =>
+    Object.fromEntries((extras.data?.values ?? []).map((v) => [`${v.cardId}|${v.value.fieldId}`, v.value])),
+  );
+  const [members, setMembers] = useState<MemberOption[]>(extras.data?.members ?? []);
   const [adding, setAdding] = useState(false);
   const [configuring, setConfiguring] = useState(false);
-  const [prioritized, setPrioritized] = useState<Set<string>>(new Set());
+  const [prioritized, setPrioritized] = useState<Set<string>>(new Set(extras.data?.prioritizedCardIds ?? []));
   const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
   // Largura das colunas: ajustável arrastando a borda do cabeçalho, lembrada
   // por pipeline neste navegador. As colunas não cabem? A tabela rola de lado.
@@ -121,8 +124,10 @@ export function ListView({
     return (id: string) => m.get(id) ?? "—";
   }, [stages]);
 
+  // Os dados vêm do quadro (já buscados em segundo plano): a Lista abre com as
+  // colunas prontas e confere no servidor por trás.
   async function reload() {
-    const data = await loadListData(boardId);
+    const data = (await extras.reload()) ?? (await loadListData(boardId));
     setFields(data.fields);
     setMembers(data.members);
     setValues(
@@ -547,7 +552,7 @@ export function ListView({
                   onClick={() => onOpenCard(card.id)}
                   title="Abrir card"
                 >
-                  #{card.number}
+                  {card.pending ? "…" : `#${card.number}`}
                   {prioritized.has(card.id) && (
                     <span className="ml-1 text-emerald-600" title="Priorizada">
                       ★

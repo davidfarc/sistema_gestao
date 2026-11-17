@@ -10,6 +10,10 @@ export interface CustomFormProps {
   boardId: string;
   onClose: () => void;
   onCreated: (cardId: string) => void;
+  /** A gravação começou (dados já validados): o quadro mostra o card na hora. */
+  onSaving?: (title: string) => void;
+  /** A gravação falhou: o formulário volta à tela, com o erro e o que foi digitado. */
+  onFailed?: () => void;
   /**
    * Campos resolvidos no servidor, para a caixa de entrada (quem abre o
    * formulário sem enxergar o pipeline). Quando ausente, o formulário busca

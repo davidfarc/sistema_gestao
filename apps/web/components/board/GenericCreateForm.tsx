@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createCardWithFields, loadFields, loadMembers } from "@/lib/board/actions";
 import type { FieldDef, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { FieldEditor } from "./fieldControls";
+import { useBoardExtras } from "./BoardContext";
 import { TemplatePicker } from "./TemplatePicker";
 
 function emptyRaw(fieldId: string): FieldValueRaw {
@@ -20,11 +21,15 @@ export function GenericCreateForm({
   boardId,
   onClose,
   onCreated,
+  onSaving,
+  onFailed,
   initialFields,
 }: {
   boardId: string;
   onClose: () => void;
   onCreated: (cardId: string) => void;
+  onSaving?: (title: string) => void;
+  onFailed?: () => void;
   /**
    * Campos já resolvidos pelo servidor. Usado pela caixa de entrada: quem não
    * enxerga o pipeline não consegue lê-los pela RLS, e `loadFields` devolveria
@@ -32,10 +37,12 @@ export function GenericCreateForm({
    */
   initialFields?: FieldDef[];
 }) {
-  const [fields, setFields] = useState<FieldDef[]>(
-    initialFields ? initialFields.filter((f) => f.showOnCreate) : [],
-  );
-  const [members, setMembers] = useState<MemberOption[]>([]);
+  // Dentro do quadro, propriedades e pessoas já foram buscadas: o formulário
+  // abre pronto, sem esperar o servidor.
+  const extras = useBoardExtras();
+  const known = initialFields ?? extras.data?.fields;
+  const [fields, setFields] = useState<FieldDef[]>(known ? known.filter((f) => f.showOnCreate) : []);
+  const [members, setMembers] = useState<MemberOption[]>(extras.data?.members ?? []);
   const [title, setTitle] = useState("");
   const [entries, setEntries] = useState<
     Record<string, { submit: string | number | boolean | null; raw: FieldValueRaw }>
@@ -45,11 +52,11 @@ export function GenericCreateForm({
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (!initialFields) {
-      loadFields(boardId).then((fs) => setFields(fs.filter((f) => f.showOnCreate)));
-    }
-    loadMembers().then(setMembers);
-  }, [boardId, initialFields]);
+    if (!known) loadFields(boardId).then((fs) => setFields(fs.filter((f) => f.showOnCreate)));
+    if (!extras.data) loadMembers().then(setMembers);
+    // Só na abertura: os dados não mudam com o formulário aberto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId]);
 
   function onSave(fieldId: string, value: string | number | boolean | null, patch: Partial<FieldValueRaw>) {
     setEntries((prev) => ({
@@ -73,6 +80,7 @@ export function GenericCreateForm({
     }
     setError(null);
     setPending(true);
+    onSaving?.(title.trim());
     try {
       const values = fields.map((f) => ({ fieldId: f.id, value: entries[f.id]?.submit ?? null }));
       const id = await createCardWithFields(boardId, title, values, templateIds);
@@ -80,6 +88,7 @@ export function GenericCreateForm({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar o card.");
       setPending(false);
+      onFailed?.();
     }
   }
 
