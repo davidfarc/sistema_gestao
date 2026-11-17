@@ -660,6 +660,10 @@ Trello ficam no topo da descrição do card.
   descrição, links anexados (todos do Google Drive/Docs) e checklists com o que já estava marcado.
   Comentários não vêm (não há nenhum nos arquivos). A data de criação é a do Trello.
 
+**Executada em 18/11 pelo David:** Diagramação → Editora Diagramação por ordem (Backlog 82, Em
+produção 6, Aguardando aprovação 15, Fechamento 9, Finalizado 7; 1.531 arquivados) e Pedagógico →
+Backlog do Editora Pedagógico (114 ativos, 77 arquivados).
+
 Testado em banco local com os dados reais (1.841 cards, menos de 1 segundo): contagens por etapa
 conferem com os quadros, simulação não grava, segunda execução não duplica.
 
