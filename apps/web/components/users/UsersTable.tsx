@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 
 import {
   createUser,
+  importUser,
   setUserArchived,
   setUserBoards,
   setUserCargo,
@@ -30,6 +31,7 @@ export function UsersTable({
   const router = useRouter();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [boardsFor, setBoardsFor] = useState<UserRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,14 @@ export function UsersTable({
         </p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setImporting(true)}
+          className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Importar lista
+        </button>
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -228,6 +237,18 @@ export function UsersTable({
           onClose={() => setAdding(false)}
           onCreated={() => {
             setAdding(false);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {importing && (
+        <ImportUsersModal
+          roles={roles}
+          boards={boards}
+          canSetBoards={canSetBoards}
+          onClose={() => {
+            setImporting(false);
             router.refresh();
           }}
         />
@@ -588,6 +609,177 @@ function BoardsModal({
           >
             {busy ? "Salvando…" : "Salvar"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ImportRow = { email: string; state: "fila" | "criado" | "ja_existia" | "erro"; note?: string };
+
+/** Importação em lote: cola-se a lista de e-mails, escolhe-se papel e pipelines. */
+function ImportUsersModal({
+  roles,
+  boards,
+  canSetBoards,
+  onClose,
+}: {
+  roles: RoleOption[];
+  boards: BoardSummary[];
+  canSetBoards: boolean;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [rows, setRows] = useState<ImportRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const emails = [...new Set(text.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const invalid = emails.filter((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+
+  async function run() {
+    if (emails.length === 0 || invalid.length > 0 || busy) return;
+    setBusy(true);
+    const state: ImportRow[] = emails.map((email) => ({ email, state: "fila" }));
+    setRows(state);
+    // Um por vez: cada e-mail é uma ida curta ao servidor, e a lista mostra o andamento.
+    for (let i = 0; i < state.length; i++) {
+      let next: ImportRow;
+      try {
+        const res = await importUser({ email: state[i]!.email, roleId: roleId || null, boardIds: [...picked] });
+        next = res.ok ? { email: state[i]!.email, state: res.status } : { email: state[i]!.email, state: "erro", note: res.error };
+      } catch {
+        next = { email: state[i]!.email, state: "erro", note: "Falha de conexão." };
+      }
+      state[i] = next;
+      setRows([...state]);
+    }
+    setBusy(false);
+  }
+
+  const LABEL = { fila: "na fila…", criado: "criado", ja_existia: "já existia", erro: "erro" } as const;
+  const TONE = { fila: "text-neutral-500", criado: "text-emerald-700", ja_existia: "text-neutral-600", erro: "text-red-700" } as const;
+  const count = (s: ImportRow["state"]) => rows?.filter((r) => r.state === s).length ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:pt-16" onClick={() => !busy && onClose()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-users-title"
+        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-neutral-200 px-5 py-4">
+          <h3 id="import-users-title" className="text-base font-semibold text-neutral-800">
+            Importar lista de usuários
+          </h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Cole os e-mails, um por linha. Cada pessoa entra com a própria conta Google; o nome é
+            preenchido no primeiro acesso.
+          </p>
+        </div>
+
+        {rows ? (
+          <div className="p-5">
+            <p className="text-sm text-neutral-800" role="status">
+              {busy
+                ? `Importando… ${rows.length - count("fila")} de ${rows.length}`
+                : `Pronto: ${count("criado")} criados, ${count("ja_existia")} já existiam, ${count("erro")} com erro.`}
+            </p>
+            <ul className="mt-3 max-h-80 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200 text-sm">
+              {rows.map((r) => (
+                <li key={r.email} className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5">
+                  <span className="min-w-0 flex-1 break-all text-neutral-800">{r.email}</span>
+                  <span className={"shrink-0 font-medium " + TONE[r.state]}>{LABEL[r.state]}</span>
+                  {r.note && <span className="w-full text-xs text-red-700">{r.note}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="grid gap-4 p-5">
+            <label className="grid gap-1 text-sm text-neutral-700">
+              E-mails
+              <textarea
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={8}
+                placeholder={"pessoa1@editoraeccoprime.com.br\npessoa2@editoraeccoprime.com.br"}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+              />
+              <span className="text-xs text-neutral-600">
+                {emails.length} {emails.length === 1 ? "e-mail" : "e-mails"}
+                {invalid.length > 0 && <span className="text-red-700"> · inválidos: {invalid.join(", ")}</span>}
+              </span>
+            </label>
+            <label className="grid gap-1 text-sm text-neutral-700">
+              Papel de quem for criado
+              <select
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+                className="min-h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+              >
+                <option value="">Papel padrão (definido no primeiro acesso)</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canSetBoards && boards.length > 0 && (
+              <fieldset className="grid gap-1">
+                <legend className="mb-1 text-sm text-neutral-700">Pipelines que essas pessoas enxergam</legend>
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200">
+                  {boards.map((b) => (
+                    <label key={b.id} className="flex min-h-10 cursor-pointer items-center gap-3 px-3 py-1.5 text-sm text-neutral-800 hover:bg-neutral-50">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(b.id)}
+                        onChange={(e) =>
+                          setPicked((cur) => {
+                            const next = new Set(cur);
+                            if (e.target.checked) next.add(b.id);
+                            else next.delete(b.id);
+                            return next;
+                          })
+                        }
+                        className="h-4 w-4"
+                      />
+                      <span className="break-words">{b.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="text-xs text-neutral-600">
+                  Para quem já existe, os pipelines marcados são acrescentados; o papel não muda.
+                </span>
+              </fieldset>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-neutral-200 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 disabled:opacity-50"
+          >
+            {rows ? "Fechar" : "Cancelar"}
+          </button>
+          {!rows && (
+            <button
+              type="button"
+              onClick={run}
+              disabled={emails.length === 0 || invalid.length > 0}
+              className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+            >
+              Importar {emails.length > 0 ? emails.length : ""}
+            </button>
+          )}
         </div>
       </div>
     </div>

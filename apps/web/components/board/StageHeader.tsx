@@ -128,7 +128,9 @@ export function StageHeader({
         <h3
           onClick={() => canConfigure && setEditing(true)}
           className={
-            "truncate text-sm font-semibold text-neutral-700 " +
+            // `font-sans`: título de etapa usa a mesma letra da Lista (os <h3> do
+            // sistema usam a letra de título, que destoava aqui).
+            "truncate font-sans text-sm font-semibold text-neutral-700 " +
             (canConfigure ? "cursor-text" : "")
           }
         >

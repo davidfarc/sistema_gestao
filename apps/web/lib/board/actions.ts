@@ -2,6 +2,7 @@
 
 import {
   CardService,
+  assertCan,
   ForbiddenError,
   GateBlockedError,
   firstPosition,
@@ -1223,6 +1224,45 @@ export async function createUser(input: {
 
   revalidatePath("/configuracoes/usuarios");
   return { ok: true };
+}
+
+/**
+ * Importação em lote, um e-mail por chamada (a tela percorre a lista): cria o
+ * usuário se ainda não existe e o inclui nos pipelines marcados. Para quem já
+ * existe, só ACRESCENTA os pipelines; papel e nome ficam como estão.
+ */
+export async function importUser(input: {
+  email: string;
+  roleId: string | null;
+  boardIds: string[];
+}): Promise<{ ok: true; status: "criado" | "ja_existia" } | { ok: false; error: string }> {
+  const actor = await requireActor("user:manage");
+  const email = input.email.trim().toLowerCase();
+  const org = actor.organizationId as string;
+  const db = createAdminClient();
+
+  let status: "criado" | "ja_existia" = "ja_existia";
+  let { data: user } = await db.from("app_user").select("id").eq("organization_id", org).eq("email", email).maybeSingle();
+  if (!user) {
+    const res = await createUser({ email, name: "", roleId: input.roleId });
+    if (!res.ok) return res;
+    status = "criado";
+    ({ data: user } = await db.from("app_user").select("id").eq("organization_id", org).eq("email", email).maybeSingle());
+    if (!user) return { ok: false, error: "Usuário criado, mas não foi possível localizá-lo." };
+  }
+
+  if (input.boardIds.length > 0) {
+    // Marcar pipelines é da gestão de pipelines; só vale para os da organização.
+    assertCan(actor, "board:configure");
+    const { data: boards } = await db.from("board").select("id").eq("organization_id", org).in("id", input.boardIds);
+    const rows = (boards ?? []).map((b) => ({ board_id: b.id, user_id: user!.id }));
+    if (rows.length > 0) {
+      const { error } = await db.from("board_member").upsert(rows, { onConflict: "board_id,user_id" });
+      if (error) return { ok: false, error: "Usuário pronto, mas não foi possível marcar os pipelines." };
+    }
+  }
+  revalidatePath("/configuracoes/usuarios");
+  return { ok: true, status };
 }
 
 /** Ações que caracterizam poder de gestão — vedadas a usuário externo. */

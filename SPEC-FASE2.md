@@ -506,6 +506,10 @@ Modelo (confirmado pelo David em 16/11):
   toca nas etapas. Mesmo nome com tipo incompatível fica como está e é avisado. A regra de "mesma
   propriedade" é a do envio de card (nome igual e tipo compatível; opções pelo rótulo), em
   `core/fieldSync.ts`. Primeiro uso: Editora Pedagógico → Editora Diagramação.
+- **Importar lista de usuários (17/11):** em Configurações → Usuários, "Importar lista": cola-se os
+  e-mails, escolhe-se o papel e os pipelines; cria quem não existe e, para quem já existe, só
+  acrescenta os pipelines. Um e-mail por chamada ao servidor (limite de subrequisições do Worker).
+- **Nome da etapa no Kanban** com a mesma letra da Lista (17/11).
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
