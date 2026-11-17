@@ -50,6 +50,7 @@ export interface BoardCaps {
   boards: boolean; // criar/renomear/arquivar pipelines (board:configure)
   alcadas: boolean; // limites de alçada (Direção Geral ou Gestor)
   create: boolean; // criar cards (card:create)
+  readAll: boolean; // ver todos os cards do pipeline (card:read_all); sem isto, só os próprios
 }
 
 export function BoardView({
@@ -420,6 +421,12 @@ export function BoardView({
           />
           <p className="px-1.5 text-xs text-neutral-500">
             {filtering ? `${shownCards.length} de ${cards.length} cards` : `${cards.length} cards`}
+            {!caps.readAll && (
+              <span title="O seu papel mostra só os cards em que você é responsável ou solicitante.">
+                {" "}
+                · só os seus
+              </span>
+            )}
           </p>
         </div>
 

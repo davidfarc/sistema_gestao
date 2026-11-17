@@ -65,6 +65,7 @@ export default async function BoardPage({
     boards: actor?.permissions.has("board:configure") ?? false,
     alcadas: canManageAlcadas(actor),
     create: actor?.permissions.has("card:create") ?? false,
+    readAll: actor?.permissions.has("card:read_all") ?? false,
   };
   return (
     <BoardView

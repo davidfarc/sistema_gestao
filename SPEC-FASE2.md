@@ -602,6 +602,23 @@ topo e na esquerda, e o nome de cada etapa fica preso abaixo dele. O arrastar de
 rolando a página sozinho perto das bordas. No celular nada mudou. A página de Configurações ficou
 mais larga e o Cargo saiu da tabela de Usuários para a janela de edição (lápis).
 
+### E.14 "Ver todos os cards" como permissão do papel (código pronto em 17/11)
+
+Pedido do David: poder decidir, no papel (Configurações → Papéis), se o Membro interno vê todos os
+cards do pipeline ou só os dele.
+
+- Permissão nova `card:read_all`, "Ver todos os cards do pipeline", no grupo "Quadros e cards".
+  **Marcada:** vê todos os cards dos pipelines a que tem acesso (como era). **Desmarcada:** vê só os
+  cards em que é responsável ou solicitante. O pipeline, as etapas e as propriedades continuam
+  visíveis.
+- A regra fica no banco (`can_see_card`, migration `0047_card_read_all.sql`), então vale para o
+  quadro, a Lista, Minhas demandas, comentários, checklists, tempo, histórico, tempo real e para as
+  gravações do servidor (que consultam o mesmo RLS).
+- A migration dá a permissão a todos os papéis existentes, menos o Externo: ninguém perde visão ao
+  aplicar. A restrição começa quando a gestão desmarca a permissão de um papel.
+- No cabeçalho do quadro, quem está restrito vê "· só os seus" ao lado da contagem.
+- Papel novo criado na tela nasce sem a permissão (como as demais): marcar se for o caso.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -651,7 +668,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
 | `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | ✅ Aplicada em 16/11 |
 | `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
-| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | **A aplicar** |
+| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | ✅ Aplicada em 17/11 |
+| `0047_card_read_all.sql` | Permissão `card:read_all` nos papéis existentes e `can_see_card` passa a conferi-la | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

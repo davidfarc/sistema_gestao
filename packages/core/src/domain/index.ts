@@ -50,6 +50,7 @@ export const ACTIONS = [
   "board:read",
   "board:configure", // criar/renomear/arquivar pipelines + membership
   "card:read",
+  "card:read_all", // ver todos os cards dos pipelines dela; sem isto, só os próprios
   "card:create",
   "card:update",
   "card:move",

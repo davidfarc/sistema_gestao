@@ -24,6 +24,11 @@ export const ACTION_GROUPS: ActionGroup[] = [
     items: [
       { action: "board:read", label: "Ver quadros", hint: "Abrir os pipelines a que tem acesso." },
       { action: "card:read", label: "Ver cards", hint: "Abrir e ler os cards." },
+      {
+        action: "card:read_all",
+        label: "Ver todos os cards do pipeline",
+        hint: "Marcado: vê todos os cards dos pipelines a que tem acesso. Desmarcado: vê só os cards dela (em que é responsável ou solicitante).",
+      },
       { action: "card:create", label: "Criar cards", hint: "Abrir novas demandas e tarefas." },
       { action: "card:update", label: "Editar cards", hint: "Alterar título, descrição e propriedades." },
       { action: "card:move", label: "Mover entre etapas", hint: "Arrastar o card no Kanban." },
@@ -85,8 +90,8 @@ export const ACTION_GROUPS: ActionGroup[] = [
     items: [
       {
         action: "salas:manage",
-        label: "Editar a Gestão de Vila",
-        hint: "Sem esta permissão o módulo continua visível, mas só para consulta e simulação.",
+        label: "Acessar a Gestão de Vila",
+        hint: "Ver e editar a Gestão de Vila. Também pode ser liberado pessoa a pessoa, em Usuários → Acessos.",
       },
       {
         action: "time:read",
