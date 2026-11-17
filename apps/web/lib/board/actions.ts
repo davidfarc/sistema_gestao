@@ -18,6 +18,7 @@ import {
   type Thresholds,
 } from "@ecco/core";
 import { BOARD_TEMPLATES, templateOptions } from "./templates";
+import { copyTemplatesToCard } from "./checklistCopy";
 import {
   assertAttachmentScope,
   assertBoardScope,
@@ -194,12 +195,18 @@ async function boardAndFirstStage(db: AdminDb, boardId: string) {
 }
 
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(boardId: string, title: string): Promise<string> {
+export async function createCard(
+  boardId: string,
+  title: string,
+  /** Modelos de checklist do pipeline com que o card já nasce (opcional). */
+  templateIds: string[] = [],
+): Promise<string> {
   const actor = await requireActor("card:create");
   await assertCanCreateInBoard(boardId);
   const db = createAdminClient();
   const { board, firstStageId } = await boardAndFirstStage(db, boardId);
   const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
+  await copyTemplatesToCard(card.id, templateIds);
   revalidatePath("/board");
   return card.id;
 }
@@ -279,6 +286,8 @@ export async function createCardWithFields(
   boardId: string,
   title: string,
   values: { fieldId: string; value: string | number | boolean | null }[],
+  /** Modelos de checklist do pipeline com que o card já nasce (opcional). */
+  templateIds: string[] = [],
 ): Promise<string> {
   const actor = await requireActor("card:create");
   await assertCanCreateInBoard(boardId);
@@ -291,6 +300,7 @@ export async function createCardWithFields(
     if (v.value === null || v.value === "") continue;
     await setFieldValue(card.id, v.fieldId, v.value);
   }
+  await copyTemplatesToCard(card.id, templateIds);
   revalidatePath("/board");
   return card.id;
 }

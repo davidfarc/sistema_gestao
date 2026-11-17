@@ -509,6 +509,23 @@ Modelo (confirmado pelo David em 16/11):
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
+### E.11 Modelos de checklist por pipeline (código pronto em 17/11)
+
+Decidido com o David em 17/11: cada pipeline tem os seus modelos; sem checklist automático; no
+formulário de criação a escolha é opcional.
+
+- **Salvar como modelo:** em qualquer checklist de um card, a gestão do pipeline (`stage:manage` +
+  enxergar o pipeline) clica em "salvar como modelo"; guarda o nome e os itens.
+- **Usar modelo:** no card aberto, "Usar modelo" cria o checklist com todos os itens desmarcados
+  (quem tem `card:update`). É cópia: editar o modelo depois não muda os cards.
+- **Na criação:** os três formulários (simples, genérico e demandas) mostram "Checklists (opcional)"
+  quando o pipeline tem modelos; o card nasce com os marcados.
+- **Gerenciar modelos:** no card aberto, renomear, editar os itens (um por linha) e excluir.
+- Migration `0045_checklist_templates.sql` (tabela `checklist_template`; leitura para quem enxerga o
+  pipeline, escrita só pelo servidor). Antes dela, nada disso aparece e o resto funciona igual.
+- A cópia para o card fica em `lib/board/checklistCopy.ts`, fora do arquivo de Server Actions,
+  porque não confere permissão sozinha.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -557,6 +574,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | ✅ Aplicada em 16/11 (testada na prévia) |
 | `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
 | `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | ✅ Aplicada em 16/11 |
+| `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

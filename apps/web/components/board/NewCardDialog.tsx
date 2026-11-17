@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 
 import { createCard } from "@/lib/board/actions";
+import { TemplatePicker } from "./TemplatePicker";
 import { newCardHref, NOVO_PARAM } from "@/lib/board/newCardLink";
 import { useBoardId, useCreationForm } from "./BoardContext";
 import { CUSTOM_FORMS } from "./customForms";
@@ -150,6 +151,7 @@ export function SimpleCreate({
 }) {
   const [pending, startTransition] = useTransition();
   const [title, setTitle] = useState("");
+  const [templateIds, setTemplateIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: FormEvent) {
@@ -161,7 +163,7 @@ export function SimpleCreate({
     setError(null);
     startTransition(async () => {
       try {
-        onCreated(await createCard(boardId, title));
+        onCreated(await createCard(boardId, title, templateIds));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao criar o card.");
       }
@@ -192,6 +194,8 @@ export function SimpleCreate({
           placeholder="Nome do card"
           className="mt-4 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
         />
+
+        <TemplatePicker boardId={boardId} value={templateIds} onChange={setTemplateIds} className="mt-4" />
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 

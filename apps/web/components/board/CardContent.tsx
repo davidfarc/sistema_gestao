@@ -312,9 +312,6 @@ export function CardContent({
                       <Pencil className="h-4 w-4" aria-hidden="true" /> Editar emendas
                     </button>
                   )}
-                  <p className="min-w-0 flex-1 text-sm text-neutral-600">
-                    Sobe sozinho a cada entrada do card numa etapa de emenda.
-                  </p>
                 </div>
               )}
             </Section>
@@ -345,7 +342,7 @@ export function CardContent({
           </Section>
 
           <Section title="Checklists">
-            <Checklists cardId={data.id} checklists={d.checklists} onChanged={onChanged} />
+            <Checklists cardId={data.id} boardId={data.boardId} checklists={d.checklists} onChanged={onChanged} />
           </Section>
 
           <Section title="Anexos" last>

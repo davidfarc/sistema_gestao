@@ -200,6 +200,13 @@ export interface BoardSummary {
   archived: boolean;
 }
 
+/** Modelo de checklist de um pipeline (nome + itens, na ordem). */
+export interface ChecklistTemplate {
+  id: string;
+  name: string;
+  items: string[];
+}
+
 export interface ChecklistItemView {
   id: string;
   text: string;
