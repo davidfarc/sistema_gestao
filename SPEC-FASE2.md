@@ -514,6 +514,26 @@ Modelo (confirmado pelo David em 16/11):
   termina com a referência ao card (`/board?card=<id>`), mostrada como o link "Abrir o card"
   (`components/channels/MessageBody.tsx`). Endereços http(s) colados em mensagens também viram
   link; o resto continua texto puro. Mensagens antigas não ganham o link.
+- **Limpeza do tamanho do Worker (17/11):** medido por pacote (metafile do esbuild do OpenNext). O
+  Supabase entrava três vezes no bundle do Next, uma por camada do servidor; passou para
+  `serverExternalPackages` e o OpenNext o empacota uma vez: **2.966 → 2.897 KiB** (limite 3.072).
+  Conferido no runtime dos Workers local (`wrangler dev`): login, redirecionamento do middleware,
+  `robots.txt` e a troca de código do `/auth/callback`. O que resta é quase todo do próprio Next
+  (~2 MiB sem compressão), das páginas e do motor do Prisma (864 KiB comprimido, só usado por Novos
+  alunos). Ganho maior daqui em diante pede separar Novos alunos em outro Worker ou o plano pago.
+- **Aviso de atribuição nas Conversas (17/11):** quem é definido como responsável já recebia o
+  aviso no sininho e o push; agora recebe também uma mensagem direta de quem atribuiu, com o link
+  "Abrir o card", e o aviso do sininho mostra o nome do card e do pipeline.
+- **Permissão `card:transfer` (17/11):** "Enviar cards para qualquer pipeline", em Configurações →
+  Papéis. Com ela, o botão "Enviar para outro pipeline" lista todos os pipelines da organização;
+  sem ela, só os de que a pessoa participa ou com a caixa de entrada aberta para ela (antes, só o
+  Gestor, que vê todos, conseguia enviar para qualquer um). Nenhum papel a recebe por padrão.
+- **Página tremendo em "Minhas demandas" (corrigido em 17/11):** com zoom no navegador, a largura
+  do cabeçalho preso era calculada a partir da largura arredondada da janela e ficava alguns pixels
+  maior que a área de conteúdo; isso criava uma barra de rolagem, que mudava a medida, que tirava a
+  barra, em laço. Agora o cabeçalho só tem largura própria no Kanban e na Lista, medida pela
+  própria área com 1px de folga, e a página reserva sempre o espaço da barra vertical
+  (`scrollbar-gutter: stable`). Reproduzido e conferido com larguras fracionárias nas três visões.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
@@ -595,6 +615,23 @@ topo e na esquerda, e o nome de cada etapa fica preso abaixo dele. O arrastar de
 rolando a página sozinho perto das bordas. No celular nada mudou. A página de Configurações ficou
 mais larga e o Cargo saiu da tabela de Usuários para a janela de edição (lápis).
 
+### E.14 "Ver todos os cards" como permissão do papel (código pronto em 17/11)
+
+Pedido do David: poder decidir, no papel (Configurações → Papéis), se o Membro interno vê todos os
+cards do pipeline ou só os dele.
+
+- Permissão nova `card:read_all`, "Ver todos os cards do pipeline", no grupo "Quadros e cards".
+  **Marcada:** vê todos os cards dos pipelines a que tem acesso (como era). **Desmarcada:** vê só os
+  cards em que é responsável ou solicitante. O pipeline, as etapas e as propriedades continuam
+  visíveis.
+- A regra fica no banco (`can_see_card`, migration `0047_card_read_all.sql`), então vale para o
+  quadro, a Lista, Minhas demandas, comentários, checklists, tempo, histórico, tempo real e para as
+  gravações do servidor (que consultam o mesmo RLS).
+- A migration dá a permissão a todos os papéis existentes, menos o Externo: ninguém perde visão ao
+  aplicar. A restrição começa quando a gestão desmarca a permissão de um papel.
+- No cabeçalho do quadro, quem está restrito vê "· só os seus" ao lado da contagem.
+- Papel novo criado na tela nasce sem a permissão (como as demais): marcar se for o caso.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -644,7 +681,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
 | `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | ✅ Aplicada em 16/11 |
 | `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
-| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | **A aplicar** |
+| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | ✅ Aplicada em 17/11 |
+| `0047_card_read_all.sql` | Permissão `card:read_all` nos papéis existentes e `can_see_card` passa a conferi-la | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

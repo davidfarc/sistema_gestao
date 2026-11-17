@@ -1000,7 +1000,7 @@ export async function setCardResponsible(
   const db = createAdminClient();
   const { data: card } = await db
     .from("card")
-    .select("organization_id, number, title")
+    .select("organization_id, number, title, board_id")
     .eq("id", cardId)
     .single();
   if (!card) throw new Error("Card não encontrado.");
@@ -1019,11 +1019,11 @@ export async function setCardResponsible(
 
     // Notifica quem foi atribuído (exceto se atribuiu a si mesmo).
     if (userId !== (actor.userId as string)) {
-      const { data: meU } = await db
-        .from("app_user")
-        .select("name, email")
-        .eq("id", actor.userId as string)
-        .maybeSingle();
+      const [{ data: meU }, { data: board }] = await Promise.all([
+        db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
+        db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
+      ]);
+      const boardName = board?.name ?? "";
       await db.from("notification").insert({
         organization_id: card.organization_id,
         user_id: userId,
@@ -1032,8 +1032,23 @@ export async function setCardResponsible(
           actorName: meU?.name || meU?.email || "Alguém",
           cardNumber: card.number,
           cardTitle: card.title,
+          boardName,
         },
       });
+      // Também nas Conversas (mensagem direta de quem atribuiu), com o link
+      // "Abrir o card" — o mesmo caminho do aviso de menção.
+      try {
+        const channelId = await ensureDmChannel(db, card.organization_id, actor.userId as string, userId);
+        await db.from("message").insert({
+          organization_id: card.organization_id,
+          channel_id: channelId,
+          author_id: actor.userId,
+          body: `📌 atribuiu você como responsável pelo card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}\n/board?card=${cardId}`,
+          mentions: [],
+        });
+      } catch {
+        // O aviso do sininho e o push já foram; a mensagem é um reforço.
+      }
       await sendPush([userId], {
         title: `${meU?.name || meU?.email || "Alguém"} atribuiu um card a você`,
         body: `#${card.number} ${card.title}`,

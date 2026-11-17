@@ -50,6 +50,7 @@ export interface BoardCaps {
   boards: boolean; // criar/renomear/arquivar pipelines (board:configure)
   alcadas: boolean; // limites de alçada (Direção Geral ou Gestor)
   create: boolean; // criar cards (card:create)
+  readAll: boolean; // ver todos os cards do pipeline (card:read_all); sem isto, só os próprios
 }
 
 export function BoardView({
@@ -68,22 +69,30 @@ export function BoardView({
   const [view, setView] = useState<View>("kanban");
   // Celular: uma etapa por vez, sem arrastar e sem a Lista (tabela larga demais).
   const isMobile = useIsMobile();
-  // Medidas para o cabeçalho preso: largura visível da página (sem a barra de
-  // rolagem) e altura do cabeçalho (o nome das etapas prende logo abaixo dele).
+  // Medidas para o cabeçalho preso: largura da área de conteúdo e altura do
+  // cabeçalho (o nome das etapas prende logo abaixo dele). A largura vem da
+  // própria área, com 1px de folga, NUNCA da janela arredondada: com zoom no navegador o cabeçalho ficava alguns pixels mais
+  // largo que a área, criava uma barra de rolagem que mudava a medida, e a
+  // página ficava tremendo.
   const shellRef = useRef<HTMLDivElement>(null);
   const headRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const shell = shellRef.current;
     const head = headRef.current;
     if (!shell || !head) return;
+    const area = shell.parentElement;
     const measure = () => {
-      shell.style.setProperty("--page-w", `${document.documentElement.clientWidth}px`);
+      if (area) {
+        // `clientWidth` vem na unidade do CSS e arredondado; 1px a menos
+        // garante que o cabeçalho nunca passe da área.
+        shell.style.setProperty("--head-w", `${Math.max(0, area.clientWidth - 1)}px`);
+      }
       shell.style.setProperty("--board-head-h", `${head.offsetHeight}px`);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(head);
-    ro.observe(document.documentElement);
+    if (area) ro.observe(area);
     window.addEventListener("resize", measure);
     return () => {
       ro.disconnect();
@@ -409,7 +418,13 @@ export function BoardView({
     >
       <header
         ref={headRef}
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 bg-[var(--background)] px-4 py-3 md:sticky md:left-[var(--sidebar-w)] md:top-0 md:z-30 md:w-[calc(var(--page-w,100vw)-var(--sidebar-w))] md:px-6"
+        className={
+          "flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 bg-[var(--background)] px-4 py-3 md:sticky md:top-0 md:z-30 md:px-6 " +
+          // Só o Kanban e a Lista crescem para o lado: neles o cabeçalho tem
+          // largura própria e fica preso à esquerda. Em "Minhas demandas" ele
+          // simplesmente ocupa a área.
+          (view === "mine" ? "" : "md:left-[var(--sidebar-w)] md:w-[var(--head-w,100%)]")
+        }
       >
         <div>
           <PipelineSelector
@@ -420,6 +435,12 @@ export function BoardView({
           />
           <p className="px-1.5 text-xs text-neutral-500">
             {filtering ? `${shownCards.length} de ${cards.length} cards` : `${cards.length} cards`}
+            {!caps.readAll && (
+              <span title="O seu papel mostra só os cards em que você é responsável ou solicitante.">
+                {" "}
+                · só os seus
+              </span>
+            )}
           </p>
         </div>
 

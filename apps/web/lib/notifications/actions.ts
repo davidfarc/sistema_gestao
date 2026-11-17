@@ -20,8 +20,8 @@ function render(kind: string, payload: Record<string, unknown>): { title: string
   if (kind === "assignment") {
     const stage = (payload.stageName as string) || "";
     return {
-      title: `${actor} atribuiu você`,
-      subtitle: [stage && `Etapa ${stage}`, num].filter(Boolean).join(" · "),
+      title: `${actor} atribuiu um card a você`,
+      subtitle: [stage && `Etapa ${stage}`, `${num} ${card}`.trim(), boardName].filter(Boolean).join(" · "),
     };
   }
   if (kind === "transfer") {

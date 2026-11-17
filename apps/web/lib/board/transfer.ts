@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import type { Actor } from "@ecco/core";
+
 import { requireActor } from "@/lib/actor";
 import { loadCardFieldValues, loadFields, loadMembers } from "@/lib/board/actions";
 import { resolveChip } from "@/lib/board/chips";
@@ -49,6 +51,23 @@ function compatible(a: FieldType, b: FieldType): boolean {
   return (text.includes(a) && text.includes(b)) || (choice.includes(a) && choice.includes(b));
 }
 
+/**
+ * Pode enviar para este pipeline? Com `card:transfer`, qualquer pipeline da
+ * organização; sem ela, vale a regra de "quem pode abrir demanda" no destino.
+ */
+async function assertCanSendTo(actor: Actor, targetBoardId: string): Promise<void> {
+  if (actor.permissions.has("card:transfer")) {
+    const { data: board } = await createAdminClient()
+      .from("board")
+      .select("organization_id, archived_at")
+      .eq("id", targetBoardId)
+      .maybeSingle();
+    if (board && board.organization_id === (actor.organizationId as string) && !board.archived_at) return;
+    throw new Error("Pipeline não encontrado.");
+  }
+  await assertCanCreateInBoard(targetBoardId);
+}
+
 /** O card, se a pessoa logada o enxerga (RLS) e pode mover cards. */
 async function cardForTransfer(cardId: string) {
   const actor = await requireActor("card:move");
@@ -68,7 +87,7 @@ async function cardForTransfer(cardId: string) {
  */
 export async function loadTransferTargets(cardId: string): Promise<TransferTarget[]> {
   const { actor, card } = await cardForTransfer(cardId);
-  if (!actor.permissions.has("card:create")) return [];
+  if (!actor.permissions.has("card:create") && !actor.permissions.has("card:transfer")) return [];
   const db = createAdminClient();
   const [{ data: boards }, { data: memberships }] = await Promise.all([
     db
@@ -79,7 +98,7 @@ export async function loadTransferTargets(cardId: string): Promise<TransferTarge
       .neq("id", card.board_id),
     db.from("board_member").select("board_id").eq("user_id", actor.userId as string),
   ]);
-  const seesAll = actor.permissions.has("board:configure");
+  const seesAll = actor.permissions.has("board:configure") || actor.permissions.has("card:transfer");
   const memberOf = new Set((memberships ?? []).map((m) => m.board_id));
   return (boards ?? [])
     .filter((b) => {
@@ -97,8 +116,8 @@ export async function loadTransferTargets(cardId: string): Promise<TransferTarge
 
 /** O que será conciliado: campos de origem com valor e os campos do destino. */
 export async function loadTransferPlan(cardId: string, targetBoardId: string): Promise<TransferPlan> {
-  const { card } = await cardForTransfer(cardId);
-  await assertCanCreateInBoard(targetBoardId);
+  const { actor, card } = await cardForTransfer(cardId);
+  await assertCanSendTo(actor, targetBoardId);
   const db = createAdminClient();
 
   const [sourceFields, values, members, targetBoard, targetFieldsRes] = await Promise.all([
@@ -166,7 +185,7 @@ export async function transferCard(
 > {
   const { actor, card } = await cardForTransfer(cardId);
   try {
-    await assertCanCreateInBoard(targetBoardId);
+    await assertCanSendTo(actor, targetBoardId);
   } catch {
     return { ok: false, error: "Você não pode enviar cards para este pipeline." };
   }
