@@ -514,6 +514,13 @@ Modelo (confirmado pelo David em 16/11):
   termina com a referência ao card (`/board?card=<id>`), mostrada como o link "Abrir o card"
   (`components/channels/MessageBody.tsx`). Endereços http(s) colados em mensagens também viram
   link; o resto continua texto puro. Mensagens antigas não ganham o link.
+- **Limpeza do tamanho do Worker (17/11):** medido por pacote (metafile do esbuild do OpenNext). O
+  Supabase entrava três vezes no bundle do Next, uma por camada do servidor; passou para
+  `serverExternalPackages` e o OpenNext o empacota uma vez: **2.966 → 2.897 KiB** (limite 3.072).
+  Conferido no runtime dos Workers local (`wrangler dev`): login, redirecionamento do middleware,
+  `robots.txt` e a troca de código do `/auth/callback`. O que resta é quase todo do próprio Next
+  (~2 MiB sem compressão), das páginas e do motor do Prisma (864 KiB comprimido, só usado por Novos
+  alunos). Ganho maior daqui em diante pede separar Novos alunos em outro Worker ou o plano pago.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 

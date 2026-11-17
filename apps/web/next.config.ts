@@ -33,7 +33,10 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@ecco/core"],
   // Prisma (Novos alunos): fica fora do bundle do Next; o OpenNext empacota a
   // versão para Workers (guia "Prisma ORM" do @opennextjs/cloudflare).
-  serverExternalPackages: ["@prisma/client", ".prisma/client"],
+  // Supabase também fica fora do bundle do Next: dentro dele a biblioteca era
+  // copiada uma vez por camada do servidor (três cópias, ~110 KiB a mais no
+  // Worker, que tem limite de 3 MiB). Fora, o OpenNext a empacota uma vez só.
+  serverExternalPackages: ["@prisma/client", ".prisma/client", "@supabase/supabase-js", "@supabase/ssr"],
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL_PADRAO,
     NEXT_PUBLIC_SUPABASE_ANON_KEY:
