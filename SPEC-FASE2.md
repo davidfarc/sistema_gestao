@@ -494,6 +494,11 @@ Modelo (confirmado pelo David em 16/11):
   etapa de emenda, venha de onde vier; reordenar dentro da etapa não conta), e o número agora pode
   ser corrigido à mão: na coluna Emendas da Lista e na seção "Emendas" do card aberto (0 a 999). A
   correção entra no histórico. O selo no card continua.
+- **Prazo e emendas só pela gestão do pipeline (17/11):** os dois aparecem para todos, mas o botão
+  de editar (lápis na Lista, "Editar prazo" / "Editar emendas" no card aberto) só aparece para quem
+  gerencia aquele pipeline: Gestor de área que é membro dele, Gestor e Gestor Master. No servidor,
+  `updateCard` exige `stage:manage` e que a pessoa enxergue o pipeline do card; os demais recebem
+  recusa mesmo chamando direto.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 

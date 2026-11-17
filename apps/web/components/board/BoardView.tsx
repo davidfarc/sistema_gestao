@@ -540,6 +540,7 @@ export function BoardView({
               onMove={move}
               onPatchCard={patchCard}
               canConfigure={caps.fields}
+              canManage={caps.stages}
             />
           )}
         </div>

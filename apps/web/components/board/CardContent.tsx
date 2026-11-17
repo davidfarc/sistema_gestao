@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowRightLeft } from "lucide-react";
+import { Archive, ArrowRightLeft, Pencil } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { setCardArchived, setFieldValue, updateCard } from "@/lib/board/actions";
@@ -71,6 +71,10 @@ export function CardContent({
   const [values, setValues] = useState(data.values);
   const [dueDate, setDueDate] = useState(data.dueDate ? data.dueDate.slice(0, 10) : "");
   const [rework, setRework] = useState(String(data.reworkCount ?? 0));
+  const [editingDue, setEditingDue] = useState(false);
+  const [editingRework, setEditingRework] = useState(false);
+  const saveBtn =
+    "min-h-10 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-high";
   // O número muda por fora (contagem automática ao mover o card): o campo acompanha.
   useEffect(() => setRework(String(data.reworkCount ?? 0)), [data.reworkCount]);
   useEffect(() => setDueDate(data.dueDate ? data.dueDate.slice(0, 10) : ""), [data.dueDate]);
@@ -233,47 +237,86 @@ export function CardContent({
           )}
 
           <Section title="Prazo">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                onBlur={(e) => saveDueDate(e.target.value)}
-                aria-label="Prazo do card"
-                className="min-h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
-              />
-              {dueDate && (
+            {editingDue ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  autoFocus
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  aria-label="Prazo do card"
+                  className="min-h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                />
+                <button type="button" onClick={() => { setEditingDue(false); saveDueDate(dueDate); }} className={saveBtn}>
+                  Salvar
+                </button>
+                {data.dueDate && (
+                  <button type="button" onClick={() => { setEditingDue(false); saveDueDate(""); }} className={actionBtn}>
+                    Remover prazo
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => saveDueDate("")}
-                  className="min-h-10 rounded-lg px-2 text-sm font-medium text-primary hover:underline"
+                  onClick={() => { setEditingDue(false); setDueDate(data.dueDate ? data.dueDate.slice(0, 10) : ""); }}
+                  className={actionBtn}
                 >
-                  Remover prazo
+                  Cancelar
                 </button>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="num text-sm text-neutral-800">
+                  {dueDate ? new Date(`${dueDate}T12:00`).toLocaleDateString("pt-BR") : "Sem prazo"}
+                </span>
+                {data.canManage && (
+                  <button type="button" onClick={() => setEditingDue(true)} className={actionBtn}>
+                    <Pencil className="h-4 w-4" aria-hidden="true" /> Editar prazo
+                  </button>
+                )}
+              </div>
+            )}
           </Section>
 
           {data.reworkCount !== null && (
             <Section title="Emendas">
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="number"
-                  min={0}
-                  max={999}
-                  step={1}
-                  inputMode="numeric"
-                  value={rework}
-                  onChange={(e) => setRework(e.target.value)}
-                  onBlur={(e) => saveRework(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                  aria-label="Número de emendas"
-                  className="num min-h-10 w-24 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
-                />
-                <p className="min-w-0 flex-1 text-sm text-neutral-600">
-                  Sobe sozinho a cada entrada do card numa etapa de emenda. Corrija aqui se precisar.
-                </p>
-              </div>
+              {editingRework ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={999}
+                    step={1}
+                    inputMode="numeric"
+                    autoFocus
+                    value={rework}
+                    onChange={(e) => setRework(e.target.value)}
+                    aria-label="Número de emendas"
+                    className="num min-h-10 w-24 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                  />
+                  <button type="button" onClick={() => { setEditingRework(false); saveRework(rework); }} className={saveBtn}>
+                    Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingRework(false); setRework(String(data.reworkCount ?? 0)); }}
+                    className={actionBtn}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="num text-sm font-semibold text-neutral-800">{rework}</span>
+                  {data.canManage && (
+                    <button type="button" onClick={() => setEditingRework(true)} className={actionBtn}>
+                      <Pencil className="h-4 w-4" aria-hidden="true" /> Editar emendas
+                    </button>
+                  )}
+                  <p className="min-w-0 flex-1 text-sm text-neutral-600">
+                    Sobe sozinho a cada entrada do card numa etapa de emenda.
+                  </p>
+                </div>
+              )}
             </Section>
           )}
 

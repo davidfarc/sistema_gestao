@@ -312,6 +312,8 @@ export interface CardPageData {
   dueDate: string | null;
   /** Emendas do card; null quando o pipeline não tem etapa de emenda. */
   reworkCount: number | null;
+  /** Quem vê gerencia o pipeline do card: pode alterar prazo e emendas. */
+  canManage: boolean;
   fields: FieldDef[];
   values: Record<string, FieldValueRaw>; // por fieldId
   detail: CardDetailData;

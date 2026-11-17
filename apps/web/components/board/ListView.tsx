@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Settings2 } from "lucide-react";
+import { Download, Pencil, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -42,6 +42,7 @@ export function ListView({
   onMove,
   onPatchCard,
   canConfigure,
+  canManage,
 }: {
   cards: CardView[];
   stages: StageView[];
@@ -51,8 +52,12 @@ export function ListView({
   /** Reflete uma edição na lista de cards da tela, sem recarregar o quadro. */
   onPatchCard: (cardId: string, patch: Partial<CardView>) => void;
   canConfigure: boolean;
+  /** Gestão do pipeline: mostra o botão de editar prazo e emendas. */
+  canManage: boolean;
 }) {
   const router = useRouter();
+  // Célula de prazo ou de emendas aberta para edição: "<cardId>:due" | "<cardId>:rework".
+  const [editingCell, setEditingCell] = useState<string | null>(null);
   const boardId = useBoardId();
   const creationForm = useCreationForm();
   const myUserId = useMyUserId();
@@ -607,40 +612,68 @@ export function ListView({
                   </WrapSelect>
                 </td>
                 <td className="px-3 py-1.5 align-top">
-                  <input
-                    type="date"
-                    // `key`: se o prazo mudar por fora (outra pessoa), o campo acompanha.
-                    key={card.dueDate ?? ""}
-                    defaultValue={card.dueDate ? card.dueDate.slice(0, 10) : ""}
-                    aria-label={`Prazo do card #${card.number}`}
-                    onBlur={(e) => saveDue(card.id, e.target.value, card.dueDate)}
-                    onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                    className={
-                      "num w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400 " +
-                      (isOverdue(card) ? "font-bold text-danger" : card.dueDate ? "text-neutral-700" : "text-neutral-500")
-                    }
-                  />
-                  {isOverdue(card) && <span className="block px-1 text-xs font-bold text-danger">atrasado</span>}
+                  {editingCell === `${card.id}:due` ? (
+                    <input
+                      type="date"
+                      autoFocus
+                      defaultValue={card.dueDate ? card.dueDate.slice(0, 10) : ""}
+                      aria-label={`Prazo do card #${card.number}`}
+                      onBlur={(e) => {
+                        setEditingCell(null);
+                        saveDue(card.id, e.target.value, card.dueDate);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setEditingCell(null);
+                      }}
+                      className="num w-full min-w-0 rounded border border-neutral-400 bg-white px-1 py-0.5 text-sm outline-none"
+                    />
+                  ) : (
+                    <span className="flex items-start gap-1">
+                      <span className={"num min-w-0 flex-1 py-0.5 " + (isOverdue(card) ? "font-bold text-danger" : "text-neutral-700")}>
+                        {card.dueDate
+                          ? new Date(card.dueDate.slice(0, 10) + "T12:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                          : "—"}
+                        {isOverdue(card) && <span className="block text-xs">atrasado</span>}
+                      </span>
+                      {canManage && (
+                        <EditButton label={`Editar o prazo do card #${card.number}`} onClick={() => setEditingCell(`${card.id}:due`)} />
+                      )}
+                    </span>
+                  )}
                 </td>
                 {hasRework && (
                   <td className="px-3 py-1.5 align-top">
-                    <input
-                      type="number"
-                      min={0}
-                      max={999}
-                      step={1}
-                      inputMode="numeric"
-                      // `key`: quando a contagem automática ou outra pessoa muda o número, o campo acompanha.
-                      key={card.reworkCount ?? 0}
-                      defaultValue={card.reworkCount ?? 0}
-                      aria-label={`Emendas do card #${card.number}`}
-                      onBlur={(e) => saveRework(card.id, e.target.value, card.reworkCount ?? 0)}
-                      onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                      className={
-                        "num w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm outline-none hover:border-neutral-200 focus:border-neutral-400 " +
-                        (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")
-                      }
-                    />
+                    {editingCell === `${card.id}:rework` ? (
+                      <input
+                        type="number"
+                        min={0}
+                        max={999}
+                        step={1}
+                        inputMode="numeric"
+                        autoFocus
+                        defaultValue={card.reworkCount ?? 0}
+                        aria-label={`Emendas do card #${card.number}`}
+                        onBlur={(e) => {
+                          setEditingCell(null);
+                          saveRework(card.id, e.target.value, card.reworkCount ?? 0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (e.key === "Escape") setEditingCell(null);
+                        }}
+                        className="num w-full min-w-0 rounded border border-neutral-400 bg-white px-1 py-0.5 text-sm outline-none"
+                      />
+                    ) : (
+                      <span className="flex items-start gap-1">
+                        <span className={"num min-w-0 flex-1 py-0.5 " + (card.reworkCount ? "font-semibold text-amber-800" : "text-neutral-500")}>
+                          {card.reworkCount ?? 0}
+                        </span>
+                        {canManage && (
+                          <EditButton label={`Editar as emendas do card #${card.number}`} onClick={() => setEditingCell(`${card.id}:rework`)} />
+                        )}
+                      </span>
+                    )}
                   </td>
                 )}
                 {isDemandas && (
@@ -729,5 +762,20 @@ function ColumnResizer({
     >
       <span className="h-full w-px bg-neutral-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:w-0.5 group-focus-visible:bg-primary group-focus-visible:opacity-100" />
     </span>
+  );
+}
+
+/** Lápis que abre a edição de uma célula (só aparece para a gestão do pipeline). */
+function EditButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+    >
+      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
   );
 }

@@ -10,6 +10,7 @@ import {
   positionAfter,
   validateThresholds,
   type Action,
+  type Actor,
   type Placement,
   type RuleViolation,
   type Thresholds,
@@ -545,6 +546,12 @@ export async function updateCard(input: {
   const actor = await requireActor("card:update");
   await assertCardScope(actor, input.id);
   const db = createAdminClient();
+  // Prazo e emendas: só quem gerencia o pipeline (Gestor de área dele, Gestor,
+  // Gestor Master). `stage:manage` é o que separa a gestão dos demais membros,
+  // e o escopo acima garante que é um pipeline dela.
+  if (input.dueDate !== undefined || input.reworkCount !== undefined) {
+    await assertCanManageCard(actor, input.id);
+  }
   const patch: Record<string, unknown> = {};
   if (input.title !== undefined) patch.title = input.title.trim() || "Novo card";
   if (input.description !== undefined) patch.description = input.description;
@@ -576,6 +583,19 @@ export async function updateCard(input: {
   if (dueChange) await recordActivity(input.id, actor.userId as string, "due_date_changed", dueChange);
   if (reworkChange) await recordActivity(input.id, actor.userId as string, "rework_changed", reworkChange);
   revalidatePath("/board");
+}
+
+/**
+ * Quem gerencia o pipeline do card: tem `stage:manage` e enxerga o PIPELINE
+ * (não basta enxergar o card, como o solicitante de fora do pipeline).
+ */
+async function assertCanManageCard(actor: Actor, cardId: string): Promise<void> {
+  if (!actor.permissions.has("stage:manage")) {
+    throw new ForbiddenError("Só a gestão do pipeline pode alterar o prazo e as emendas.");
+  }
+  const { data: card } = await createAdminClient().from("card").select("board_id").eq("id", cardId).maybeSingle();
+  if (!card) throw new Error("Card não encontrado.");
+  await assertBoardScope(actor, card.board_id);
 }
 
 /** "AAAA-MM-DD" que existe no calendário (recusa 2026-02-31 e afins). */
@@ -648,7 +668,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     .maybeSingle();
   if (!card) return null;
 
-  const [boardRes, stageRes, detail, fields, valuesRaw, reworkStage] = await Promise.all([
+  const [boardRes, stageRes, detail, fields, valuesRaw, reworkStage, actor] = await Promise.all([
     db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
     db.from("stage").select("name").eq("id", card.stage_id).maybeSingle(),
     loadCardDetail(cardId),
@@ -656,6 +676,7 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     loadCardFieldValues(cardId),
     // O pipeline conta emendas? (tem alguma etapa marcada como "de emenda")
     db.from("stage").select("id").eq("board_id", card.board_id).eq("counts_rework", true).limit(1),
+    provisionAndGetActor(),
   ]);
 
   const values: Record<string, FieldValueRaw> = {};
@@ -673,6 +694,8 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     archivedAt: card.archived_at ?? null,
     dueDate: card.due_date ?? null,
     reworkCount: (reworkStage.data ?? []).length > 0 ? Number(card.rework_count ?? 0) : null,
+    // A leitura do pipeline passa pelo RLS: só vem para quem enxerga o pipeline.
+    canManage: !!boardRes.data && (actor?.permissions.has("stage:manage") ?? false),
     fields,
     values,
     detail,
