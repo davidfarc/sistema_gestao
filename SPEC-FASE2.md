@@ -559,6 +559,13 @@ comentários, assinados pelo e-mail informado, com a data original; histórico �
 entra na descrição de cada card do responsável os dias entre o início e o fim daquele material
 (dia fora de qualquer material não entra; dia coberto por dois materiais entra nos dois).
 
+**Executada em 17/11 pelo David:** 51 materiais importados (15 em produção, 6 aguardando
+aprovação, 2 em emenda, 28 concluídos), 14 comentários e 228 linhas de histórico; sem avisos.
+Ajustes feitos durante a simulação: início → propriedade "Data inicial"; link do autor →
+"Pasta de trabalho"; tipos antigos convertidos para as opções "Básico" e "Upgrade"; sem
+propriedade de finalização, a data de fim entrou no Prazo (36 cards; nenhum material tinha prazo
+no sistema antigo); o diário estava vazio.
+
 Testado em banco local com dados inventados (simulação não grava; cinco situações de etapa;
 segunda execução não duplica). **Não testado com os dados reais.** Pré-requisitos: usuários
 importados e propriedades do pipeline criadas.
