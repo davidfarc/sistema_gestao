@@ -642,6 +642,27 @@ cards do pipeline ou só os dele.
 - No cabeçalho do quadro, quem está restrito vê "· só os seus" ao lado da contagem.
 - Papel novo criado na tela nasce sem a permissão (como as demais): marcar se for o caso.
 
+### E.15 Importação dos quadros do Trello (roteiro pronto em 18/11)
+
+Dois quadros exportados do Trello em JSON: DIAGRAMAÇÃO (119 cards ativos, 1.531 arquivados) e
+PEDAGÓGICO (114 ativos, 77 arquivados). Decidido com o David em 18/11: trazer ativos **e**
+arquivados; card ativo em lista arquivada vai para a primeira etapa; lista, etiquetas e membros do
+Trello ficam no topo da descrição do card.
+
+- Os JSON são convertidos (fora do repositório) num CSV único, `trello_cards.csv`, com uma linha
+  por card. Os dados não entram no repositório.
+- Roteiro em `infra/import/trello_{1_preparo,2_importar,3_limpeza}.sql`, no mesmo molde da
+  importação anterior: tabela de passagem, função com simulação e gravação idempotente, limpeza.
+- `import_trello(quadro, pipeline, e-mail, modo, gravar)`. Modo `'ordem'`: a N-ésima lista aberta do
+  Trello vai para a N-ésima etapa do pipeline (Diagramação). Modo `'primeira'`: tudo na primeira
+  etapa (Pedagógico → Backlog).
+- Card arquivado no Trello entra arquivado no sistema, na etapa da lista dele. Vêm título,
+  descrição, links anexados (todos do Google Drive/Docs) e checklists com o que já estava marcado.
+  Comentários não vêm (não há nenhum nos arquivos). A data de criação é a do Trello.
+
+Testado em banco local com os dados reais (1.841 cards, menos de 1 segundo): contagens por etapa
+conferem com os quadros, simulação não grava, segunda execução não duplica.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
