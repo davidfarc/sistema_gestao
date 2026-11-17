@@ -117,6 +117,12 @@ body {
    (ex.: text-white sobre fundo azul) prevaleça; fora da camada esta regra
    vencia as classes utilitárias e o título sumia no fundo escuro. */
 @layer base {
+  /* Reserva sempre o espaço da barra de rolagem vertical: sem isso, a barra
+     aparecer e sumir muda a largura da página e o conteúdo "pula". */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   h1, h2, h3, h4, .font-headline {
     font-family: var(--font-headline);
     font-weight: 600;

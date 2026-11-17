@@ -528,6 +528,12 @@ Modelo (confirmado pelo David em 16/11):
   Papéis. Com ela, o botão "Enviar para outro pipeline" lista todos os pipelines da organização;
   sem ela, só os de que a pessoa participa ou com a caixa de entrada aberta para ela (antes, só o
   Gestor, que vê todos, conseguia enviar para qualquer um). Nenhum papel a recebe por padrão.
+- **Página tremendo em "Minhas demandas" (corrigido em 17/11):** com zoom no navegador, a largura
+  do cabeçalho preso era calculada a partir da largura arredondada da janela e ficava alguns pixels
+  maior que a área de conteúdo; isso criava uma barra de rolagem, que mudava a medida, que tirava a
+  barra, em laço. Agora o cabeçalho só tem largura própria no Kanban e na Lista, medida pela
+  própria área com 1px de folga, e a página reserva sempre o espaço da barra vertical
+  (`scrollbar-gutter: stable`). Reproduzido e conferido com larguras fracionárias nas três visões.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
