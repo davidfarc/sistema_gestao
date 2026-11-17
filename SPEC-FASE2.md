@@ -530,6 +530,35 @@ formulário de criação a escolha é opcional.
 - A cópia para o card fica em `lib/board/checklistCopy.ts`, fora do arquivo de Server Actions,
   porque não confere permissão sozinha.
 
+### E.12 Importação do sistema antigo "Produção Pedagógica" (roteiro pronto em 17/11)
+
+Decidido com o David em 17/11: traz **tudo** (inclusive aprovados) para o pipeline **Editora
+Pedagógico**; o diário vira texto corrido na descrição do card. Substitui o "começa do zero" de E.1.
+
+Como eu não tenho acesso a nenhum dos dois bancos, a importação é um roteiro em três arquivos de
+`infra/import/` (sem dado nenhum dentro), rodados pelo David no SQL Editor do banco atual:
+
+1. `producao_pedagogica_1_preparo.sql`: cria tabelas de passagem (`import_pp_*`, só texto, sem
+   acesso pela API) para receber os CSVs exportados do Supabase antigo.
+2. `producao_pedagogica_2_importar.sql`: função `import_producao_pedagogica(pipeline, e-mail de
+   quem assina, gravar)`. Com `false` **simula** e devolve o resumo (cards por etapa, responsáveis
+   sem usuário, opções acrescentadas, avisos) sem gravar; com `true` grava. Rodar de novo não
+   duplica (`import_pp_feito`).
+3. `producao_pedagogica_3_limpeza.sql`: apaga as tabelas de passagem e a função.
+
+Conversão: material → card; prazo → prazo; responsável pelo e-mail; etapa pela mesma regra de tela
+do sistema antigo (aprovado → concluída; emenda → etapa de emenda; entregue ou reentregue →
+revisão; resto → em andamento); emendas → emendas; segmento, tipo, início, finalização e link do
+autor → propriedades de mesmo nome (opção inexistente é acrescentada); comentários do parecer →
+comentários, assinados pelo e-mail informado, com a data original; histórico → histórico
+(`legacy_note`). **Diário:** no sistema antigo é por pessoa e por dia, sem ligação com material;
+entra na descrição de cada card do responsável os dias entre o início e o fim daquele material
+(dia fora de qualquer material não entra; dia coberto por dois materiais entra nos dois).
+
+Testado em banco local com dados inventados (simulação não grava; cinco situações de etapa;
+segunda execução não duplica). **Não testado com os dados reais.** Pré-requisitos: usuários
+importados e propriedades do pipeline criadas.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.

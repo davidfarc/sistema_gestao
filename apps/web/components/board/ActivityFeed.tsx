@@ -35,6 +35,9 @@ function describe(a: ActivityView): string {
       if (!to) return "removeu o prazo";
       return from ? `mudou o prazo de ${from} para ${to}` : `definiu o prazo para ${to}`;
     }
+    case "legacy_note":
+      // Linha de histórico trazida de um sistema antigo (importação).
+      return typeof a.payload.text === "string" ? a.payload.text : "registro importado";
     case "rework_changed":
       return `corrigiu as emendas de ${a.payload.from ?? 0} para ${a.payload.to ?? 0}`;
     default:
