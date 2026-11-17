@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createCardWithFields, loadFields } from "@/lib/board/actions";
 import type { FieldDef } from "@/lib/board/types";
 import { DF as F } from "@/lib/demandas/fields";
-import { useThresholds } from "./BoardContext";
+import { useBoardExtras, useThresholds } from "./BoardContext";
 import type { CustomFormProps } from "./customForms";
 
 // Ícone + descrição de cada tipo (chave = label da opção, em maiúsculas).
@@ -41,8 +41,7 @@ export function DemandasCreateForm({
   boardId,
   onClose,
   onCreated,
-  initialFields,
-}: CustomFormProps) {
+  initialFields, onSaving, onFailed }: CustomFormProps) {
   const thresholds = useThresholds(); // limites de alçada do pipeline
   const [fields, setFields] = useState<FieldDef[]>([]);
   const byName = useMemo(() => new Map(fields.map((f) => [f.name, f])), [fields]);
@@ -76,6 +75,7 @@ export function DemandasCreateForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  const extras = useBoardExtras();
   useEffect(() => {
     function aplicar(fs: FieldDef[]) {
       setFields(fs);
@@ -87,8 +87,12 @@ export function DemandasCreateForm({
     }
     // Na caixa de entrada os campos vêm prontos do servidor: quem não enxerga
     // o pipeline não os lê pela RLS, e o formulário viria vazio.
+    // Dentro do quadro as propriedades já foram buscadas: abre pronto.
     if (initialFields) aplicar(initialFields);
+    else if (extras.data) aplicar(extras.data.fields);
     else loadFields(boardId).then(aplicar);
+    // Só na abertura: os dados não mudam com o formulário aberto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId, initialFields]);
 
   // Alçada em tempo real.
@@ -177,11 +181,13 @@ export function DemandasCreateForm({
       put(F.riceConfianca, numOrNull(riceConfianca));
       put(F.riceTempo, numOrNull(riceTempo));
       put(F.riceComplexidade, riceComplexOpt || null);
+      onSaving?.(nome);
       const id = await createCardWithFields(boardId, nome, v, templateIds);
       onCreated(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar a demanda.");
       setPending(false);
+      onFailed?.();
     }
   }
 

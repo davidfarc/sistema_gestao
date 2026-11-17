@@ -3,7 +3,47 @@
 import { DEFAULT_THRESHOLDS, type Thresholds } from "@ecco/core";
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { CreationForm, Intake } from "@/lib/board/types";
+import type {
+  ChecklistTemplate,
+  CreationForm,
+  FieldDef,
+  FieldValueRaw,
+  Intake,
+  MemberOption,
+} from "@/lib/board/types";
+
+/**
+ * Dados do pipeline que a Lista e os formulários de criação usam (propriedades,
+ * valores, pessoas, modelos de checklist). O quadro busca uma vez, em segundo
+ * plano, e todos reaproveitam: abrir a Lista ou o "Novo card" não espera o
+ * servidor.
+ */
+export interface BoardExtras {
+  fields: FieldDef[];
+  values: { cardId: string; value: FieldValueRaw }[];
+  members: MemberOption[];
+  prioritizedCardIds: string[];
+  templates: ChecklistTemplate[];
+}
+
+interface ExtrasCtx {
+  /** null = ainda carregando (ou fora do quadro). */
+  data: BoardExtras | null;
+  /** Busca de novo no servidor e devolve o que veio. */
+  reload: () => Promise<BoardExtras | null>;
+}
+
+const NO_EXTRAS: ExtrasCtx = { data: null, reload: async () => null };
+const ExtrasContext = createContext<ExtrasCtx>(NO_EXTRAS);
+
+export function BoardExtrasProvider({ value, children }: { value: ExtrasCtx; children: ReactNode }) {
+  return <ExtrasContext.Provider value={value}>{children}</ExtrasContext.Provider>;
+}
+
+/** Dados extras do pipeline; `data` é null enquanto carrega ou fora do quadro. */
+export function useBoardExtras(): ExtrasCtx {
+  return useContext(ExtrasContext);
+}
 
 interface BoardCtx {
   boardId: string;

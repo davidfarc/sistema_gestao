@@ -50,6 +50,8 @@ export interface CardView {
   awaitingPrioritization?: boolean;
   /** Já passou pela fila de priorização (para recalcular o selo ao mover). */
   prioritized?: boolean;
+  /** Card recém-criado, ainda sendo gravado no servidor (aparece na hora). */
+  pending?: boolean;
   /** Quantas vezes o card foi devolvido para uma etapa de emenda. */
   reworkCount?: number;
 }

@@ -10,14 +10,14 @@ import type { Placement } from "@ecco/core";
 import { ArchivedDialog } from "./ArchivedDialog";
 import { BoardOptionsDialog } from "./BoardOptionsDialog";
 import { MyTasksView } from "./MyTasksView";
-import { BoardProvider } from "./BoardContext";
+import { BoardExtrasProvider, BoardProvider, type BoardExtras } from "./BoardContext";
 import { CardPanel } from "./CardPanel";
 import { KanbanBoard } from "./KanbanBoard";
 import { MobileBoard } from "./MobileBoard";
 import { ListView } from "./ListView";
 import { NewCardDialog } from "./NewCardDialog";
 import { PipelineSelector } from "./PipelineSelector";
-import { createCardInStage, moveCard } from "@/lib/board/actions";
+import { createCardInStage, loadCardPage, loadListData, moveCard } from "@/lib/board/actions";
 import { memberView } from "@/lib/board/avatar";
 import {
   applyCardRow,
@@ -292,6 +292,7 @@ export function BoardView({
   // `history.pushState` (e não `router.push`): muda o endereço sem refazer as
   // consultas do quadro. O Next mantém `useSearchParams` em dia com ele.
   const openCard = useCallback((cardId: string) => {
+    if (cardId.startsWith("tmp-")) return; // ainda sendo gravado
     const params = new URLSearchParams(window.location.search);
     params.set("card", cardId);
     openedHere.current = true;
@@ -326,6 +327,7 @@ export function BoardView({
   // servidor (volta ao estado real). Sem `placement` (Lista): fim da coluna.
   function move(cardId: string, toStageId: string, placement?: Placement) {
     setMoveError(null);
+    if (cardId.startsWith("tmp-")) return; // ainda sendo gravado
     // Pela Lista, escolher a etapa em que o card já está não muda nada.
     if (!placement && cards.find((c) => c.id === cardId)?.stageId === toStageId) return;
     setCards((prev) => applyMove(prev, cardId, toStageId, placement, gated));
@@ -366,6 +368,92 @@ export function BoardView({
 
   // "+ Adicionar card" no pé da coluna: só no formulário simples (os outros
   // pedem campos que o campo de título sozinho não coleta).
+  // ── Dados extras do pipeline (propriedades, valores, pessoas, modelos) ─────
+  // Buscados uma vez, logo depois de o quadro aparecer, e reaproveitados pela
+  // Lista e pelos formulários de criação: abrir qualquer um não espera o servidor.
+  const [extras, setExtras] = useState<BoardExtras | null>(null);
+  const reloadExtras = useCallback(async () => {
+    try {
+      const data = await loadListData(board.id);
+      setExtras(data);
+      return data;
+    } catch {
+      return null;
+    }
+  }, [board.id]);
+  useEffect(() => {
+    setExtras(null);
+    const t = setTimeout(reloadExtras, 300);
+    return () => clearTimeout(t);
+  }, [reloadExtras]);
+  const extrasCtx = useMemo(() => ({ data: extras, reload: reloadExtras }), [extras, reloadExtras]);
+
+  // ── Criação sem espera (formulário "Novo card") ───────────────────────────
+  // O card aparece na primeira etapa assim que a gravação começa; quando o
+  // servidor responde, é trocado pelo card de verdade (ou retirado, se falhar).
+  const optimistic = useMemo(
+    () => ({
+      begin(title: string) {
+        const id = `tmp-${Date.now()}`;
+        const first = board.stages[0]?.id ?? "";
+        setCards((prev) => {
+          const top = prev.reduce((m, c) => Math.max(m, c.position), 0);
+          const temp: CardView = {
+            id,
+            number: 0,
+            title: title || "Novo card",
+            stageId: first,
+            position: top + 1000,
+            assignee: null,
+            requester: null,
+            labels: [],
+            dueDate: null,
+            status: null,
+            fields: [],
+            pending: true,
+          };
+          return sortCards([...prev, temp]);
+        });
+        return id;
+      },
+      abort(tempId: string) {
+        setCards((prev) => prev.filter((c) => c.id !== tempId));
+      },
+      commit(tempId: string, cardId: string) {
+        loadCardPage(cardId)
+          .then((data) => {
+            if (!data) throw new Error("sem card");
+            setCards((prev) => {
+              const temp = prev.find((c) => c.id === tempId);
+              const rest = prev.filter((c) => c.id !== tempId);
+              // O aviso do Realtime pode já ter trazido o card: só tira o provisório.
+              if (rest.some((c) => c.id === cardId) || !temp) return rest;
+              const real: CardView = {
+                ...temp,
+                ...faceFromPage(data),
+                id: cardId,
+                number: data.number,
+                stageId: data.stageId,
+                pending: false,
+                awaitingPrioritization: gated.has(data.stageId),
+                prioritized: false,
+              };
+              return sortCards([...rest, real]);
+            });
+          })
+          .catch(() => {
+            setCards((prev) => prev.filter((c) => c.id !== tempId));
+            router.refresh();
+          });
+        // As propriedades do card novo entram na Lista na próxima leitura.
+        reloadExtras();
+      },
+    }),
+    // `gated` muda de identidade a cada render; o conteúdo só muda com o quadro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [board.id, board.stages, reloadExtras, router],
+  );
+
   async function addCard(stageId: string, title: string) {
     setMoveError(null);
     try {
@@ -406,6 +494,7 @@ export function BoardView({
       myUserId={myUserId}
       intake={board.intake}
     >
+    <BoardExtrasProvider value={extrasCtx}>
     {/* No computador a PÁGINA rola (uma barra só de cada tipo), sem caixa de
         rolagem interna: o quadro cresce para o lado e para baixo, e o cabeçalho
         fica preso no topo e na esquerda. No celular a altura continua fixa. */}
@@ -531,7 +620,7 @@ export function BoardView({
               Lista
             </ToggleButton>
           </div>
-          <NewCardDialog canCreate={caps.create} />
+          <NewCardDialog canCreate={caps.create} optimistic={optimistic} />
         </div>
       </header>
 
@@ -654,6 +743,7 @@ export function BoardView({
         />
       )}
     </div>
+    </BoardExtrasProvider>
     </BoardProvider>
   );
 }

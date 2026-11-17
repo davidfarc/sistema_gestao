@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { loadChecklistTemplates } from "@/lib/board/checklistTemplates";
 import type { ChecklistTemplate } from "@/lib/board/types";
+import { useBoardExtras } from "./BoardContext";
 
 /**
  * Escolha opcional de modelos de checklist no formulário de criação: o card
@@ -21,9 +22,12 @@ export function TemplatePicker({
   onChange: (ids: string[]) => void;
   className?: string;
 }) {
-  const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
+  // Dentro do quadro os modelos já vieram com os dados do pipeline.
+  const extras = useBoardExtras();
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>(extras.data?.templates ?? []);
 
   useEffect(() => {
+    if (extras.data) return;
     let active = true;
     loadChecklistTemplates(boardId)
       .then((r) => active && setTemplates(r.templates))
@@ -31,6 +35,7 @@ export function TemplatePicker({
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
 
   if (templates.length === 0) return null;
