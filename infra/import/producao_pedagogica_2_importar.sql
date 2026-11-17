@@ -18,6 +18,7 @@
 --                                  o resto → em andamento
 --   emendas                      → emendas do card
 --   segmento, tipo, início, fim, link do autor → propriedades de mesmo nome
+--                                  (o início também aceita uma data chamada "Backlog")
 --                                  (opção que não existe é acrescentada)
 --   comentários do parecer       → comentários, assinados pelo e-mail informado
 --   histórico                    → histórico do card
@@ -107,7 +108,7 @@ begin
      and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) in ('tipo de material', 'tipo') limit 1;
   select id into f_inicio from field_definition
    where board_id = b.id and archived_at is null and type = 'date'
-     and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) = 'inicio' limit 1;
+     and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) in ('inicio', 'backlog') limit 1;
   select id into f_fim from field_definition
    where board_id = b.id and archived_at is null and type = 'date'
      and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) in ('finalizacao', 'fim') limit 1;
@@ -116,7 +117,7 @@ begin
      and lower(translate(name, 'ÁÀÃÂÉÊÍÓÔÕÚÇáàãâéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc')) = 'link do autor' limit 1;
   if f_seg.id  is null then avisos := array_append(avisos, 'Propriedade "Segmento" (de opções) não existe no pipeline: o segmento não será importado.'::text); end if;
   if f_tipo.id is null then avisos := array_append(avisos, 'Propriedade "Tipo de material" (de opções) não existe no pipeline: o tipo não será importado.'::text); end if;
-  if f_inicio  is null then avisos := array_append(avisos, 'Propriedade "Início" (data) não existe no pipeline: o início não será importado.'::text); end if;
+  if f_inicio  is null then avisos := array_append(avisos, 'Propriedade de data "Início" (ou "Backlog") não existe no pipeline: o início não será importado.'::text); end if;
   if f_fim     is null then avisos := array_append(avisos, 'Propriedade "Finalização" (data) não existe no pipeline: a finalização não será importada.'::text); end if;
   if f_link    is null then avisos := array_append(avisos, 'Propriedade "Link do autor" não existe no pipeline: o link não será importado.'::text); end if;
 
