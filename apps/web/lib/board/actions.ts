@@ -1522,7 +1522,9 @@ export async function addComment(
       organization_id: card.organization_id,
       channel_id: channelId,
       author_id: actor.userId,
-      body: `💬 mencionou você no card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}:\n${text}`,
+      // A última linha é a referência ao card: a tela das Conversas a mostra
+      // como o link "Abrir o card" (components/channels/MessageBody.tsx).
+      body: `💬 mencionou você no card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}:\n${text}\n/board?card=${cardId}`,
       mentions: [],
     });
   }

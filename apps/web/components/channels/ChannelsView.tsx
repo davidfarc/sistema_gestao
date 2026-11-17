@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageBody } from "./MessageBody";
 import clsx from "clsx";
 import { ArrowLeft, Hash, Pencil, Search, Settings, Users, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
@@ -284,7 +285,7 @@ export function ChannelsView({
                 </span>
                 <span className="flex items-center justify-between gap-2">
                   <span className="truncate text-xs text-neutral-500">
-                    {c.lastMessage ?? "Sem mensagens ainda"}
+                    {c.lastMessage ? c.lastMessage.replace(/\n?\/board\?card=[0-9a-f-]{36}/gi, "") : "Sem mensagens ainda"}
                   </span>
                   {c.unread > 0 && (
                     <span
@@ -353,7 +354,7 @@ export function ChannelsView({
                       <span className="font-semibold">{m.authorName}</span>
                       <span className="ml-1 text-xs text-neutral-600">{clockLabel(m.createdAt)}</span>
                     </p>
-                    <p className="whitespace-pre-wrap text-sm text-neutral-700">{m.body}</p>
+                    <MessageBody body={m.body} />
                   </div>
                 </div>
               ))}

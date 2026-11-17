@@ -510,6 +510,10 @@ Modelo (confirmado pelo David em 16/11):
   e-mails, escolhe-se o papel e os pipelines; cria quem não existe e, para quem já existe, só
   acrescenta os pipelines. Um e-mail por chamada ao servidor (limite de subrequisições do Worker).
 - **Nome da etapa no Kanban** com a mesma letra da Lista (17/11).
+- **Link para o card na menção (17/11):** a mensagem que a pessoa mencionada recebe nas Conversas
+  termina com a referência ao card (`/board?card=<id>`), mostrada como o link "Abrir o card"
+  (`components/channels/MessageBody.tsx`). Endereços http(s) colados em mensagens também viram
+  link; o resto continua texto puro. Mensagens antigas não ganham o link.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
