@@ -7,10 +7,12 @@ import {
   firstPosition,
   formatPhone,
   placeInColumn,
+  planFieldSync,
   positionAfter,
   validateThresholds,
   type Action,
   type Actor,
+  type SyncField,
   type Placement,
   type RuleViolation,
   type Thresholds,
@@ -1657,6 +1659,92 @@ export async function addField(
   });
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+export interface FieldSyncResult {
+  created: string[];
+  optionsAdded: { name: string; labels: string[] }[];
+  conflicts: { name: string; sourceType: string; targetType: string }[];
+  unchanged: number;
+}
+
+/**
+ * Traz para ESTE pipeline as propriedades de outro (as etapas não entram), para
+ * que um card enviado de um para o outro encontre cada valor no seu lugar.
+ * Só acrescenta: cria a propriedade que falta e as opções que faltam; nada é
+ * apagado, renomeado ou tem o tipo trocado (`planFieldSync`, no core).
+ * `apply: false` só mostra o que seria feito.
+ */
+export async function syncFieldsFromBoard(
+  targetBoardId: string,
+  sourceBoardId: string,
+  apply: boolean,
+): Promise<{ ok: true; result: FieldSyncResult } | { ok: false; error: string }> {
+  const actor = await requireActor("field:manage");
+  if (targetBoardId === sourceBoardId) return { ok: false, error: "Escolha outro pipeline como origem." };
+  await assertBoardScope(actor, targetBoardId);
+  await assertBoardScope(actor, sourceBoardId);
+
+  const db = createAdminClient();
+  const [boardsRes, fieldsRes] = await Promise.all([
+    db.from("board").select("id, organization_id").in("id", [targetBoardId, sourceBoardId]),
+    db
+      .from("field_definition")
+      .select("id, name, type, config, show_on_card_face, show_on_create, is_required, position, board_id")
+      .in("board_id", [targetBoardId, sourceBoardId])
+      .is("archived_at", null)
+      .order("position"),
+  ]);
+  const org = actor.organizationId as string;
+  const boards = boardsRes.data ?? [];
+  if (boards.length !== 2 || boards.some((b) => b.organization_id !== org)) {
+    return { ok: false, error: "Pipeline não encontrado." };
+  }
+  const rows = fieldsRes.data ?? [];
+  const toSync = (boardId: string): SyncField[] =>
+    rows
+      .filter((f) => f.board_id === boardId)
+      .map((f) => ({ id: f.id, name: f.name, type: f.type, options: (f.config?.options ?? []) as SyncField["options"] }));
+  const target = toSync(targetBoardId);
+  const plan = planFieldSync(toSync(sourceBoardId), target);
+  const result: FieldSyncResult = {
+    created: plan.create.map((f) => f.name),
+    optionsAdded: plan.addOptions.map((a) => ({ name: a.name, labels: a.options.map((o) => o.label) })),
+    conflicts: plan.conflicts,
+    unchanged: plan.unchanged,
+  };
+  if (!apply) return { ok: true, result };
+
+  if (plan.create.length > 0) {
+    const rowOf = new Map(rows.map((f) => [f.id, f]));
+    let position = rows.filter((f) => f.board_id === targetBoardId).reduce((m, f) => Math.max(m, Number(f.position)), -1);
+    const { error } = await db.from("field_definition").insert(
+      plan.create.map((f) => {
+        const src = rowOf.get(f.id)!;
+        return {
+          organization_id: org,
+          board_id: targetBoardId,
+          name: src.name,
+          type: src.type,
+          config: src.config ?? {},
+          show_on_card_face: src.show_on_card_face,
+          show_on_create: src.show_on_create ?? false,
+          is_required: src.is_required ?? false,
+          is_filterable: true,
+          position: ++position,
+        };
+      }),
+    );
+    if (error) return { ok: false, error: "Não foi possível criar as propriedades. Nada foi alterado nas opções." };
+  }
+  for (const add of plan.addOptions) {
+    const current = rows.find((f) => f.id === add.targetId)!;
+    const config = { ...(current.config ?? {}), options: [...((current.config?.options ?? []) as unknown[]), ...add.options] };
+    const { error } = await db.from("field_definition").update({ config }).eq("id", add.targetId);
+    if (error) return { ok: false, error: `Não foi possível acrescentar as opções de "${add.name}".` };
+  }
+  revalidatePath("/board");
+  return { ok: true, result };
 }
 
 /**

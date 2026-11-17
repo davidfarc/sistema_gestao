@@ -499,6 +499,13 @@ Modelo (confirmado pelo David em 16/11):
   gerencia aquele pipeline: Gestor de área que é membro dele, Gestor e Gestor Master. No servidor,
   `updateCard` exige `stage:manage` e que a pessoa enxergue o pipeline do card; os demais recebem
   recusa mesmo chamando direto.
+- **Trazer propriedades de outro pipeline (17/11):** nas opções do pipeline (engrenagem), quem tem
+  `field:manage` escolhe um pipeline de origem, vê o que muda e confirma. Só acrescenta no destino:
+  cria as propriedades que faltam (com as opções e as marcações de aparecer no card, na criação e
+  obrigatória) e as opções que faltam nas de opção; não apaga, não renomeia, não troca tipo e não
+  toca nas etapas. Mesmo nome com tipo incompatível fica como está e é avisado. A regra de "mesma
+  propriedade" é a do envio de card (nome igual e tipo compatível; opções pelo rótulo), em
+  `core/fieldSync.ts`. Primeiro uso: Editora Pedagógico → Editora Diagramação.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
 
