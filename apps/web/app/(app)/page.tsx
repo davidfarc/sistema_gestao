@@ -15,6 +15,7 @@ export default async function Home() {
     loadBoardOptions(),
   ]);
   const canManage = actor?.permissions.has("board:configure") ?? false;
+  const canSeePanels = actor?.permissions.has("stage:manage") ?? false;
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-10 md:py-16">
@@ -39,18 +40,20 @@ export default async function Home() {
             <p className="text-sm text-secondary">Kanban + lista, cards e checklists</p>
           </div>
         </Link>
-        <Link
-          href="/painel"
-          className="group flex items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
-            <BarChart3 className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-base">Painel</h3>
-            <p className="text-sm text-secondary">Atrasados, parados e concluídos por pipeline</p>
-          </div>
-        </Link>
+        {canSeePanels && (
+          <Link
+            href="/painel"
+            className="group flex items-center gap-3 rounded-xl border border-surface-medium bg-surface-lowest p-5 shadow-premium-soft transition hover:shadow-premium-hover"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-white">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base">Painel</h3>
+              <p className="text-sm text-secondary">Atrasados, parados e concluídos por pipeline</p>
+            </div>
+          </Link>
+        )}
       </div>
 
       <Shortcuts shortcuts={shortcuts} boards={boards} canManage={canManage} />

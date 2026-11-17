@@ -1,7 +1,7 @@
 "use client";
 
-import { Archive, ArrowRightLeft } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Archive, ArrowRightLeft, Pencil } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { setCardArchived, setFieldValue, updateCard } from "@/lib/board/actions";
 import { canEditField } from "@/lib/board/types";
@@ -69,6 +69,15 @@ export function CardContent({
   const [title, setTitle] = useState(data.title);
   const [description, setDescription] = useState(data.description ?? "");
   const [values, setValues] = useState(data.values);
+  const [dueDate, setDueDate] = useState(data.dueDate ? data.dueDate.slice(0, 10) : "");
+  const [rework, setRework] = useState(String(data.reworkCount ?? 0));
+  const [editingDue, setEditingDue] = useState(false);
+  const [editingRework, setEditingRework] = useState(false);
+  const saveBtn =
+    "min-h-10 rounded-lg bg-primary px-3 text-sm font-medium text-white hover:bg-primary-high";
+  // O número muda por fora (contagem automática ao mover o card): o campo acompanha.
+  useEffect(() => setRework(String(data.reworkCount ?? 0)), [data.reworkCount]);
+  useEffect(() => setDueDate(data.dueDate ? data.dueDate.slice(0, 10) : ""), [data.dueDate]);
   const [transferring, setTransferring] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -103,6 +112,23 @@ export function CardContent({
     }
     if (next === data.title) return;
     updateCard({ id: data.id, title: next }).then(onChanged);
+  }
+
+  function saveDueDate(day: string) {
+    setDueDate(day);
+    if (day === (data.dueDate ? data.dueDate.slice(0, 10) : "")) return;
+    updateCard({ id: data.id, dueDate: day || null }).then(onChanged);
+  }
+
+  function saveRework(raw: string) {
+    const next = Math.floor(Number(raw));
+    if (raw.trim() === "" || !Number.isFinite(next) || next < 0 || next > 999) {
+      setRework(String(data.reworkCount ?? 0));
+      return;
+    }
+    setRework(String(next));
+    if (next === (data.reworkCount ?? 0)) return;
+    updateCard({ id: data.id, reworkCount: next }).then(onChanged);
   }
 
   function saveDescription(html: string) {
@@ -210,6 +236,87 @@ export function CardContent({
             </Section>
           )}
 
+          <Section title="Prazo">
+            {editingDue ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  autoFocus
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  aria-label="Prazo do card"
+                  className="min-h-10 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                />
+                <button type="button" onClick={() => { setEditingDue(false); saveDueDate(dueDate); }} className={saveBtn}>
+                  Salvar
+                </button>
+                {data.dueDate && (
+                  <button type="button" onClick={() => { setEditingDue(false); saveDueDate(""); }} className={actionBtn}>
+                    Remover prazo
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setEditingDue(false); setDueDate(data.dueDate ? data.dueDate.slice(0, 10) : ""); }}
+                  className={actionBtn}
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="num text-sm text-neutral-800">
+                  {dueDate ? new Date(`${dueDate}T12:00`).toLocaleDateString("pt-BR") : "Sem prazo"}
+                </span>
+                {data.canManage && (
+                  <button type="button" onClick={() => setEditingDue(true)} className={actionBtn}>
+                    <Pencil className="h-4 w-4" aria-hidden="true" /> Editar prazo
+                  </button>
+                )}
+              </div>
+            )}
+          </Section>
+
+          {data.reworkCount !== null && (
+            <Section title="Emendas">
+              {editingRework ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={999}
+                    step={1}
+                    inputMode="numeric"
+                    autoFocus
+                    value={rework}
+                    onChange={(e) => setRework(e.target.value)}
+                    aria-label="Número de emendas"
+                    className="num min-h-10 w-24 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none focus:border-neutral-500"
+                  />
+                  <button type="button" onClick={() => { setEditingRework(false); saveRework(rework); }} className={saveBtn}>
+                    Salvar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingRework(false); setRework(String(data.reworkCount ?? 0)); }}
+                    className={actionBtn}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="num text-sm font-semibold text-neutral-800">{rework}</span>
+                  {data.canManage && (
+                    <button type="button" onClick={() => setEditingRework(true)} className={actionBtn}>
+                      <Pencil className="h-4 w-4" aria-hidden="true" /> Editar emendas
+                    </button>
+                  )}
+                </div>
+              )}
+            </Section>
+          )}
+
           <Section title="Pessoas">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1">
@@ -235,7 +342,7 @@ export function CardContent({
           </Section>
 
           <Section title="Checklists">
-            <Checklists cardId={data.id} checklists={d.checklists} onChanged={onChanged} />
+            <Checklists cardId={data.id} boardId={data.boardId} checklists={d.checklists} onChanged={onChanged} />
           </Section>
 
           <Section title="Anexos" last>

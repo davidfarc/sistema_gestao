@@ -1,0 +1,71 @@
+# Gateway do WhatsApp (SPEC-FASE2 §C): Evolution API + banco + cache + túnel.
+# Roda num computador da escola que fica sempre ligado (Docker Desktop).
+#
+# - Nada fica aberto na rede da escola: a Evolution só escuta no próprio
+#   computador (127.0.0.1) e o sistema chega até ela pelo túnel do Cloudflare.
+# - Senhas e chaves ficam no arquivo `.env` desta pasta (NUNCA no repositório;
+#   copie o `env.exemplo` para `.env` e preencha).
+# - `restart: unless-stopped`: volta sozinho depois de queda de luz, desde que o
+#   Docker Desktop esteja configurado para abrir junto com o Windows.
+
+services:
+  evolution:
+    image: evoapicloud/evolution-api:latest
+    restart: unless-stopped
+    depends_on: [postgres, redis]
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      SERVER_URL: ${SERVER_URL}
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${POSTGRES_PASSWORD}@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: ecco
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_LOCAL_ENABLED: "false"
+      # Só conversas individuais interessam ao agente.
+      LOG_LEVEL: ERROR,WARN,INFO
+      DEL_INSTANCE: "false"
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  # Túnel do Cloudflare: liga um endereço público (definido no painel do
+  # Cloudflare) a http://evolution:8080, sem abrir porta no roteador da escola.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on: [evolution]
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
+volumes:
+  evolution_instances:
+  postgres_data:
+  redis_data:

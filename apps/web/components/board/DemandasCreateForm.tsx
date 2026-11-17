@@ -1,5 +1,6 @@
 "use client";
 
+import { TemplatePicker } from "./TemplatePicker";
 import {
   BRACKET_LABEL,
   TRACK_LABEL,
@@ -71,6 +72,7 @@ export function DemandasCreateForm({
   const [riceConfianca, setRiceConfianca] = useState("");
   const [riceTempo, setRiceTempo] = useState("");
   const [riceComplexOpt, setRiceComplexOpt] = useState("");
+  const [templateIds, setTemplateIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -175,7 +177,7 @@ export function DemandasCreateForm({
       put(F.riceConfianca, numOrNull(riceConfianca));
       put(F.riceTempo, numOrNull(riceTempo));
       put(F.riceComplexidade, riceComplexOpt || null);
-      const id = await createCardWithFields(boardId, nome, v);
+      const id = await createCardWithFields(boardId, nome, v, templateIds);
       onCreated(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar a demanda.");
@@ -364,6 +366,8 @@ export function DemandasCreateForm({
                 </Label>
               </>
             )}
+
+            <TemplatePicker boardId={boardId} value={templateIds} onChange={setTemplateIds} />
 
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>

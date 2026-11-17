@@ -349,7 +349,7 @@ export function KanbanBoard({
         setDragging(null);
       }}
     >
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div className="flex gap-3 overflow-x-auto pb-4 md:overflow-visible">
         {stages.map((stage, i) => (
           <Column
             key={stage.id}

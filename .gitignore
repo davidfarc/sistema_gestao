@@ -47,3 +47,6 @@ supabase/.temp/
 
 # Backups com dados pessoais/segredos nunca entram no Git
 infra/backups/
+
+# Segredos do gateway do WhatsApp (computador da escola)
+infra/whatsapp-gateway/.env

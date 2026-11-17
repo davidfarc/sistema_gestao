@@ -27,7 +27,9 @@ export default async function UsuariosPage() {
         Quem tem acesso ao sistema e o papel de cada um. Os usuários entram por Google e são criados
         no primeiro login. O <strong>cargo</strong> define quem aprova as demandas em cada faixa de
         alçada. Em <strong>Pipelines</strong> você escolhe o que cada Gestor de área ou membro
-        enxerga; Gestor e Gestor Master veem todos.
+        enxerga; Gestor e Gestor Master veem todos. Em <strong>Acessos</strong> você libera, pessoa a
+        pessoa, a Gestão de Vila e os Novos alunos. Painéis são só da gestão: o Gestor de área vê os
+        dos pipelines dele.
       </p>
 
       <div className="mt-6">

@@ -200,6 +200,13 @@ export interface BoardSummary {
   archived: boolean;
 }
 
+/** Modelo de checklist de um pipeline (nome + itens, na ordem). */
+export interface ChecklistTemplate {
+  id: string;
+  name: string;
+  items: string[];
+}
+
 export interface ChecklistItemView {
   id: string;
   text: string;
@@ -308,6 +315,12 @@ export interface CardPageData {
   stageName: string;
   /** Preenchido quando o card está arquivado (fora dos quadros, listas e relatórios). */
   archivedAt: string | null;
+  /** Prazo do card (AAAA-MM-DD), a mesma data da coluna "Prazo" dos quadros. */
+  dueDate: string | null;
+  /** Emendas do card; null quando o pipeline não tem etapa de emenda. */
+  reworkCount: number | null;
+  /** Quem vê gerencia o pipeline do card: pode alterar prazo e emendas. */
+  canManage: boolean;
   fields: FieldDef[];
   values: Record<string, FieldValueRaw>; // por fieldId
   detail: CardDetailData;
@@ -328,6 +341,12 @@ export interface UserRow {
   cargo: string | null;
   /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
   archived: boolean;
+  /** Acessos pontuais concedidos à pessoa ("salas", "novos"). */
+  grants: string[];
+  /** Acessos que o PAPEL dela já dá (a caixa aparece marcada e travada). */
+  roleGrants: string[];
+  /** Telefone (WhatsApp), formatado; null se não cadastrado. */
+  phone: string | null;
   /** O papel enxerga todos os pipelines (`board:configure`, só interno). */
   seesAllBoards: boolean;
   /** Pipelines em que a pessoa é membro (o que ela enxerga, se não vê todos). */

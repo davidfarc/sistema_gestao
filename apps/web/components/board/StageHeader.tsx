@@ -108,7 +108,9 @@ export function StageHeader({
   const overLimit = !!stage.wipLimit && count > stage.wipLimit;
 
   return (
-    <div className="relative mb-2 flex items-center gap-2 px-1">
+    // No computador o nome da etapa fica preso logo abaixo do cabeçalho do
+    // quadro enquanto a página rola (não se perde em colunas longas).
+    <div className="relative mb-2 flex items-center gap-2 bg-[var(--background)] px-1 md:sticky md:top-[var(--board-head-h,0px)] md:z-20 md:py-2">
       <span
         title={CAT_LABEL[stage.category]}
         className={"h-2 w-2 shrink-0 rounded-full " + DOT[stage.category]}
@@ -128,7 +130,9 @@ export function StageHeader({
         <h3
           onClick={() => canConfigure && setEditing(true)}
           className={
-            "truncate text-sm font-semibold text-neutral-700 " +
+            // `font-sans`: título de etapa usa a mesma letra da Lista (os <h3> do
+            // sistema usam a letra de título, que destoava aqui).
+            "truncate font-sans text-sm font-semibold text-neutral-700 " +
             (canConfigure ? "cursor-text" : "")
           }
         >

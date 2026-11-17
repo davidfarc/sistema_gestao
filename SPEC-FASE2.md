@@ -106,90 +106,119 @@ Usa as mesmas consultas de D.2.
 
 ---
 
-## C. WhatsApp — agente dedicado (API não oficial)
+## C. WhatsApp — agente de demandas (Twilio, API oficial)
 
-> Decidido em 12/11/2026: **um único número remetente**, dedicado ao sistema, que funciona
-> como agente. Riscos de C.4 conhecidos e aceitos.
+> **Redesenhado em 16/11/2026** a pedido do David. Substitui a decisão de 12/11 (API não oficial com
+> gateway em VPS): o número passa a ser contratado na **Twilio**, que usa a API oficial do WhatsApp.
+> Com isso **não há gateway, VPS nem computador ligado na escola**: a Twilio chama o nosso servidor
+> quando chega mensagem, e o servidor chama a Twilio para responder. O risco de banimento da versão
+> anterior deixa de existir.
 
-### C.1 O que o agente faz
+> **Decisão final de 16/11: API não oficial com a Evolution API**, rodando num computador da escola
+> sempre ligado (Docker), alcançado pelo sistema por um Cloudflare Tunnel, com um **número
+> descartável** (chip próprio num Android barato; número virtual da Twilio foi descartado porque o
+> WhatsApp comum costuma recusar). Motivos: custo zero por mensagem e sem a janela de 24 h nem
+> modelos de mensagem. Risco aceito: o número pode ser bloqueado; troca-se o chip e pareia de novo.
+> Onde este capítulo fala em Twilio, webhook assinado da Twilio e modelos da Meta, vale a Evolution
+> API: webhook com segredo próprio, envio pela API dela e mensagens livres a qualquer hora. O código
+> tem uma interface de provedor para trocar depois sem reescrever o agente.
+>
+> **Decidido em 16/11:** só telefones cadastrados falam com o agente; o telefone entra no cadastro
+> do usuário, com convite para preencher no primeiro acesso. Quem libera demanda: **gestor de área
+> do pipeline, Gestor e Gestor Master** (não há cargo "diretor" nessa regra).
 
-Qualquer pessoa da equipe, com telefone cadastrado, conversa com o número do sistema:
+### C.1 O que o agente faz (primeiro pipeline: Manutenção)
 
-| A pessoa escreve | O agente faz |
-|---|---|
-| "Preciso de 3 notebooks para a coordenação até dia 20" | **Cria o card** no pipeline certo (pergunta qual, se houver dúvida), com a pessoa como solicitante, e devolve o link |
-| "No card 142, pode marcar a revisão como feita e passar para diagramação" | **Atualiza o card**: comenta, marca checklist, muda prazo ou responsável, move de etapa (respeitando as regras de fluxo) |
-| "Como está o livro de Ciências do 7º ano?" / "O que tenho para hoje?" | **Responde com a situação**: etapa, responsável, prazo, último movimento; ou a lista dos cards da pessoa |
-| Áudio ou foto | Áudio é transcrito e tratado como texto; foto vira anexo do card em questão |
+1. **Abrir demanda por texto ou áudio.** O professor escreve ou fala ("o ar-condicionado da minha
+   sala não funciona"). O agente pergunta o que falta até ter o mínimo do pipeline; na Manutenção, o
+   **número da sala**, pedindo para conferir a placa na porta quando a pessoa der um nome em vez do
+   número. Com tudo em mãos, cria o card e responde com o **número do pedido**.
+2. **Não duplicar.** Antes de criar, o agente procura card aberto do mesmo pipeline com a mesma sala
+   e o mesmo problema. Se achar, **não cria outro**: registra um comentário no card existente ("novo
+   pedido em DD/MM, por Fulano"), inclui a pessoa como acompanhante e avisa: "já existe o pedido
+   #N; registrei o seu reforço e você passa a receber as atualizações".
+3. **Consultar.** "Como está o pedido 142?" → etapa, responsável, prazo e última atualização.
+4. **Avisar quem pediu** a cada avanço: mudou de etapa, ganhou responsável, foi concluído.
+5. **Avisar a gestão:** a gestora de área do pipeline recebe a demanda nova; o responsável recebe
+   quando é atribuído.
+6. **Liberação.** A demanda nasce travada na entrada. Só anda quando a **gestora de área do
+   pipeline** ou um **diretor** a move e atribui o responsável (pela tela, como hoje).
+7. **Cobrar atualização.** Card em andamento sem novidade há 3 dias (configurável por pipeline):
+   o responsável recebe um lembrete e pode responder ali mesmo; a resposta vira comentário no card.
+   Prazo vencido também gera alerta.
 
-E, na saída, o mesmo número **avisa**: menção, atribuição, prazo vencendo e mensagem direta
-não lida há mais de X minutos.
+### C.2 Regras
 
-### C.2 Regras do agente
-
-- **Quem fala é identificado pelo telefone** (`app_user.phone`). Número desconhecido não
-  recebe resposta e não cria nada.
-- O agente age **com as permissões da pessoa**: só enxerga e altera o que ela poderia pela
-  tela. Toda escrita passa pelo mesmo caminho do servidor (`CardService.move`, gates, auditoria)
-  e fica no histórico como "via WhatsApp".
-- **Confirma antes de alterar** quando houver ambiguidade (mais de um card possível, mover
-  para etapa concluída, trocar responsável). Criação de card não pede confirmação: devolve o
-  link e a pessoa corrige se precisar.
-- Não apaga nada e não mexe em configurações, usuários, Gestão de Vila nem Novos alunos.
-- A interpretação das mensagens usa um modelo de linguagem (API do Claude) com as
-  **mesmas ferramentas do MCP (seção D)**, mais as de escrita (`criar_card`, `comentar`,
-  `mover_card`, `atualizar_card`). Por isso D vem antes de C.
+- **Quem fala é identificado pelo telefone** cadastrado no usuário (`app_user.phone`). Número
+  desconhecido recebe uma resposta padrão e não cria nada.
+- O agente age **com as permissões da pessoa** e pelas mesmas portas do servidor (criação pela caixa
+  de entrada do pipeline, `CardService.move`, escopo de `lib/board/scope.ts`). Tudo fica no histórico
+  como "via WhatsApp".
+- **O que o agente sabe de cada pipeline é configurável**, sem código: em "Atendimento pelo
+  WhatsApp" (opções do pipeline) a gestão liga o atendimento, escreve as **instruções** (as salas, o
+  que há em cada uma, que tipo de demanda cabe ali) e define os dias do lembrete. As perguntas
+  obrigatórias saem das **propriedades marcadas como obrigatórias** na criação (ex.: Sala, Tipo).
+- Não apaga nada, não mexe em configurações, usuários, Gestão de Vila nem Novos alunos, e não tem
+  acesso a dados de alunos.
+- **Janela de 24 horas (regra do WhatsApp):** resposta livre só vale até 24 h depois da última
+  mensagem da pessoa. Avisos fora dessa janela (avanço de etapa dias depois, lembrete) precisam de
+  **modelos de mensagem aprovados pela Meta**, cadastrados na Twilio. Os textos dos modelos saem
+  daqui; o cadastro é feito pelo David.
 
 ### C.3 Como funciona
 
 ```
-WhatsApp do número do sistema
-        ▲ │
-        │ ▼   sessão do WhatsApp Web, pareada por QR code
-Gateway (Evolution API, em Docker, num servidor sempre ligado)
-        │ webhook assinado                    ▲ envio (HTTP)
-        ▼                                     │
-POST /api/whatsapp/webhook ─► fila `whatsapp_inbox` ─► agente (modelo + ferramentas) ─► `whatsapp_outbox`
+WhatsApp ──► Twilio ──► POST /webhook (Worker `ecco-whatsapp`, assinatura conferida)
+                              │ grava em `whatsapp_message` e responde 200 na hora
+                              ▼
+                      agente: modelo de linguagem (API do Claude) + ferramentas
+                      (buscar_cards, criar_card, comentar, acompanhar, situacao)
+                              │
+                              ▼
+                      Twilio (envio) ──► WhatsApp
 ```
 
-- **Onde roda o gateway:** ele mantém uma conexão permanente, então precisa de um servidor
-  sempre ligado. ⚠️ **O Supabase não oferece isso** — ele hospeda banco, login e funções
-  curtas, não contêineres. O que dá para fazer na conta da Eccoprime é **guardar os dados
-  do gateway no Postgres do Supabase** (schema próprio, `whatsapp_gateway`); o programa em si
-  precisa de um VPS pequeno à parte (1 vCPU / 1–2 GB, ~R$ 30–60/mês). **Pendente: escolher o
-  provedor do VPS.**
-- No sistema: `app_user.phone` (E.164) e `whatsapp_opt_in`; filas `whatsapp_inbox` e
-  `whatsapp_outbox` (com tentativas, padrão *outbox* da central de anamneses); histórico curto
-  da conversa por pessoa (para o agente entender "esse card"); tela Configurações → WhatsApp
-  (QR code, estado da conexão, mensagem de teste); preferências de aviso por pessoa.
-- A interface `WhatsAppProvider` que já existe (`lib/anamnese/whatsapp.ts`) é reaproveitada.
+- **Worker separado** (`apps/whatsapp`), como o do MCP: o Worker principal está perto do limite de
+  3 MiB. Ele grava pelo banco com a identidade da pessoa.
+- **Áudio:** a Twilio entrega o arquivo; a transcrição roda no próprio Cloudflare (Workers AI,
+  modelo Whisper), sem conta nova.
+- **Avisos de saída:** gatilhos do sistema (card criado, movido, atribuído) entram numa fila
+  (`whatsapp_outbox`, com tentativas); a rotina agendada cuida dos lembretes de 3 dias e de atraso.
+- **Banco:** `app_user.phone`; `card_follower` (quem acompanha um card); `whatsapp_conversation` e
+  `whatsapp_message` (histórico curto, para o agente entender "esse pedido"); `whatsapp_outbox`;
+  opções por pipeline (`whatsapp_enabled`, `whatsapp_instructions`, `update_reminder_days`); regra de
+  fluxo nova "liberação pela gestão".
+- **Segredos (só no Cloudflare):** credenciais da Twilio e chave da API do Claude.
 
-### C.4 Riscos (aceitos) e cuidados
+### C.4 Riscos e cuidados
 
-- **Viola os termos do WhatsApp**: o número pode ser banido sem aviso. Por isso o chip é
-  **dedicado ao sistema** — perder o número não pode custar nada além do chip.
-- Cuidados para reduzir bloqueio: o agente só responde a quem escreveu ou aceitou receber
-  avisos; limite de mensagens por minuto; nada de disparo em massa.
-- **Só equipe interna.** Famílias continuam por e-mail.
-- Se o gateway cair ou o número for banido, o sistema segue funcionando: avisos pelo
-  sininho e pelo push (B), e as mensagens recebidas ficam na fila.
-- **Dados:** o texto das mensagens passa pelo gateway e pelo modelo de linguagem. O agente
-  não tem acesso a dados de alunos, e as respostas trazem título, etapa, prazo e link — não
-  a descrição inteira do card.
+- **Aprovação do número pela Meta** (verificação da empresa) pode levar dias. Enquanto isso, o
+  desenvolvimento usa o **ambiente de teste da Twilio** (número compartilhado, entra-se com um código).
+- **Custo por mensagem:** a Twilio e a Meta cobram por mensagem/conversa, e o modelo de linguagem por
+  uso. Estimar depois do primeiro mês real; limite de mensagens por pessoa por hora desde o início.
+- **Dados:** o texto e o áudio passam pela Twilio, pelo Cloudflare e pelo modelo de linguagem. As
+  respostas trazem número, título, etapa e prazo, não a descrição inteira.
+- Se a Twilio ou o modelo falharem, o sistema segue normal; as mensagens ficam na fila.
 
-### C.5 Esforço
+### C.5 Etapas e esforço
 
-| Item | Dias |
+| Etapa | O que entrega | Dias |
+|---|---|---|
+| C1 Base | Telefone no usuário, Worker, webhook com assinatura, envio, fila, tela Configurações → WhatsApp, teste no ambiente da Twilio | 3 |
+| C2 Agente | Abrir demanda com perguntas guiadas, checagem de duplicado, consulta de situação, áudio, opções por pipeline | 5 |
+| C3 Avisos | Acompanhantes, avisos a quem pediu, à gestora e ao responsável; modelos de mensagem | 3 |
+| C4 Fluxo | Liberação pela gestora ou diretor; lembrete de 3 dias e alerta de atraso, com resposta virando comentário | 2,5 |
+| **Total C** | | **~13,5** |
+
+**Pendente com o David:** computador da escola com a Evolution API e o túnel; aparelho para o chip;
+chave da API do Claude; cadastro dos telefones da equipe.
+
+**Andamento de C**
+
+| Etapa | Situação |
 |---|---|
-| VPS + gateway (subir, proteger, parear, dados no Supabase) | 1,5 |
-| Telefone e opt-in, filas, provedor, tela de conexão | 3 |
-| Avisos de saída e preferências por pessoa | 1,5 |
-| Agente: webhook, identificação, ferramentas de escrita, confirmações, histórico | 5 |
-| Áudio e foto | 1,5 |
-| **Total C** | **~12,5** |
-
-Custo mensal: VPS (R$ 30–60) + chip + uso do modelo de linguagem (centavos por conversa;
-estimar após o primeiro mês de uso real).
+| C1 telefone no cadastro | Código pronto em 16/11: tabela `user_phone` (0044; cada um lê o seu, a gestão lê todos), convite "Complete seu cadastro" para quem não tem telefone (adiável por 7 dias), "Meu telefone" em Avisos, telefone na edição do usuário e aviso "sem telefone" na lista. Normalização em `core/phone.ts` (com as formas com e sem o nono dígito, para casar com o WhatsApp) |
+| C1 Worker, webhook e envio | A fazer (depende da Evolution API instalada para testar) |
 
 ---
 
@@ -457,8 +486,114 @@ Modelo (confirmado pelo David em 16/11):
   escolhida. O Kanban do celular continua sendo uma etapa por vez.
 - **Minhas demandas sem troca de etapa:** o card mostra a etapa só para leitura. Mudar de etapa fica
   no Kanban, na Lista e com o card aberto.
+- **Prazo editável (17/11):** o prazo do card (coluna "Prazo", presente em todos os quadros) era só
+  leitura: nenhuma tela gravava. Agora edita-se na Lista (campo de data na célula) e no card aberto
+  (seção "Prazo", com "Remover prazo"). Grava por `updateCard` (permissão `card:update` + escopo) e
+  registra no histórico ("definiu/mudou/removeu o prazo").
+- **Emendas editáveis (17/11):** a contagem automática continua (sobe 1 a cada ENTRADA do card numa
+  etapa de emenda, venha de onde vier; reordenar dentro da etapa não conta), e o número agora pode
+  ser corrigido à mão: na coluna Emendas da Lista e na seção "Emendas" do card aberto (0 a 999). A
+  correção entra no histórico. O selo no card continua.
+- **Prazo e emendas só pela gestão do pipeline (17/11):** os dois aparecem para todos, mas o botão
+  de editar (lápis na Lista, "Editar prazo" / "Editar emendas" no card aberto) só aparece para quem
+  gerencia aquele pipeline: Gestor de área que é membro dele, Gestor e Gestor Master. No servidor,
+  `updateCard` exige `stage:manage` e que a pessoa enxergue o pipeline do card; os demais recebem
+  recusa mesmo chamando direto.
+- **Trazer propriedades de outro pipeline (17/11):** nas opções do pipeline (engrenagem), quem tem
+  `field:manage` escolhe um pipeline de origem, vê o que muda e confirma. Só acrescenta no destino:
+  cria as propriedades que faltam (com as opções e as marcações de aparecer no card, na criação e
+  obrigatória) e as opções que faltam nas de opção; não apaga, não renomeia, não troca tipo e não
+  toca nas etapas. Mesmo nome com tipo incompatível fica como está e é avisado. A regra de "mesma
+  propriedade" é a do envio de card (nome igual e tipo compatível; opções pelo rótulo), em
+  `core/fieldSync.ts`. Primeiro uso: Editora Pedagógico → Editora Diagramação.
+- **Importar lista de usuários (17/11):** em Configurações → Usuários, "Importar lista": cola-se os
+  e-mails, escolhe-se o papel e os pipelines; cria quem não existe e, para quem já existe, só
+  acrescenta os pipelines. Um e-mail por chamada ao servidor (limite de subrequisições do Worker).
+- **Nome da etapa no Kanban** com a mesma letra da Lista (17/11).
+- **Link para o card na menção (17/11):** a mensagem que a pessoa mencionada recebe nas Conversas
+  termina com a referência ao card (`/board?card=<id>`), mostrada como o link "Abrir o card"
+  (`components/channels/MessageBody.tsx`). Endereços http(s) colados em mensagens também viram
+  link; o resto continua texto puro. Mensagens antigas não ganham o link.
 - **Modo escuro: descartado.** No lugar, a cor principal (menu e botões) passa a verde, no padrão do
   site da editora (lidas das imagens do site): menu `#092c23`; botões e links em verde mais vivo `#12703f` (a primeira versão, `#1d453a`, ficou sem contraste); item ativo do menu com o verde-limão `#a2c53e`.
+
+### E.11 Modelos de checklist por pipeline (código pronto em 17/11)
+
+Decidido com o David em 17/11: cada pipeline tem os seus modelos; sem checklist automático; no
+formulário de criação a escolha é opcional.
+
+- **Salvar como modelo:** em qualquer checklist de um card, a gestão do pipeline (`stage:manage` +
+  enxergar o pipeline) clica em "salvar como modelo"; guarda o nome e os itens.
+- **Usar modelo:** no card aberto, "Usar modelo" cria o checklist com todos os itens desmarcados
+  (quem tem `card:update`). É cópia: editar o modelo depois não muda os cards.
+- **Na criação:** os três formulários (simples, genérico e demandas) mostram "Checklists (opcional)"
+  quando o pipeline tem modelos; o card nasce com os marcados.
+- **Gerenciar modelos:** no card aberto, renomear, editar os itens (um por linha) e excluir.
+- Migration `0045_checklist_templates.sql` (tabela `checklist_template`; leitura para quem enxerga o
+  pipeline, escrita só pelo servidor). Antes dela, nada disso aparece e o resto funciona igual.
+- A cópia para o card fica em `lib/board/checklistCopy.ts`, fora do arquivo de Server Actions,
+  porque não confere permissão sozinha.
+
+### E.12 Importação do sistema antigo "Produção Pedagógica" (roteiro pronto em 17/11)
+
+Decidido com o David em 17/11: traz **tudo** (inclusive aprovados) para o pipeline **Editora
+Pedagógico**; o diário vira texto corrido na descrição do card. Substitui o "começa do zero" de E.1.
+
+Como eu não tenho acesso a nenhum dos dois bancos, a importação é um roteiro em três arquivos de
+`infra/import/` (sem dado nenhum dentro), rodados pelo David no SQL Editor do banco atual:
+
+1. `producao_pedagogica_1_preparo.sql`: cria tabelas de passagem (`import_pp_*`, só texto, sem
+   acesso pela API) para receber os CSVs exportados do Supabase antigo.
+2. `producao_pedagogica_2_importar.sql`: função `import_producao_pedagogica(pipeline, e-mail de
+   quem assina, gravar)`. Com `false` **simula** e devolve o resumo (cards por etapa, responsáveis
+   sem usuário, opções acrescentadas, avisos) sem gravar; com `true` grava. Rodar de novo não
+   duplica (`import_pp_feito`).
+3. `producao_pedagogica_3_limpeza.sql`: apaga as tabelas de passagem e a função.
+
+Conversão: material → card; prazo → prazo; responsável pelo e-mail; etapa pela mesma regra de tela
+do sistema antigo (aprovado → concluída; emenda → etapa de emenda; entregue ou reentregue →
+revisão; resto → em andamento); emendas → emendas; segmento, tipo, início, finalização e link do
+autor → propriedades de mesmo nome (opção inexistente é acrescentada); comentários do parecer →
+comentários, assinados pelo e-mail informado, com a data original; histórico → histórico
+(`legacy_note`). **Diário:** no sistema antigo é por pessoa e por dia, sem ligação com material;
+entra na descrição de cada card do responsável os dias entre o início e o fim daquele material
+(dia fora de qualquer material não entra; dia coberto por dois materiais entra nos dois).
+
+**Executada em 17/11 pelo David:** 51 materiais importados (15 em produção, 6 aguardando
+aprovação, 2 em emenda, 28 concluídos), 14 comentários e 228 linhas de histórico; sem avisos.
+Ajustes feitos durante a simulação: início → propriedade "Data inicial"; link do autor →
+"Pasta de trabalho"; tipos antigos convertidos para as opções "Básico" e "Upgrade"; sem
+propriedade de finalização, a data de fim entrou no Prazo (36 cards; nenhum material tinha prazo
+no sistema antigo); o diário estava vazio.
+
+Testado em banco local com dados inventados (simulação não grava; cinco situações de etapa;
+segunda execução não duplica). **Não testado com os dados reais.** Pré-requisitos: usuários
+importados e propriedades do pipeline criadas.
+
+### E.13 Acessos pontuais, Painéis da gestão e rolagem da página (código pronto em 17/11)
+
+**Acessos (pedido do David em 17/11).** Cargo continua servindo só para as alçadas de aprovação.
+
+| Área | Quem entra |
+|---|---|
+| Painéis | Só a gestão (`stage:manage`): Gestor de área (pipelines dele, pelo RLS), Gestor e Gestor Master. Membro comum não vê Painéis, nem o atalho no Início |
+| Gestão de Vila | Gestor e Gestor Master (papel) ou quem tem a caixa "Gestão de Vila" marcada. A caixa dá acesso completo (ver e editar) |
+| Novos alunos | Gestor e Gestor Master (papel) ou quem tem a caixa "Novos alunos" (nível atendimento). Psicólogas seguem entrando pelo cadastro no módulo; para o item aparecer no menu delas, marca-se a caixa |
+
+- Caixas em Configurações → Usuários, coluna **Acessos**; só quem tem `user:manage` altera. O que o
+  papel já dá aparece marcado e travado.
+- O menu lateral mostra só o que a pessoa pode abrir.
+- Migration `0046_user_access.sql`: tabela `user_grant`, função `has_access` e a leitura de
+  `sala_state` passa a exigir o acesso (antes: qualquer interno). No servidor, o acesso pontual
+  vira a permissão correspondente (`salas:manage`, `novos:access`) ao montar o ator.
+- **Efeito ao publicar:** quem não é Gestor deixa de ver a Gestão de Vila e os Painéis até ter a
+  caixa marcada (ou, nos Painéis, ser gestor do pipeline).
+
+**Rolagem (pedido do David em 17/11).** No computador, o quadro (Kanban e Lista) não rola mais
+dentro de uma caixa: a página rola, com uma barra de cada tipo. O cabeçalho do quadro fica preso no
+topo e na esquerda, e o nome de cada etapa fica preso abaixo dele. O arrastar de cards continua
+rolando a página sozinho perto das bordas. No celular nada mudou. A página de Configurações ficou
+mais larga e o Cargo saiu da tabela de Usuários para a janela de edição (lápis).
 
 ### E.3 Ordem sugerida
 
@@ -479,7 +614,7 @@ O visual novo mexe em todas as telas e deve partir de uma base já validada.
 | A. Quadro | ~11 | — |
 | B. Mobile | ~12,5 | — |
 | D. MCP | ~7,5 | Possível plano pago do Cloudflare (US$ 5) se o segundo Worker exigir |
-| C. WhatsApp (agente) | ~12,5 | VPS do gateway (R$ 30–60) + chip dedicado + uso do modelo de linguagem |
+| C. WhatsApp (agente) | ~13,5 | Twilio (número + mensagens) + uso do modelo de linguagem. Sem VPS |
 | **Total** | **~44** | |
 
 **Decidido (12/11/2026):** ordem A → B → D → C; WhatsApp com um único número dedicado,
@@ -506,7 +641,10 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0040_transfer_card.sql` | Função `transfer_card`: envia um card para outro pipeline numa transação | ✅ Aplicada em 12/11 |
 | `0041_time_tracking.sql` | Opções `board.my_tasks` e `board.time_tracking`; tabela `time_entry` (um período aberto por pessoa); permissão `time:read`; funções `time_start` / `time_stop` | ✅ Aplicada em 13/11 (cronômetro funcionando) |
 | `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | ✅ Aplicada em 16/11 (testada na prévia) |
-| `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | **A aplicar** |
+| `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
+| `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | ✅ Aplicada em 16/11 |
+| `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
+| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

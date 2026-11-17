@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createCardWithFields, loadFields, loadMembers } from "@/lib/board/actions";
 import type { FieldDef, FieldValueRaw, MemberOption } from "@/lib/board/types";
 import { FieldEditor } from "./fieldControls";
+import { TemplatePicker } from "./TemplatePicker";
 
 function emptyRaw(fieldId: string): FieldValueRaw {
   return { fieldId, text: null, number: null, date: null, bool: null, memberId: null };
@@ -39,6 +40,7 @@ export function GenericCreateForm({
   const [entries, setEntries] = useState<
     Record<string, { submit: string | number | boolean | null; raw: FieldValueRaw }>
   >({});
+  const [templateIds, setTemplateIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -73,7 +75,7 @@ export function GenericCreateForm({
     setPending(true);
     try {
       const values = fields.map((f) => ({ fieldId: f.id, value: entries[f.id]?.submit ?? null }));
-      const id = await createCardWithFields(boardId, title, values);
+      const id = await createCardWithFields(boardId, title, values, templateIds);
       onCreated(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar o card.");
@@ -125,6 +127,8 @@ export function GenericCreateForm({
             ))}
           </div>
         )}
+
+        <TemplatePicker boardId={boardId} value={templateIds} onChange={setTemplateIds} className="px-5 pb-4" />
 
         {error && <p className="px-5 text-sm text-red-600">{error}</p>}
 

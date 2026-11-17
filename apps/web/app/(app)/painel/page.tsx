@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, Hourglass, Layers, User } from "lucide-react";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import type { StageCategory } from "@/lib/board/types";
@@ -23,11 +24,11 @@ const DOT: Record<StageCategory, string> = {
  * que enxerga (o banco aplica o mesmo escopo do quadro).
  */
 export default async function PainelPage() {
-  const [pipelines, actor, panels] = await Promise.all([
-    loadPipelineOverview(),
-    provisionAndGetActor(),
-    loadPanelBoards(),
-  ]);
+  const actor = await provisionAndGetActor();
+  // Painéis são da gestão: Gestor de área (só dos pipelines dele, pelo RLS),
+  // Gestor e Gestor Master.
+  if (!actor?.permissions.has("stage:manage")) notFound();
+  const [pipelines, panels] = await Promise.all([loadPipelineOverview(), loadPanelBoards()]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">

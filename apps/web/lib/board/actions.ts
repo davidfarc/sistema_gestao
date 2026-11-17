@@ -2,18 +2,24 @@
 
 import {
   CardService,
+  assertCan,
   ForbiddenError,
   GateBlockedError,
   firstPosition,
+  formatPhone,
   placeInColumn,
+  planFieldSync,
   positionAfter,
   validateThresholds,
   type Action,
+  type Actor,
+  type SyncField,
   type Placement,
   type RuleViolation,
   type Thresholds,
 } from "@ecco/core";
 import { BOARD_TEMPLATES, templateOptions } from "./templates";
+import { copyTemplatesToCard } from "./checklistCopy";
 import {
   assertAttachmentScope,
   assertBoardScope,
@@ -190,12 +196,18 @@ async function boardAndFirstStage(db: AdminDb, boardId: string) {
 }
 
 /** Cria um card na 1ª etapa só com o nome. O #number vem por trigger no banco. */
-export async function createCard(boardId: string, title: string): Promise<string> {
+export async function createCard(
+  boardId: string,
+  title: string,
+  /** Modelos de checklist do pipeline com que o card já nasce (opcional). */
+  templateIds: string[] = [],
+): Promise<string> {
   const actor = await requireActor("card:create");
   await assertCanCreateInBoard(boardId);
   const db = createAdminClient();
   const { board, firstStageId } = await boardAndFirstStage(db, boardId);
   const card = await insertCard(db, actor.userId as string, board, firstStageId, title);
+  await copyTemplatesToCard(card.id, templateIds);
   revalidatePath("/board");
   return card.id;
 }
@@ -275,6 +287,8 @@ export async function createCardWithFields(
   boardId: string,
   title: string,
   values: { fieldId: string; value: string | number | boolean | null }[],
+  /** Modelos de checklist do pipeline com que o card já nasce (opcional). */
+  templateIds: string[] = [],
 ): Promise<string> {
   const actor = await requireActor("card:create");
   await assertCanCreateInBoard(boardId);
@@ -287,6 +301,7 @@ export async function createCardWithFields(
     if (v.value === null || v.value === "") continue;
     await setFieldValue(card.id, v.fieldId, v.value);
   }
+  await copyTemplatesToCard(card.id, templateIds);
   revalidatePath("/board");
   return card.id;
 }
@@ -536,17 +551,71 @@ export async function updateCard(input: {
   id: string;
   title?: string;
   description?: string;
+  /** Prazo do card (AAAA-MM-DD); null remove o prazo. */
+  dueDate?: string | null;
+  /** Correção manual do número de emendas (a contagem automática continua valendo). */
+  reworkCount?: number;
 }): Promise<void> {
   const actor = await requireActor("card:update");
   await assertCardScope(actor, input.id);
   const db = createAdminClient();
+  // Prazo e emendas: só quem gerencia o pipeline (Gestor de área dele, Gestor,
+  // Gestor Master). `stage:manage` é o que separa a gestão dos demais membros,
+  // e o escopo acima garante que é um pipeline dela.
+  if (input.dueDate !== undefined || input.reworkCount !== undefined) {
+    await assertCanManageCard(actor, input.id);
+  }
   const patch: Record<string, unknown> = {};
   if (input.title !== undefined) patch.title = input.title.trim() || "Novo card";
   if (input.description !== undefined) patch.description = input.description;
+  let dueChange: { from: string | null; to: string | null } | null = null;
+  if (input.dueDate !== undefined) {
+    const to = input.dueDate ? input.dueDate.slice(0, 10) : null;
+    if (to !== null && !isRealDate(to)) throw new Error("Data de prazo inválida.");
+    const { data: cur } = await db.from("card").select("due_date").eq("id", input.id).maybeSingle();
+    const from = (cur?.due_date as string | null) ?? null;
+    if (from !== to) {
+      patch.due_date = to;
+      dueChange = { from, to };
+    }
+  }
+  let reworkChange: { from: number; to: number } | null = null;
+  if (input.reworkCount !== undefined) {
+    const to = Math.floor(Number(input.reworkCount));
+    if (!Number.isFinite(to) || to < 0 || to > 999) throw new Error("Número de emendas inválido.");
+    const { data: cur } = await db.from("card").select("rework_count").eq("id", input.id).maybeSingle();
+    const from = Number(cur?.rework_count ?? 0);
+    if (from !== to) {
+      patch.rework_count = to;
+      reworkChange = { from, to };
+    }
+  }
   if (Object.keys(patch).length === 0) return;
   const { error } = await db.from("card").update(patch).eq("id", input.id);
   if (error) throw new Error(error.message);
+  if (dueChange) await recordActivity(input.id, actor.userId as string, "due_date_changed", dueChange);
+  if (reworkChange) await recordActivity(input.id, actor.userId as string, "rework_changed", reworkChange);
   revalidatePath("/board");
+}
+
+/**
+ * Quem gerencia o pipeline do card: tem `stage:manage` e enxerga o PIPELINE
+ * (não basta enxergar o card, como o solicitante de fora do pipeline).
+ */
+async function assertCanManageCard(actor: Actor, cardId: string): Promise<void> {
+  if (!actor.permissions.has("stage:manage")) {
+    throw new ForbiddenError("Só a gestão do pipeline pode alterar o prazo e as emendas.");
+  }
+  const { data: card } = await createAdminClient().from("card").select("board_id").eq("id", cardId).maybeSingle();
+  if (!card) throw new Error("Card não encontrado.");
+  await assertBoardScope(actor, card.board_id);
+}
+
+/** "AAAA-MM-DD" que existe no calendário (recusa 2026-02-31 e afins). */
+function isRealDate(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const d = new Date(`${day}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day;
 }
 
 /**
@@ -607,17 +676,20 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
   const db = await createClient(); // sessão → RLS
   const { data: card } = await db
     .from("card")
-    .select("id, number, title, description, board_id, stage_id, archived_at")
+    .select("id, number, title, description, board_id, stage_id, archived_at, due_date, rework_count")
     .eq("id", cardId)
     .maybeSingle();
   if (!card) return null;
 
-  const [boardRes, stageRes, detail, fields, valuesRaw] = await Promise.all([
+  const [boardRes, stageRes, detail, fields, valuesRaw, reworkStage, actor] = await Promise.all([
     db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
     db.from("stage").select("name").eq("id", card.stage_id).maybeSingle(),
     loadCardDetail(cardId),
     loadFields(card.board_id),
     loadCardFieldValues(cardId),
+    // O pipeline conta emendas? (tem alguma etapa marcada como "de emenda")
+    db.from("stage").select("id").eq("board_id", card.board_id).eq("counts_rework", true).limit(1),
+    provisionAndGetActor(),
   ]);
 
   const values: Record<string, FieldValueRaw> = {};
@@ -633,6 +705,10 @@ export async function loadCardPage(cardId: string): Promise<CardPageData | null>
     stageId: card.stage_id,
     stageName: stageRes.data?.name ?? "",
     archivedAt: card.archived_at ?? null,
+    dueDate: card.due_date ?? null,
+    reworkCount: (reworkStage.data ?? []).length > 0 ? Number(card.rework_count ?? 0) : null,
+    // A leitura do pipeline passa pelo RLS: só vem para quem enxerga o pipeline.
+    canManage: !!boardRes.data && (actor?.permissions.has("stage:manage") ?? false),
     fields,
     values,
     detail,
@@ -984,12 +1060,31 @@ export async function loadRoles(): Promise<RoleOption[]> {
 export async function loadUsers(): Promise<UserRow[]> {
   await requireActor("user:manage");
   const db = createAdminClient();
-  const [usersRes, ursRes, rolesRes, membersRes] = await Promise.all([
+  const [usersRes, ursRes, rolesRes, membersRes, phonesRes, grantsRes] = await Promise.all([
     db.from("app_user").select("id, name, email, is_internal, cargo, archived_at").order("name"),
     db.from("user_role").select("user_id, role_id"),
     db.from("role").select("id, name, permissions"),
     db.from("board_member").select("board_id, user_id"),
+    // Antes da migration 0044 a tabela não existe: a consulta falha e a coluna fica vazia.
+    db.from("user_phone").select("user_id, phone"),
+    // Antes da migration 0046 a tabela não existe: a consulta falha e ninguém aparece com acesso pontual.
+    db.from("user_grant").select("user_id, key"),
   ]);
+  const grantsOf = new Map<string, string[]>();
+  for (const g of grantsRes.data ?? []) grantsOf.set(g.user_id, [...(grantsOf.get(g.user_id) ?? []), g.key]);
+  const roleGrantsOf = new Map(
+    (rolesRes.data ?? []).map((r) => {
+      const perms = Array.isArray(r.permissions) ? (r.permissions as string[]) : [];
+      return [
+        r.id,
+        [
+          ...(perms.includes("salas:manage") ? ["salas"] : []),
+          ...(perms.includes("novos:access") || perms.includes("novos:manage") ? ["novos"] : []),
+        ],
+      ] as const;
+    }),
+  );
+  const phoneOf = new Map((phonesRes.data ?? []).map((p) => [p.user_id, formatPhone(p.phone)]));
   const roleName = new Map((rolesRes.data ?? []).map((r) => [r.id, r.name]));
   const roleSeesAll = new Map(
     (rolesRes.data ?? []).map((r) => [r.id, Array.isArray(r.permissions) && r.permissions.includes("board:configure")]),
@@ -1014,6 +1109,9 @@ export async function loadUsers(): Promise<UserRow[]> {
       archived: u.archived_at != null,
       seesAllBoards: u.is_internal && !!roleId && roleSeesAll.get(roleId) === true,
       boardIds: boardsOf.get(u.id) ?? [],
+      phone: phoneOf.get(u.id) ?? null,
+      grants: grantsOf.get(u.id) ?? [],
+      roleGrants: roleId ? [...(roleGrantsOf.get(roleId) ?? [])] : [],
     };
   });
 }
@@ -1144,6 +1242,77 @@ export async function createUser(input: {
 
   revalidatePath("/configuracoes/usuarios");
   return { ok: true };
+}
+
+/**
+ * Concede ou retira um acesso pontual ("salas" = Gestão de Vila; "novos" =
+ * Novos alunos). Só quem gerencia usuários (Gestor e Gestor Master), e só para
+ * a equipe interna da própria organização.
+ */
+export async function setUserGrant(
+  userId: string,
+  key: "salas" | "novos",
+  on: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireActor("user:manage");
+  if (key !== "salas" && key !== "novos") return { ok: false, error: "Acesso desconhecido." };
+  const db = createAdminClient();
+  const org = actor.organizationId as string;
+  const { data: user } = await db.from("app_user").select("organization_id, is_internal").eq("id", userId).maybeSingle();
+  if (!user || user.organization_id !== org) return { ok: false, error: "Usuário não encontrado." };
+  if (on && !user.is_internal) return { ok: false, error: "Esse acesso é só para a equipe interna." };
+  const { error } = on
+    ? await db.from("user_grant").upsert({ user_id: userId, organization_id: org, key }, { onConflict: "user_id,key" })
+    : await db.from("user_grant").delete().eq("user_id", userId).eq("key", key);
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("user_grant")
+        ? "Falta aplicar a atualização do banco (migration 0046)."
+        : "Não foi possível salvar. Tente de novo.",
+    };
+  }
+  revalidatePath("/configuracoes/usuarios");
+  return { ok: true };
+}
+
+/**
+ * Importação em lote, um e-mail por chamada (a tela percorre a lista): cria o
+ * usuário se ainda não existe e o inclui nos pipelines marcados. Para quem já
+ * existe, só ACRESCENTA os pipelines; papel e nome ficam como estão.
+ */
+export async function importUser(input: {
+  email: string;
+  roleId: string | null;
+  boardIds: string[];
+}): Promise<{ ok: true; status: "criado" | "ja_existia" } | { ok: false; error: string }> {
+  const actor = await requireActor("user:manage");
+  const email = input.email.trim().toLowerCase();
+  const org = actor.organizationId as string;
+  const db = createAdminClient();
+
+  let status: "criado" | "ja_existia" = "ja_existia";
+  let { data: user } = await db.from("app_user").select("id").eq("organization_id", org).eq("email", email).maybeSingle();
+  if (!user) {
+    const res = await createUser({ email, name: "", roleId: input.roleId });
+    if (!res.ok) return res;
+    status = "criado";
+    ({ data: user } = await db.from("app_user").select("id").eq("organization_id", org).eq("email", email).maybeSingle());
+    if (!user) return { ok: false, error: "Usuário criado, mas não foi possível localizá-lo." };
+  }
+
+  if (input.boardIds.length > 0) {
+    // Marcar pipelines é da gestão de pipelines; só vale para os da organização.
+    assertCan(actor, "board:configure");
+    const { data: boards } = await db.from("board").select("id").eq("organization_id", org).in("id", input.boardIds);
+    const rows = (boards ?? []).map((b) => ({ board_id: b.id, user_id: user!.id }));
+    if (rows.length > 0) {
+      const { error } = await db.from("board_member").upsert(rows, { onConflict: "board_id,user_id" });
+      if (error) return { ok: false, error: "Usuário pronto, mas não foi possível marcar os pipelines." };
+    }
+  }
+  revalidatePath("/configuracoes/usuarios");
+  return { ok: true, status };
 }
 
 /** Ações que caracterizam poder de gestão — vedadas a usuário externo. */
@@ -1403,7 +1572,9 @@ export async function addComment(
       organization_id: card.organization_id,
       channel_id: channelId,
       author_id: actor.userId,
-      body: `💬 mencionou você no card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}:\n${text}`,
+      // A última linha é a referência ao card: a tela das Conversas a mostra
+      // como o link "Abrir o card" (components/channels/MessageBody.tsx).
+      body: `💬 mencionou você no card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}:\n${text}\n/board?card=${cardId}`,
       mentions: [],
     });
   }
@@ -1590,6 +1761,92 @@ export async function addField(
   });
   if (error) throw new Error(error.message);
   revalidatePath("/board");
+}
+
+export interface FieldSyncResult {
+  created: string[];
+  optionsAdded: { name: string; labels: string[] }[];
+  conflicts: { name: string; sourceType: string; targetType: string }[];
+  unchanged: number;
+}
+
+/**
+ * Traz para ESTE pipeline as propriedades de outro (as etapas não entram), para
+ * que um card enviado de um para o outro encontre cada valor no seu lugar.
+ * Só acrescenta: cria a propriedade que falta e as opções que faltam; nada é
+ * apagado, renomeado ou tem o tipo trocado (`planFieldSync`, no core).
+ * `apply: false` só mostra o que seria feito.
+ */
+export async function syncFieldsFromBoard(
+  targetBoardId: string,
+  sourceBoardId: string,
+  apply: boolean,
+): Promise<{ ok: true; result: FieldSyncResult } | { ok: false; error: string }> {
+  const actor = await requireActor("field:manage");
+  if (targetBoardId === sourceBoardId) return { ok: false, error: "Escolha outro pipeline como origem." };
+  await assertBoardScope(actor, targetBoardId);
+  await assertBoardScope(actor, sourceBoardId);
+
+  const db = createAdminClient();
+  const [boardsRes, fieldsRes] = await Promise.all([
+    db.from("board").select("id, organization_id").in("id", [targetBoardId, sourceBoardId]),
+    db
+      .from("field_definition")
+      .select("id, name, type, config, show_on_card_face, show_on_create, is_required, position, board_id")
+      .in("board_id", [targetBoardId, sourceBoardId])
+      .is("archived_at", null)
+      .order("position"),
+  ]);
+  const org = actor.organizationId as string;
+  const boards = boardsRes.data ?? [];
+  if (boards.length !== 2 || boards.some((b) => b.organization_id !== org)) {
+    return { ok: false, error: "Pipeline não encontrado." };
+  }
+  const rows = fieldsRes.data ?? [];
+  const toSync = (boardId: string): SyncField[] =>
+    rows
+      .filter((f) => f.board_id === boardId)
+      .map((f) => ({ id: f.id, name: f.name, type: f.type, options: (f.config?.options ?? []) as SyncField["options"] }));
+  const target = toSync(targetBoardId);
+  const plan = planFieldSync(toSync(sourceBoardId), target);
+  const result: FieldSyncResult = {
+    created: plan.create.map((f) => f.name),
+    optionsAdded: plan.addOptions.map((a) => ({ name: a.name, labels: a.options.map((o) => o.label) })),
+    conflicts: plan.conflicts,
+    unchanged: plan.unchanged,
+  };
+  if (!apply) return { ok: true, result };
+
+  if (plan.create.length > 0) {
+    const rowOf = new Map(rows.map((f) => [f.id, f]));
+    let position = rows.filter((f) => f.board_id === targetBoardId).reduce((m, f) => Math.max(m, Number(f.position)), -1);
+    const { error } = await db.from("field_definition").insert(
+      plan.create.map((f) => {
+        const src = rowOf.get(f.id)!;
+        return {
+          organization_id: org,
+          board_id: targetBoardId,
+          name: src.name,
+          type: src.type,
+          config: src.config ?? {},
+          show_on_card_face: src.show_on_card_face,
+          show_on_create: src.show_on_create ?? false,
+          is_required: src.is_required ?? false,
+          is_filterable: true,
+          position: ++position,
+        };
+      }),
+    );
+    if (error) return { ok: false, error: "Não foi possível criar as propriedades. Nada foi alterado nas opções." };
+  }
+  for (const add of plan.addOptions) {
+    const current = rows.find((f) => f.id === add.targetId)!;
+    const config = { ...(current.config ?? {}), options: [...((current.config?.options ?? []) as unknown[]), ...add.options] };
+    const { error } = await db.from("field_definition").update({ config }).eq("id", add.targetId);
+    if (error) return { ok: false, error: `Não foi possível acrescentar as opções de "${add.name}".` };
+  }
+  revalidatePath("/board");
+  return { ok: true, result };
 }
 
 /**

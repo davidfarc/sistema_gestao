@@ -27,6 +27,19 @@ function describe(a: ActivityView): string {
       const old = a.payload.oldNumber != null ? ` (era #${a.payload.oldNumber})` : "";
       return `enviou o card de “${from}” para “${to}”${old}`;
     }
+    case "due_date_changed": {
+      const day = (v: unknown) =>
+        typeof v === "string" ? new Date(`${v.slice(0, 10)}T12:00`).toLocaleDateString("pt-BR") : null;
+      const to = day(a.payload.to);
+      const from = day(a.payload.from);
+      if (!to) return "removeu o prazo";
+      return from ? `mudou o prazo de ${from} para ${to}` : `definiu o prazo para ${to}`;
+    }
+    case "legacy_note":
+      // Linha de histórico trazida de um sistema antigo (importação).
+      return typeof a.payload.text === "string" ? a.payload.text : "registro importado";
+    case "rework_changed":
+      return `corrigiu as emendas de ${a.payload.from ?? 0} para ${a.payload.to ?? 0}`;
     default:
       return a.kind;
   }

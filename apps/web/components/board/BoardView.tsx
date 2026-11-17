@@ -68,6 +68,28 @@ export function BoardView({
   const [view, setView] = useState<View>("kanban");
   // Celular: uma etapa por vez, sem arrastar e sem a Lista (tabela larga demais).
   const isMobile = useIsMobile();
+  // Medidas para o cabeçalho preso: largura visível da página (sem a barra de
+  // rolagem) e altura do cabeçalho (o nome das etapas prende logo abaixo dele).
+  const shellRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const shell = shellRef.current;
+    const head = headRef.current;
+    if (!shell || !head) return;
+    const measure = () => {
+      shell.style.setProperty("--page-w", `${document.documentElement.clientWidth}px`);
+      shell.style.setProperty("--board-head-h", `${head.offsetHeight}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(head);
+    ro.observe(document.documentElement);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
   // O card aberto mora na URL (`?card=<id>`): tem link, e o "voltar" do
   // navegador fecha o card em vez de sair do quadro.
   const selectedCardId = useSearchParams().get("card");
@@ -375,8 +397,20 @@ export function BoardView({
       myUserId={myUserId}
       intake={board.intake}
     >
-    <div className="flex h-[calc(100dvh-var(--bottom-nav))] flex-col">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 px-4 py-3 md:px-6">
+    {/* No computador a PÁGINA rola (uma barra só de cada tipo), sem caixa de
+        rolagem interna: o quadro cresce para o lado e para baixo, e o cabeçalho
+        fica preso no topo e na esquerda. No celular a altura continua fixa. */}
+    <div
+      ref={shellRef}
+      className={
+        "flex h-[calc(100dvh-var(--bottom-nav))] flex-col md:h-auto md:min-h-dvh " +
+        (view === "mine" ? "" : "md:w-max md:min-w-full")
+      }
+    >
+      <header
+        ref={headRef}
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-neutral-200 bg-[var(--background)] px-4 py-3 md:sticky md:left-[var(--sidebar-w)] md:top-0 md:z-30 md:w-[calc(var(--page-w,100vw)-var(--sidebar-w))] md:px-6"
+      >
         <div>
           <PipelineSelector
             boards={boards}
@@ -501,7 +535,7 @@ export function BoardView({
         // Um instante até saber o tamanho da tela (evita montar o quadro errado).
         <div className="flex-1" />
       ) : view === "mine" && board.myTasks ? (
-        <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="flex-1 overflow-auto p-3 md:overflow-visible md:p-6">
           <MyTasksView
             boardId={board.id}
             cards={shownCards}
@@ -521,7 +555,7 @@ export function BoardView({
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto p-3 md:p-6">
+        <div className="flex-1 overflow-auto p-3 md:overflow-visible md:p-6">
           {view === "kanban" ? (
             <KanbanBoard
               stages={board.stages}
@@ -540,6 +574,7 @@ export function BoardView({
               onMove={move}
               onPatchCard={patchCard}
               canConfigure={caps.fields}
+              canManage={caps.stages}
             />
           )}
         </div>
@@ -552,6 +587,8 @@ export function BoardView({
           myTasks={board.myTasks}
           timeTracking={board.timeTracking}
           ownPanel={board.ownPanel}
+          boards={boards}
+          canSyncFields={caps.fields}
           onClose={() => setShowOptions(false)}
           onSaved={() => router.refresh()}
         />

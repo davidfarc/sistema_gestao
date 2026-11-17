@@ -171,6 +171,8 @@ export function faceFromPage(data: CardPageData): Partial<CardView> {
   }
   return {
     title: data.title,
+    dueDate: data.dueDate,
+    ...(data.reworkCount !== null ? { reworkCount: data.reworkCount } : {}),
     assignee: memberOf(d.responsibleId, d.members),
     requester: memberOf(d.requesterId, d.members),
     checklist: items.length > 0 ? { done: items.filter((i) => i.done).length, total: items.length } : null,

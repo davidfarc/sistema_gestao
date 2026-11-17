@@ -6,14 +6,23 @@ import { useState, type FormEvent } from "react";
 
 import {
   createUser,
+  importUser,
   setUserArchived,
+  setUserGrant,
   setUserBoards,
   setUserCargo,
   setUserName,
   setUserRole,
 } from "@/lib/board/actions";
+import { setUserPhone } from "@/lib/profile/actions";
 import type { BoardSummary, RoleOption, UserRow } from "@/lib/board/types";
 import { CARGOS } from "@/lib/demandas/cargos";
+
+/** Acessos pontuais que um Gestor concede por pessoa. */
+const ACCESS = [
+  { key: "salas", label: "Gestão de Vila" },
+  { key: "novos", label: "Novos alunos" },
+] as const;
 
 export function UsersTable({
   users,
@@ -29,6 +38,7 @@ export function UsersTable({
   const router = useRouter();
   const [savingId, setSavingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [boardsFor, setBoardsFor] = useState<UserRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,9 +66,6 @@ export function UsersTable({
   const change = (userId: string, roleId: string) =>
     roleId ? run(userId, () => setUserRole(userId, roleId)) : undefined;
 
-  const changeCargo = (userId: string, cargo: string) =>
-    run(userId, () => setUserCargo(userId, cargo || null));
-
   const toggleArchived = (u: UserRow) => {
     const msg = u.archived
       ? `Devolver o acesso de ${u.name}?`
@@ -75,7 +82,14 @@ export function UsersTable({
         </p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setImporting(true)}
+          className="rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+        >
+          Importar lista
+        </button>
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -98,8 +112,8 @@ export function UsersTable({
                 <th className="px-4 py-2 font-medium">E-mail</th>
                 <th className="px-4 py-2 font-medium">Acesso</th>
                 <th className="px-4 py-2 font-medium">Papel</th>
-                <th className="px-4 py-2 font-medium">Cargo</th>
                 <th className="px-4 py-2 font-medium">Pipelines</th>
+                <th className="px-4 py-2 font-medium">Acessos</th>
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -114,7 +128,12 @@ export function UsersTable({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-neutral-600">{u.email}</td>
+                  <td className="px-4 py-2 text-neutral-600">
+                    {u.email}
+                    <span className={"block text-xs " + (u.phone ? "text-neutral-500" : "text-amber-700")}>
+                      {u.phone ?? (u.internal && !u.archived ? "sem telefone" : "")}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">
                     <span
                       className={
@@ -141,21 +160,7 @@ export function UsersTable({
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td className="px-4 py-2">
-                    <select
-                      value={u.cargo ?? ""}
-                      onChange={(e) => changeCargo(u.id, e.target.value)}
-                      disabled={savingId === u.id}
-                      className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500 disabled:opacity-60"
-                    >
-                      <option value="">— sem cargo —</option>
-                      {CARGOS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    {u.cargo && <span className="mt-0.5 block text-xs text-neutral-500">Cargo: {u.cargo}</span>}
                   </td>
                   <td className="px-4 py-2">
                     {!u.internal ? (
@@ -182,12 +187,44 @@ export function UsersTable({
                     )}
                   </td>
                   <td className="px-4 py-2">
+                    {u.internal ? (
+                      <div className="grid gap-1">
+                        {ACCESS.map((a) => {
+                          const byRole = u.roleGrants.includes(a.key);
+                          return (
+                            <label
+                              key={a.key}
+                              title={byRole ? "O papel desta pessoa já dá este acesso" : undefined}
+                              className={"flex items-center gap-2 whitespace-nowrap text-xs " + (byRole ? "text-neutral-500" : "cursor-pointer text-neutral-800")}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={byRole || u.grants.includes(a.key)}
+                                disabled={byRole || savingId === u.id || u.archived}
+                                onChange={(e) =>
+                                  run(u.id, async () => {
+                                    const res = await setUserGrant(u.id, a.key, e.target.checked);
+                                    if (!res.ok) throw new Error(res.error);
+                                  })
+                                }
+                                className="h-4 w-4"
+                              />
+                              {a.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-neutral-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
                         onClick={() => setEditing(u)}
                         disabled={savingId === u.id}
-                        title="Editar nome"
+                        title="Editar nome, telefone e cargo"
                         aria-label={`Editar ${u.name}`}
                         className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                       >
@@ -227,6 +264,18 @@ export function UsersTable({
         />
       )}
 
+      {importing && (
+        <ImportUsersModal
+          roles={roles}
+          boards={boards}
+          canSetBoards={canSetBoards}
+          onClose={() => {
+            setImporting(false);
+            router.refresh();
+          }}
+        />
+      )}
+
       {boardsFor && (
         <BoardsModal
           user={boardsFor}
@@ -253,7 +302,7 @@ export function UsersTable({
   );
 }
 
-/** Edita o nome exibido. Papel, cargo e acesso são editados direto na linha. */
+/** Edita o nome exibido, o telefone e o cargo. Papel e acessos são editados direto na linha. */
 function EditNameModal({
   user,
   onClose,
@@ -264,6 +313,8 @@ function EditNameModal({
   onSaved: () => void;
 }) {
   const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [cargo, setCargo] = useState(user.cargo ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -273,7 +324,12 @@ function EditNameModal({
     setBusy(true);
     setError(null);
     try {
-      await setUserName(user.id, name);
+      if (name.trim() !== user.name) await setUserName(user.id, name);
+      if (cargo !== (user.cargo ?? "")) await setUserCargo(user.id, cargo || null);
+      if (phone.trim() !== (user.phone ?? "")) {
+        const res = await setUserPhone(user.id, phone);
+        if (!res.ok) throw new Error(res.error);
+      }
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível salvar.");
@@ -311,6 +367,40 @@ function EditNameModal({
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
             />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">Telefone (WhatsApp)</span>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(84) 99999-8888"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            />
+            <span className="mt-1 block text-xs text-neutral-600">
+              É por ele que o assistente do WhatsApp reconhece a pessoa. Deixe vazio para remover.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">Cargo</span>
+            <select
+              value={cargo}
+              onChange={(e) => setCargo(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            >
+              <option value="">— sem cargo —</option>
+              {CARGOS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-neutral-600">
+              O cargo define quem aprova demandas em cada faixa de alçada. Não libera acesso a telas.
+            </span>
           </label>
 
           <p className="text-xs text-neutral-600">
@@ -562,6 +652,177 @@ function BoardsModal({
           >
             {busy ? "Salvando…" : "Salvar"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type ImportRow = { email: string; state: "fila" | "criado" | "ja_existia" | "erro"; note?: string };
+
+/** Importação em lote: cola-se a lista de e-mails, escolhe-se papel e pipelines. */
+function ImportUsersModal({
+  roles,
+  boards,
+  canSetBoards,
+  onClose,
+}: {
+  roles: RoleOption[];
+  boards: BoardSummary[];
+  canSetBoards: boolean;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [roleId, setRoleId] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [rows, setRows] = useState<ImportRow[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const emails = [...new Set(text.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))];
+  const invalid = emails.filter((e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+
+  async function run() {
+    if (emails.length === 0 || invalid.length > 0 || busy) return;
+    setBusy(true);
+    const state: ImportRow[] = emails.map((email) => ({ email, state: "fila" }));
+    setRows(state);
+    // Um por vez: cada e-mail é uma ida curta ao servidor, e a lista mostra o andamento.
+    for (let i = 0; i < state.length; i++) {
+      let next: ImportRow;
+      try {
+        const res = await importUser({ email: state[i]!.email, roleId: roleId || null, boardIds: [...picked] });
+        next = res.ok ? { email: state[i]!.email, state: res.status } : { email: state[i]!.email, state: "erro", note: res.error };
+      } catch {
+        next = { email: state[i]!.email, state: "erro", note: "Falha de conexão." };
+      }
+      state[i] = next;
+      setRows([...state]);
+    }
+    setBusy(false);
+  }
+
+  const LABEL = { fila: "na fila…", criado: "criado", ja_existia: "já existia", erro: "erro" } as const;
+  const TONE = { fila: "text-neutral-500", criado: "text-emerald-700", ja_existia: "text-neutral-600", erro: "text-red-700" } as const;
+  const count = (s: ImportRow["state"]) => rows?.filter((r) => r.state === s).length ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:pt-16" onClick={() => !busy && onClose()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-users-title"
+        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-neutral-200 px-5 py-4">
+          <h3 id="import-users-title" className="text-base font-semibold text-neutral-800">
+            Importar lista de usuários
+          </h3>
+          <p className="mt-1 text-sm text-neutral-600">
+            Cole os e-mails, um por linha. Cada pessoa entra com a própria conta Google; o nome é
+            preenchido no primeiro acesso.
+          </p>
+        </div>
+
+        {rows ? (
+          <div className="p-5">
+            <p className="text-sm text-neutral-800" role="status">
+              {busy
+                ? `Importando… ${rows.length - count("fila")} de ${rows.length}`
+                : `Pronto: ${count("criado")} criados, ${count("ja_existia")} já existiam, ${count("erro")} com erro.`}
+            </p>
+            <ul className="mt-3 max-h-80 divide-y divide-neutral-100 overflow-y-auto rounded-lg border border-neutral-200 text-sm">
+              {rows.map((r) => (
+                <li key={r.email} className="flex flex-wrap items-baseline gap-x-3 px-3 py-1.5">
+                  <span className="min-w-0 flex-1 break-all text-neutral-800">{r.email}</span>
+                  <span className={"shrink-0 font-medium " + TONE[r.state]}>{LABEL[r.state]}</span>
+                  {r.note && <span className="w-full text-xs text-red-700">{r.note}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="grid gap-4 p-5">
+            <label className="grid gap-1 text-sm text-neutral-700">
+              E-mails
+              <textarea
+                autoFocus
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={8}
+                placeholder={"pessoa1@editoraeccoprime.com.br\npessoa2@editoraeccoprime.com.br"}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+              />
+              <span className="text-xs text-neutral-600">
+                {emails.length} {emails.length === 1 ? "e-mail" : "e-mails"}
+                {invalid.length > 0 && <span className="text-red-700"> · inválidos: {invalid.join(", ")}</span>}
+              </span>
+            </label>
+            <label className="grid gap-1 text-sm text-neutral-700">
+              Papel de quem for criado
+              <select
+                value={roleId}
+                onChange={(e) => setRoleId(e.target.value)}
+                className="min-h-10 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+              >
+                <option value="">Papel padrão (definido no primeiro acesso)</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canSetBoards && boards.length > 0 && (
+              <fieldset className="grid gap-1">
+                <legend className="mb-1 text-sm text-neutral-700">Pipelines que essas pessoas enxergam</legend>
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200">
+                  {boards.map((b) => (
+                    <label key={b.id} className="flex min-h-10 cursor-pointer items-center gap-3 px-3 py-1.5 text-sm text-neutral-800 hover:bg-neutral-50">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(b.id)}
+                        onChange={(e) =>
+                          setPicked((cur) => {
+                            const next = new Set(cur);
+                            if (e.target.checked) next.add(b.id);
+                            else next.delete(b.id);
+                            return next;
+                          })
+                        }
+                        className="h-4 w-4"
+                      />
+                      <span className="break-words">{b.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="text-xs text-neutral-600">
+                  Para quem já existe, os pipelines marcados são acrescentados; o papel não muda.
+                </span>
+              </fieldset>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-neutral-200 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 disabled:opacity-50"
+          >
+            {rows ? "Fechar" : "Cancelar"}
+          </button>
+          {!rows && (
+            <button
+              type="button"
+              onClick={run}
+              disabled={emails.length === 0 || invalid.length > 0}
+              className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-high disabled:opacity-50"
+            >
+              Importar {emails.length > 0 ? emails.length : ""}
+            </button>
+          )}
         </div>
       </div>
     </div>
