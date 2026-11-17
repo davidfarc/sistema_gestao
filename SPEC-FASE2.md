@@ -570,6 +570,31 @@ Testado em banco local com dados inventados (simulação não grava; cinco situa
 segunda execução não duplica). **Não testado com os dados reais.** Pré-requisitos: usuários
 importados e propriedades do pipeline criadas.
 
+### E.13 Acessos pontuais, Painéis da gestão e rolagem da página (código pronto em 17/11)
+
+**Acessos (pedido do David em 17/11).** Cargo continua servindo só para as alçadas de aprovação.
+
+| Área | Quem entra |
+|---|---|
+| Painéis | Só a gestão (`stage:manage`): Gestor de área (pipelines dele, pelo RLS), Gestor e Gestor Master. Membro comum não vê Painéis, nem o atalho no Início |
+| Gestão de Vila | Gestor e Gestor Master (papel) ou quem tem a caixa "Gestão de Vila" marcada. A caixa dá acesso completo (ver e editar) |
+| Novos alunos | Gestor e Gestor Master (papel) ou quem tem a caixa "Novos alunos" (nível atendimento). Psicólogas seguem entrando pelo cadastro no módulo; para o item aparecer no menu delas, marca-se a caixa |
+
+- Caixas em Configurações → Usuários, coluna **Acessos**; só quem tem `user:manage` altera. O que o
+  papel já dá aparece marcado e travado.
+- O menu lateral mostra só o que a pessoa pode abrir.
+- Migration `0046_user_access.sql`: tabela `user_grant`, função `has_access` e a leitura de
+  `sala_state` passa a exigir o acesso (antes: qualquer interno). No servidor, o acesso pontual
+  vira a permissão correspondente (`salas:manage`, `novos:access`) ao montar o ator.
+- **Efeito ao publicar:** quem não é Gestor deixa de ver a Gestão de Vila e os Painéis até ter a
+  caixa marcada (ou, nos Painéis, ser gestor do pipeline).
+
+**Rolagem (pedido do David em 17/11).** No computador, o quadro (Kanban e Lista) não rola mais
+dentro de uma caixa: a página rola, com uma barra de cada tipo. O cabeçalho do quadro fica preso no
+topo e na esquerda, e o nome de cada etapa fica preso abaixo dele. O arrastar de cards continua
+rolando a página sozinho perto das bordas. No celular nada mudou. A página de Configurações ficou
+mais larga e o Cargo saiu da tabela de Usuários para a janela de edição (lápis).
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -618,7 +643,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0042_rework_and_panels.sql` | `stage.counts_rework` (etapa de emenda), `card.rework_count` com gatilho que soma a cada entrada nela, `board.own_panel` (painel próprio) | ✅ Aplicada em 16/11 (testada na prévia) |
 | `0043_area_time_read.sql` | Concede `time:read` ao papel Gestor de área (vê o tempo só nos pipelines dele) | ✅ Aplicada em 16/11 |
 | `0044_user_phone.sql` | Tabela `user_phone`: telefone (E.164) por usuário, único, base do agente do WhatsApp | ✅ Aplicada em 16/11 |
-| `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | **A aplicar** |
+| `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
+| `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

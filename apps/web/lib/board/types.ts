@@ -341,6 +341,10 @@ export interface UserRow {
   cargo: string | null;
   /** Acesso revogado: mantém o histórico, mas não entra mais no sistema. */
   archived: boolean;
+  /** Acessos pontuais concedidos à pessoa ("salas", "novos"). */
+  grants: string[];
+  /** Acessos que o PAPEL dela já dá (a caixa aparece marcada e travada). */
+  roleGrants: string[];
   /** Telefone (WhatsApp), formatado; null se não cadastrado. */
   phone: string | null;
   /** O papel enxerga todos os pipelines (`board:configure`, só interno). */

@@ -42,7 +42,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar user={user} />
+      <Sidebar
+        user={user}
+        access={{
+          painel: actor.permissions.has("stage:manage"),
+          salas: actor.isInternal && actor.permissions.has("salas:manage"),
+          // Psicólogas entram pelo cadastro delas no módulo; para o item
+          // aparecer no menu, marca-se a caixa "Novos alunos" em Usuários.
+          novos: actor.permissions.has("novos:access") || actor.permissions.has("novos:manage"),
+        }}
+      />
       <MainContainer>{children}</MainContainer>
       <BottomNav />
       {askPhone && <PhonePrompt />}

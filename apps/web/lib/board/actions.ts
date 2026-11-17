@@ -1060,14 +1060,30 @@ export async function loadRoles(): Promise<RoleOption[]> {
 export async function loadUsers(): Promise<UserRow[]> {
   await requireActor("user:manage");
   const db = createAdminClient();
-  const [usersRes, ursRes, rolesRes, membersRes, phonesRes] = await Promise.all([
+  const [usersRes, ursRes, rolesRes, membersRes, phonesRes, grantsRes] = await Promise.all([
     db.from("app_user").select("id, name, email, is_internal, cargo, archived_at").order("name"),
     db.from("user_role").select("user_id, role_id"),
     db.from("role").select("id, name, permissions"),
     db.from("board_member").select("board_id, user_id"),
     // Antes da migration 0044 a tabela não existe: a consulta falha e a coluna fica vazia.
     db.from("user_phone").select("user_id, phone"),
+    // Antes da migration 0046 a tabela não existe: a consulta falha e ninguém aparece com acesso pontual.
+    db.from("user_grant").select("user_id, key"),
   ]);
+  const grantsOf = new Map<string, string[]>();
+  for (const g of grantsRes.data ?? []) grantsOf.set(g.user_id, [...(grantsOf.get(g.user_id) ?? []), g.key]);
+  const roleGrantsOf = new Map(
+    (rolesRes.data ?? []).map((r) => {
+      const perms = Array.isArray(r.permissions) ? (r.permissions as string[]) : [];
+      return [
+        r.id,
+        [
+          ...(perms.includes("salas:manage") ? ["salas"] : []),
+          ...(perms.includes("novos:access") || perms.includes("novos:manage") ? ["novos"] : []),
+        ],
+      ] as const;
+    }),
+  );
   const phoneOf = new Map((phonesRes.data ?? []).map((p) => [p.user_id, formatPhone(p.phone)]));
   const roleName = new Map((rolesRes.data ?? []).map((r) => [r.id, r.name]));
   const roleSeesAll = new Map(
@@ -1094,6 +1110,8 @@ export async function loadUsers(): Promise<UserRow[]> {
       seesAllBoards: u.is_internal && !!roleId && roleSeesAll.get(roleId) === true,
       boardIds: boardsOf.get(u.id) ?? [],
       phone: phoneOf.get(u.id) ?? null,
+      grants: grantsOf.get(u.id) ?? [],
+      roleGrants: roleId ? [...(roleGrantsOf.get(roleId) ?? [])] : [],
     };
   });
 }
@@ -1222,6 +1240,38 @@ export async function createUser(input: {
     await db.from("user_role").insert({ user_id: userId, role_id: input.roleId });
   }
 
+  revalidatePath("/configuracoes/usuarios");
+  return { ok: true };
+}
+
+/**
+ * Concede ou retira um acesso pontual ("salas" = Gestão de Vila; "novos" =
+ * Novos alunos). Só quem gerencia usuários (Gestor e Gestor Master), e só para
+ * a equipe interna da própria organização.
+ */
+export async function setUserGrant(
+  userId: string,
+  key: "salas" | "novos",
+  on: boolean,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const actor = await requireActor("user:manage");
+  if (key !== "salas" && key !== "novos") return { ok: false, error: "Acesso desconhecido." };
+  const db = createAdminClient();
+  const org = actor.organizationId as string;
+  const { data: user } = await db.from("app_user").select("organization_id, is_internal").eq("id", userId).maybeSingle();
+  if (!user || user.organization_id !== org) return { ok: false, error: "Usuário não encontrado." };
+  if (on && !user.is_internal) return { ok: false, error: "Esse acesso é só para a equipe interna." };
+  const { error } = on
+    ? await db.from("user_grant").upsert({ user_id: userId, organization_id: org, key }, { onConflict: "user_id,key" })
+    : await db.from("user_grant").delete().eq("user_id", userId).eq("key", key);
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("user_grant")
+        ? "Falta aplicar a atualização do banco (migration 0046)."
+        : "Não foi possível salvar. Tente de novo.",
+    };
+  }
   revalidatePath("/configuracoes/usuarios");
   return { ok: true };
 }

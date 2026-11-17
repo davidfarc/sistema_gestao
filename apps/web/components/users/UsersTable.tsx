@@ -8,6 +8,7 @@ import {
   createUser,
   importUser,
   setUserArchived,
+  setUserGrant,
   setUserBoards,
   setUserCargo,
   setUserName,
@@ -16,6 +17,12 @@ import {
 import { setUserPhone } from "@/lib/profile/actions";
 import type { BoardSummary, RoleOption, UserRow } from "@/lib/board/types";
 import { CARGOS } from "@/lib/demandas/cargos";
+
+/** Acessos pontuais que um Gestor concede por pessoa. */
+const ACCESS = [
+  { key: "salas", label: "Gestão de Vila" },
+  { key: "novos", label: "Novos alunos" },
+] as const;
 
 export function UsersTable({
   users,
@@ -58,9 +65,6 @@ export function UsersTable({
 
   const change = (userId: string, roleId: string) =>
     roleId ? run(userId, () => setUserRole(userId, roleId)) : undefined;
-
-  const changeCargo = (userId: string, cargo: string) =>
-    run(userId, () => setUserCargo(userId, cargo || null));
 
   const toggleArchived = (u: UserRow) => {
     const msg = u.archived
@@ -108,8 +112,8 @@ export function UsersTable({
                 <th className="px-4 py-2 font-medium">E-mail</th>
                 <th className="px-4 py-2 font-medium">Acesso</th>
                 <th className="px-4 py-2 font-medium">Papel</th>
-                <th className="px-4 py-2 font-medium">Cargo</th>
                 <th className="px-4 py-2 font-medium">Pipelines</th>
+                <th className="px-4 py-2 font-medium">Acessos</th>
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -156,21 +160,7 @@ export function UsersTable({
                         </option>
                       ))}
                     </select>
-                  </td>
-                  <td className="px-4 py-2">
-                    <select
-                      value={u.cargo ?? ""}
-                      onChange={(e) => changeCargo(u.id, e.target.value)}
-                      disabled={savingId === u.id}
-                      className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-sm outline-none focus:border-neutral-500 disabled:opacity-60"
-                    >
-                      <option value="">— sem cargo —</option>
-                      {CARGOS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    {u.cargo && <span className="mt-0.5 block text-xs text-neutral-500">Cargo: {u.cargo}</span>}
                   </td>
                   <td className="px-4 py-2">
                     {!u.internal ? (
@@ -197,12 +187,44 @@ export function UsersTable({
                     )}
                   </td>
                   <td className="px-4 py-2">
+                    {u.internal ? (
+                      <div className="grid gap-1">
+                        {ACCESS.map((a) => {
+                          const byRole = u.roleGrants.includes(a.key);
+                          return (
+                            <label
+                              key={a.key}
+                              title={byRole ? "O papel desta pessoa já dá este acesso" : undefined}
+                              className={"flex items-center gap-2 whitespace-nowrap text-xs " + (byRole ? "text-neutral-500" : "cursor-pointer text-neutral-800")}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={byRole || u.grants.includes(a.key)}
+                                disabled={byRole || savingId === u.id || u.archived}
+                                onChange={(e) =>
+                                  run(u.id, async () => {
+                                    const res = await setUserGrant(u.id, a.key, e.target.checked);
+                                    if (!res.ok) throw new Error(res.error);
+                                  })
+                                }
+                                className="h-4 w-4"
+                              />
+                              {a.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-neutral-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
                         onClick={() => setEditing(u)}
                         disabled={savingId === u.id}
-                        title="Editar nome e telefone"
+                        title="Editar nome, telefone e cargo"
                         aria-label={`Editar ${u.name}`}
                         className="rounded p-1 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
                       >
@@ -280,7 +302,7 @@ export function UsersTable({
   );
 }
 
-/** Edita o nome exibido e o telefone. Papel, cargo e acesso são editados direto na linha. */
+/** Edita o nome exibido, o telefone e o cargo. Papel e acessos são editados direto na linha. */
 function EditNameModal({
   user,
   onClose,
@@ -292,6 +314,7 @@ function EditNameModal({
 }) {
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone ?? "");
+  const [cargo, setCargo] = useState(user.cargo ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -302,6 +325,7 @@ function EditNameModal({
     setError(null);
     try {
       if (name.trim() !== user.name) await setUserName(user.id, name);
+      if (cargo !== (user.cargo ?? "")) await setUserCargo(user.id, cargo || null);
       if (phone.trim() !== (user.phone ?? "")) {
         const res = await setUserPhone(user.id, phone);
         if (!res.ok) throw new Error(res.error);
@@ -357,6 +381,25 @@ function EditNameModal({
             />
             <span className="mt-1 block text-xs text-neutral-600">
               É por ele que o assistente do WhatsApp reconhece a pessoa. Deixe vazio para remover.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">Cargo</span>
+            <select
+              value={cargo}
+              onChange={(e) => setCargo(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            >
+              <option value="">— sem cargo —</option>
+              {CARGOS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-neutral-600">
+              O cargo define quem aprova demandas em cada faixa de alçada. Não libera acesso a telas.
             </span>
           </label>
 

@@ -15,13 +15,15 @@ export const dynamic = "force-dynamic";
 export default async function SalasLayout({ children }: { children: ReactNode }) {
   const actor = await provisionAndGetActor();
 
-  if (!actor?.isInternal) {
+  // Acesso pontual: a permissão vem do papel (Gestor, Gestor Master) ou da
+  // caixa "Gestão de Vila" marcada em Configurações → Usuários.
+  if (!actor?.isInternal || !actor.permissions.has("salas:manage")) {
     return (
       <div className="mx-auto mt-24 max-w-md rounded-2xl border border-black/5 bg-surface-low p-8 text-center">
         <Lock className="mx-auto mb-2 h-6 w-6 text-secondary" aria-hidden="true" />
         <p className="font-semibold text-primary">Sem acesso à Gestão de Vila</p>
         <p className="mt-1 text-sm text-secondary">
-          Fale com a Direção para liberar o acesso.
+          O acesso é liberado por um Gestor, em Configurações → Usuários.
         </p>
       </div>
     );

@@ -27,22 +27,37 @@ interface MenuItem {
   label: string;
   href: string;
   disabled?: boolean;
+  /** Item que só aparece para quem tem o acesso correspondente. */
+  needs?: keyof MenuAccess;
+}
+
+/** O que a pessoa logada pode abrir (calculado no servidor, no layout). */
+export interface MenuAccess {
+  painel: boolean;
+  salas: boolean;
+  novos: boolean;
 }
 
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: BarChart3, label: "Painéis", href: "/painel" },
+  { Icon: BarChart3, label: "Painéis", href: "/painel", needs: "painel" },
   // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
   // acesso fica no próprio quadro (e no badge do card).
-  { Icon: School, label: "Gestão de Vila", href: "/salas" },
+  { Icon: School, label: "Gestão de Vila", href: "/salas", needs: "salas" },
   // Central de agendamento de anamneses (famílias de novos alunos).
-  { Icon: UserPlus, label: "Novos alunos", href: "/novos-alunos" },
+  { Icon: UserPlus, label: "Novos alunos", href: "/novos-alunos", needs: "novos" },
   { Icon: MessagesSquare, label: "Conversas", href: "/canais" },
   { Icon: Settings, label: "Configurações", href: "/configuracoes" },
 ];
 
-export function Sidebar({ user }: { user: { email: string; name?: string | null; internal: boolean } | null }) {
+export function Sidebar({
+  user,
+  access = { painel: true, salas: true, novos: true },
+}: {
+  user: { email: string; name?: string | null; internal: boolean } | null;
+  access?: MenuAccess;
+}) {
   const pathname = usePathname();
   // No celular este menu abre pelo botão "Menu" da barra inferior (BottomNav).
   const { collapsed, toggle, mobileOpen, setMobileOpen } = useSidebar();
@@ -109,7 +124,7 @@ export function Sidebar({ user }: { user: { email: string; name?: string | null;
 
           {/* Nav */}
           <nav className="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2" aria-label="Navegação">
-            {MENU.map((item) => {
+            {MENU.filter((item) => !item.needs || access[item.needs]).map((item) => {
               const active = !item.disabled && isActive(item.href);
               return (
                 <Link

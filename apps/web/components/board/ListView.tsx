@@ -476,7 +476,7 @@ export function ListView({
         shown={visible.length}
       />
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white md:overflow-visible">
         <table
           className="table-fixed text-left text-sm"
           style={{

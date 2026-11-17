@@ -18,6 +18,12 @@ const DIRETOR_GERAL: string = CARGOS[0];
 
 type Db = ReturnType<typeof createAdminClient>;
 
+/** Acesso pontual (tabela `user_grant`) → permissão que ele concede. */
+const GRANT_ACTION: Record<string, Action> = {
+  salas: "salas:manage",
+  novos: "novos:access",
+};
+
 async function resolvePermissions(db: Db, userId: string): Promise<Set<Action>> {
   const { data: userRoles } = await db.from("user_role").select("role_id").eq("user_id", userId);
   const roleIds = (userRoles ?? []).map((r) => r.role_id);
@@ -93,7 +99,7 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
 
   // Uma rodada só: organização, cadastro e papéis (com as permissões) em
   // paralelo. Antes eram ~6 consultas em sequência a cada clique.
-  const [{ data: org }, { data: existing }, { data: roleRows }] = await Promise.all([
+  const [{ data: org }, { data: existing }, { data: roleRows }, { data: grantRows }] = await Promise.all([
     db.from("organization").select("id").order("created_at").limit(1).maybeSingle(),
     // Quem já existe aqui foi convidado (pré-cadastrado pela gestão) ou já
     // entrou antes. Busca por id e, se não achar, por e-mail: o pré-cadastro
@@ -105,6 +111,9 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
       .limit(1)
       .maybeSingle(),
     db.from("user_role").select("role(permissions)").eq("user_id", su.id),
+    // Acessos pontuais (migration 0046). Antes dela a consulta dá erro e a
+    // lista vem vazia: ninguém ganha nem perde nada por isso.
+    db.from("user_grant").select("key").eq("user_id", su.id),
   ]);
   if (!org) return null;
 
@@ -159,6 +168,12 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
     // Sem papel ainda (1º acesso): atribui o padrão e relê.
     await ensureDefaultRole(db, su.id, org.id, efetivoInterno);
     permissions = await resolvePermissions(db, su.id);
+  }
+
+  // Acesso pontual concedido por um Gestor = a permissão correspondente.
+  for (const g of grantRows ?? []) {
+    const action = GRANT_ACTION[g.key as string];
+    if (action) permissions.add(action);
   }
 
   return {

@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function BoardPanelPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const actor = await provisionAndGetActor();
+  if (!actor?.permissions.has("stage:manage")) notFound();
   const canSeeTime = actor?.permissions.has("time:read") ?? false;
   const [panel, panels] = await Promise.all([loadBoardPanel(id, canSeeTime), loadPanelBoards()]);
   if (!panel) notFound();
