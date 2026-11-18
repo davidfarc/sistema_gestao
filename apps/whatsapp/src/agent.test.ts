@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { callOpenAI, runAgent, transcribeOpenAI, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
+import { callOpenAI, runAgent, transcribeOpenAI, unbackedClaim, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
 import { fetchMedia } from "./evolution.ts";
 import { deliverOutbox, handleRequest, type Deps } from "./handler.ts";
 
@@ -55,13 +55,14 @@ test("resposta direta: uma chamada ao modelo, com o contexto no prompt", async (
 
 test("busca, cria e confirma: os campos viram objeto e os resultados voltam ao modelo", async () => {
   const { d, log } = deps([
-    call("buscar_pedidos", { pipeline_id: "p1", texto: "12" }),
+    call("buscar_pedidos", { pipeline_id: "p1" }),
     call("criar_pedido", { pipeline_id: "p1", titulo: "Ar não liga - sala 12", descricao: "não liga", campos: [{ nome: "Sala", valor: "12" }] }, "t2"),
     say("Pedido #142 aberto."),
   ]);
   assert.equal(await runAgent(d), "Pedido #142 aberto.");
   assert.deepEqual(log.db.map((c) => c[0]), ["contexto", "buscar_pedidos", "criar_pedido"]);
   assert.deepEqual((log.db[2]![1] as any).campos, { Sala: "12" });
+  assert.deepEqual(log.db[1]![1], { pipeline_id: "p1", texto: "" });
   const last = log.model[2].messages;
   assert.deepEqual(last.map((m: any) => m.role), ["system", "user", "assistant", "tool", "assistant", "tool"]);
   assert.equal(last[2].tool_calls[0].id, "t1");
@@ -297,6 +298,7 @@ test("liberar_pedido: o banco confere, o site executa; erro do banco não chega 
   const ok = deps([call("liberar_pedido", { pipeline_id: "p1", numero: "3", responsavel: "" }), say("Pedido #3 liberado para a Maria.")], ctx(), {
     ok: true,
     card_id: "c-1",
+    numero: 3,
     assignee_id: "u-9",
   });
   ok.d.release = async (cardId, assigneeId) => (released.push([cardId, assigneeId]), { ok: true, etapa: "Em andamento", responsavel: "Maria" });
@@ -338,4 +340,42 @@ test("fila de avisos: envia, confirma e registra a falha", async () => {
   assert.equal(reminders, 1);
   assert.deepEqual(done, [["1", null], ["2", "HTTP 500"]]);
   assert.equal(await deliverOutbox({ enqueueReminders: async () => Promise.reject(new Error("x")), take: async () => null, done: async () => {}, send: async () => null }), 0);
+});
+
+test("trava: confirmação sem ferramenta é cobrada uma vez e nunca chega à pessoa", async () => {
+  // Inventou a abertura: é cobrado, chama a ferramenta e só então confirma.
+  const a = deps([
+    say("Pedido #142 aberto em Manutenção."),
+    call("criar_pedido", { pipeline_id: "p1", titulo: "Ar", descricao: "", campos: [{ nome: "Sala", valor: "12" }] }),
+    say("Pedido #142 aberto em Manutenção."),
+  ]);
+  assert.equal(await runAgent(a.d), "Pedido #142 aberto em Manutenção.");
+  assert.deepEqual(a.log.db.map((c) => c[0]), ["contexto", "criar_pedido"]);
+  assert.match(a.log.model[1].messages.at(-1).content, /aviso do sistema/);
+
+  // Insistiu na invenção: contingência.
+  assert.equal(await runAgent(deps([say("Pedido #7 aberto."), say("Pronto, pedido #7 criado!")]).d), null);
+  // Chamou a busca e anunciou um número que nenhuma ferramenta devolveu.
+  assert.equal(await runAgent(deps([call("buscar_pedidos", { pipeline_id: "p1" }), say("Pedido #55 aberto."), say("Pedido #55 aberto.")], ctx(), { abertos: [{ numero: 9 }] }).d), null);
+});
+
+test("trava: o que é e o que não é confirmação inventada", () => {
+  const none = new Set<string>();
+  const no = new Set<number>();
+  assert.equal(unbackedClaim("Qual é o número da sala?", none, no), null);
+  assert.equal(unbackedClaim("Quer que eu abra o pedido?", none, no), null);
+  assert.equal(unbackedClaim("O pedido ainda não foi aberto: falta a sala.", none, no), null);
+  assert.equal(unbackedClaim("Não achei o pedido 142.", none, no), null);
+  assert.match(unbackedClaim("Pronto! Abri o pedido para você.", none, no)!, /aberto/);
+  assert.match(unbackedClaim("Sua demanda foi registrada com sucesso.", none, no)!, /aberto/);
+  assert.match(unbackedClaim("Pedido #3 liberado para a Maria.", none, no)!, /liberado/);
+  assert.notEqual(unbackedClaim("Registrei a atualização no card.", none, no), null);
+  assert.match(unbackedClaim("A novidade foi registrada.", none, no)!, /atualização/);
+  // Com a ferramenta certa e o número devolvido por ela, passa.
+  assert.equal(unbackedClaim("Pedido #142 aberto em Manutenção.", new Set(["criar_pedido"]), new Set([142])), null);
+  assert.equal(unbackedClaim("Já existe o pedido #9 aberto; registrei o seu reforço.", new Set(["buscar_pedidos", "reforcar_pedido"]), new Set([9])), null);
+  assert.equal(unbackedClaim("O pedido #9 foi aberto em 12/11 e está em Triagem.", new Set(["situacao_pedido"]), new Set([9])), null);
+  assert.equal(unbackedClaim("Pedido #3 liberado para a Maria.", new Set(["liberar_pedido"]), new Set([3])), null);
+  // Número trocado em relação ao que a ferramenta devolveu.
+  assert.match(unbackedClaim("Pedido #143 aberto.", new Set(["criar_pedido"]), new Set([142]))!, /aberto/);
 });

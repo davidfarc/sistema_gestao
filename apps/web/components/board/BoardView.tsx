@@ -697,8 +697,6 @@ export function BoardView({
           myTasks={board.myTasks}
           timeTracking={board.timeTracking}
           ownPanel={board.ownPanel}
-          boards={boards}
-          canSyncFields={caps.fields}
           onClose={() => setShowOptions(false)}
           onSaved={() => router.refresh()}
         />
