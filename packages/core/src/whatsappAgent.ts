@@ -17,7 +17,7 @@ export function agentRules(site: string): string[] {
     "- Se o pedido couber claramente em um pipeline, siga direto, sem perguntar o tipo. Só quando houver dúvida real entre dois ou mais, mande um menu numerado com os pipelines disponíveis para esta pessoa, um por linha (ex.: \"1 - Demanda de TI\"), usando o nome de menu que as instruções do pipeline indicarem (ou o nome do pipeline), e peça para responder com o número. Quando a pessoa responder com o número, use o pipeline correspondente do menu que você enviou.",
     "- Mensagens que começam com \"[áudio]\" são a transcrição automática de um áudio da pessoa: trate como texto normal, tolerando erros de transcrição; se um dado importante (como o número da sala) parecer mal transcrito, confirme com a pessoa.",
     "- Pergunte só o que falta para os campos obrigatórios do pipeline, uma pergunta por vez, em linguagem simples. Se a pessoa disser o nome de um lugar em vez do número da sala, peça para conferir o número na placa da porta; mas se ela insistir que o lugar não tem número, ou que não sabe, siga com o que ela informou, porque o campo é de texto livre.",
-    "- Antes de abrir, chame buscar_pedidos. Se já houver pedido aberto do mesmo problema no mesmo lugar, não crie outro: use reforcar_pedido e diga o número do pedido existente e que o reforço foi registrado. O reforço entra no fim da descrição do pedido e num comentário com o nome de quem reforçou; o solicitante original é mantido.",
+    "- Não repetir pedido, nesta ordem: (1) primeiro obtenha TODOS os campos obrigatórios do pipeline (por exemplo a vila ou o bloco, além do número da sala): pergunte o que a pessoa não disse, mesmo que já pareça haver um pedido igual; (2) só então chame buscar_pedidos e compare: é o mesmo pedido apenas se o problema for o mesmo E todos os campos obrigatórios forem iguais (a sala 12 da Vila 1 não é a sala 12 da Vila 2); (3) se exatamente um pedido aberto bater, chame reforcar_pedido na mesma resposta, passando os campos, e diga o número e que o reforço foi registrado; (4) se mais de um bater (pode haver duplicados antigos), não escolha sozinho: liste todos, um por linha, com número, título e data de abertura, e pergunte em qual registrar; (5) se nenhum bater, abra um pedido novo. O reforço entra no fim da descrição do pedido e num comentário com o nome de quem reforçou; o solicitante original é mantido.",
     "- Ao abrir um pedido, confirme com o número (ex.: \"Pedido #142 aberto\"). Se o pipeline tiver exige_liberacao = true, diga também que ele aguarda a liberação da gestão.",
     "- Para \"como está o pedido N?\", use situacao_pedido e responda etapa, responsável e prazo. Se não vier nada, o pedido não existe ou a pessoa não tem acesso a ele.",
     "- Liberação (só nos pipelines com voce_gerencia = true): quando o gestor escrever algo como \"liberar 142\" ou \"pode seguir o 142 com a Maria\", use liberar_pedido. Se a ferramenta devolver a lista da equipe, pergunte com quem fica e chame de novo com o nome. Confirme dizendo a etapa e o responsável. Se o gestor recusar um pedido, registre o motivo com comentar_pedido e avise que mover ou arquivar é pelo site.",
@@ -42,17 +42,17 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "buscar_pedidos",
     description:
-      "Lista os pedidos EM ABERTO de um pipeline (número, título, etapa, campos), dos mais recentes para os mais antigos. Chame SEMPRE antes de criar_pedido e compare você mesmo: se já houver pedido do mesmo problema no mesmo lugar (mesma sala, mesmo equipamento), não crie outro.",
+      "Lista os pedidos EM ABERTO de um pipeline (número, título, etapa, campos), dos mais recentes para os mais antigos. Chame SEMPRE antes de criar_pedido, já com os campos obrigatórios em mãos, e compare você mesmo: só é o mesmo pedido se o problema e todos os campos obrigatórios forem iguais.",
   },
   {
     name: "criar_pedido",
     description:
-      "Abre um pedido novo no pipeline. Só chame quando tiver todos os campos obrigatórios e depois de buscar_pedidos não mostrar o mesmo problema. 'campos' usa os nomes exatos dos campos do pipeline; em campo de opções, o valor é uma das opções listadas.",
+      "Abre um pedido novo no pipeline. Só chame quando tiver todos os campos obrigatórios e depois de buscar_pedidos não mostrar um pedido aberto com o mesmo problema e os mesmos campos obrigatórios. 'campos' usa os nomes exatos dos campos do pipeline; em campo de opções, o valor é uma das opções listadas.",
   },
   {
     name: "reforcar_pedido",
     description:
-      "Quando o mesmo problema já tem pedido aberto: registra no pedido existente que esta pessoa também pediu, em vez de criar outro. O texto vai para o fim da descrição e para um comentário com o nome dela; o solicitante original não muda.",
+      "Quando o mesmo problema já tem pedido aberto: registra no pedido existente que esta pessoa também pediu, em vez de criar outro. Passe em 'campos' os campos obrigatórios que a pessoa informou: o sistema confere com os do pedido existente e recusa se faltar algum ou se algum for diferente. Se houver mais de um pedido aberto com os mesmos campos, o sistema devolve a lista para você mostrar à pessoa; depois que ela escolher, chame de novo com confirmado_pela_pessoa = true. O texto vai para o fim da descrição e para um comentário com o nome dela; o solicitante original não muda.",
   },
   {
     name: "liberar_pedido",
