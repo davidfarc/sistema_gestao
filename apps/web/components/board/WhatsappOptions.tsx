@@ -19,13 +19,13 @@ export function WhatsappOptions({
   onChange: (value: BoardWhatsapp, dirty: boolean) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
-  const [enabled, setEnabled] = useState(false);
-  const [instructions, setInstructions] = useState("");
+  const [value, setValue] = useState<BoardWhatsapp>({ enabled: false, instructions: "", releaseRequired: false, reminderDays: 3 });
+  const { enabled, instructions, releaseRequired, reminderDays } = value;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  function change(next: BoardWhatsapp) {
-    setEnabled(next.enabled);
-    setInstructions(next.instructions);
+  function change(patch: Partial<BoardWhatsapp>) {
+    const next = { ...value, ...patch };
+    setValue(next);
     onChange(next, true);
   }
 
@@ -35,8 +35,7 @@ export function WhatsappOptions({
       .then((res) => {
         if (!alive) return;
         if (res.ok) {
-          setEnabled(res.value.enabled);
-          setInstructions(res.value.instructions);
+          setValue(res.value);
           setLoaded(true);
         } else setMsg({ ok: false, text: res.error });
       })
@@ -59,14 +58,14 @@ export function WhatsappOptions({
       {loaded && (
         <>
           <label className="flex items-center gap-3 text-sm text-neutral-800">
-            <input type="checkbox" checked={enabled} onChange={(e) => change({ enabled: e.target.checked, instructions })} />
+            <input type="checkbox" checked={enabled} onChange={(e) => change({ enabled: e.target.checked })} />
             Atender este pipeline pelo WhatsApp
           </label>
           <label className="grid gap-1 text-sm text-neutral-700">
             O que o agente precisa saber
             <textarea
               value={instructions}
-              onChange={(e) => change({ enabled, instructions: e.target.value })}
+              onChange={(e) => change({ instructions: e.target.value })}
               rows={6}
               maxLength={6000}
               placeholder={"Ex.: Pedidos de conserto e manutenção do prédio. Salas de aula: 1 a 20 (térreo) e 21 a 40 (1º andar). Peça sempre o número da sala que está na placa da porta."}
@@ -74,6 +73,35 @@ export function WhatsappOptions({
             />
             <span className="text-xs text-neutral-500">
               Descreva que tipo de pedido cabe aqui e os lugares (salas, blocos). Não coloque dados de alunos.
+            </span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-neutral-800">
+            <input
+              type="checkbox"
+              checked={releaseRequired}
+              onChange={(e) => change({ releaseRequired: e.target.checked })}
+              className="mt-0.5"
+            />
+            <span>
+              Pedido novo aguarda a liberação da gestão
+              <span className="block text-neutral-600">
+                O card fica na primeira etapa até o gestor de área deste pipeline, o Gestor ou o Gestor Master
+                liberar, pela tela ou respondendo “liberar 142” no WhatsApp. Vale também para cards criados pelo site.
+              </span>
+            </span>
+          </label>
+          <label className="grid gap-1 text-sm text-neutral-700">
+            Lembrar o responsável depois de quantos dias sem novidade
+            <input
+              type="number"
+              min={0}
+              max={60}
+              value={reminderDays}
+              onChange={(e) => change({ reminderDays: Number(e.target.value) })}
+              className="min-h-10 w-24 rounded-lg border border-neutral-300 px-3 text-sm"
+            />
+            <span className="text-xs text-neutral-500">
+              Em dias úteis, das 8h às 18h. Use 0 para não lembrar. A resposta ao lembrete vira comentário no card.
             </span>
           </label>
         </>

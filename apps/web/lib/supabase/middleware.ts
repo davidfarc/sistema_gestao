@@ -53,6 +53,8 @@ export async function updateSession(request: NextRequest) {
     // Pedido aos buscadores para não varrerem o sistema: precisa responder sem login.
     path === "/robots.txt" ||
     path.startsWith("/api/anamnese/public/") ||
+    // Porta interna do atendimento pelo WhatsApp: sem login, protegida por segredo próprio.
+    path === "/api/whatsapp/acao" ||
     path === "/api/anamnese/cron/process";
 
   if (!user && !isPublic) {

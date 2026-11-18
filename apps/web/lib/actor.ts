@@ -187,6 +187,35 @@ export const provisionAndGetActor = cache(async (): Promise<Actor | null> => {
 });
 
 /**
+ * Ator de uma pessoa pelo id, SEM sessão. Só para chamadas de servidor que já
+ * provaram de outra forma quem é a pessoa (o atendimento pelo WhatsApp, que a
+ * reconhece pelo telefone cadastrado). Null se não existir, estiver arquivada
+ * ou for externa.
+ */
+export async function loadActorById(userId: string): Promise<Actor | null> {
+  const db = createAdminClient();
+  const [{ data: user }, { data: roleRows }, { data: grantRows }] = await Promise.all([
+    db.from("app_user").select("id, organization_id, cargo, archived_at, is_internal").eq("id", userId).maybeSingle(),
+    db.from("user_role").select("role(permissions)").eq("user_id", userId),
+    db.from("user_grant").select("key").eq("user_id", userId),
+  ]);
+  if (!user || user.archived_at || !user.is_internal) return null;
+  const permissions = permissionsFrom(roleRows);
+  for (const g of grantRows ?? []) {
+    const action = GRANT_ACTION[g.key as string];
+    if (action) permissions.add(action);
+  }
+  return {
+    userId: asId(user.id),
+    organizationId: asId(user.organization_id),
+    isInternal: true,
+    permissions,
+    teamIds: [],
+    cargo: user.cargo ?? null,
+  };
+}
+
+/**
  * Garante um ator autenticado e (opcional) uma permissão — lança
  * UnauthorizedError/ForbiddenError se faltar. Use nas escritas do servidor.
  */

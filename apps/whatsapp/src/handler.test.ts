@@ -119,11 +119,14 @@ test("pessoa cadastrada recebe a confirmação pelo primeiro nome, e a resposta 
   assert.deepEqual((log.inbound[0] as { phones: string[] }).phones, ["+558499998888", "+5584999998888"]);
 });
 
-test("número desconhecido recebe a orientação uma vez por dia", async () => {
-  const a = deps({ usuario: null, minutos_desde_resposta: null });
-  await handleRequest(post(upsert()), a.d);
-  assert.match(a.log.sent[0]![1], /só atende telefones cadastrados/);
-  const b = deps({ usuario: null, minutos_desde_resposta: 300 });
+test("número não cadastrado: orienta até 3 vezes e depois fica em silêncio", async () => {
+  for (const n of [0, 1, 2]) {
+    const a = deps({ usuario: null, respostas_sem_cadastro: n });
+    await handleRequest(post(upsert()), a.d);
+    assert.match(a.log.sent[0]![1], /não está cadastrado/);
+    assert.match(a.log.sent[0]![1], /gestor do serviço/);
+  }
+  const b = deps({ usuario: null, respostas_sem_cadastro: 3 });
   await handleRequest(post(upsert()), b.d);
   assert.equal(b.log.sent.length, 0);
 });

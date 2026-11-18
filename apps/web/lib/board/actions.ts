@@ -19,6 +19,7 @@ import {
   type Thresholds,
 } from "@ecco/core";
 import { BOARD_TEMPLATES, templateOptions } from "./templates";
+import { endOfStagePosition, moveCardAs, placeCardInStage, recordActivity, setResponsibleAs } from "./cardOps";
 import { copyTemplatesToCard } from "./checklistCopy";
 import {
   assertAttachmentScope,
@@ -62,29 +63,6 @@ import type {
   UserRow,
 } from "@/lib/board/types";
 
-/** Registra uma atividade no card (feed estilo Trello). */
-async function recordActivity(
-  cardId: string,
-  actorId: string,
-  kind: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  const db = createAdminClient();
-  const { data: card } = await db
-    .from("card")
-    .select("organization_id")
-    .eq("id", cardId)
-    .maybeSingle();
-  if (!card) return;
-  await db.from("activity").insert({
-    organization_id: card.organization_id,
-    card_id: cardId,
-    actor_id: actorId,
-    kind,
-    payload,
-  });
-}
-
 // ── Cards ────────────────────────────────────────────────────────────────────
 //
 // As actions de card do dia a dia (mover, renomear, responsável, propriedade,
@@ -94,64 +72,6 @@ async function recordActivity(
 
 type AdminDb = ReturnType<typeof createAdminClient>;
 
-/** Posição para um card entrar no FIM da etapa (card novo vai para o pé da coluna). */
-async function endOfStagePosition(db: AdminDb, stageId: string): Promise<number> {
-  const { data } = await db
-    .from("card")
-    .select("position")
-    .eq("stage_id", stageId)
-    .order("position", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data ? positionAfter(Number(data.position)) : firstPosition();
-}
-
-/**
- * Grava a ordem do card dentro da etapa em que ele JÁ está (a troca de etapa é
- * sempre do CardService.move). Sem `placement`, vai para o fim da coluna.
- */
-async function placeCardInStage(
-  db: AdminDb,
-  cardId: string,
-  stageId: string,
-  placement: Placement | undefined,
-): Promise<void> {
-  if (!placement) {
-    const { error } = await db
-      .from("card")
-      .update({ position: await endOfStagePosition(db, stageId) })
-      .eq("id", cardId)
-      .eq("stage_id", stageId);
-    if (error) throw new Error(error.message);
-    return;
-  }
-  // Mesma ordem que o quadro mostra (loadBoard): posição e, no empate, número.
-  const { data: column, error: readError } = await db
-    .from("card")
-    .select("id, position")
-    .eq("stage_id", stageId)
-    .order("position")
-    .order("number");
-  if (readError) throw new Error(readError.message);
-
-  const current = (column ?? []).map((c) => ({ id: c.id, position: Number(c.position) }));
-  const result = placeInColumn(current, cardId, placement);
-  const writes =
-    result.kind === "single"
-      ? [{ id: cardId, position: result.position }]
-      : result.positions.filter(
-          (p) => current.find((c) => c.id === p.id)?.position !== p.position,
-        );
-  const results = await Promise.all(
-    writes.map((w) =>
-      db.from("card").update({ position: w.position }).eq("id", w.id).eq("stage_id", stageId),
-    ),
-  );
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw new Error(failed.error.message);
-}
-
-/** Insere o card no fim da etapa e registra `card_created`. Sem checagens: é de quem chama. */
 async function insertCard(
   db: AdminDb,
   actorId: string,
@@ -493,58 +413,7 @@ export async function moveCard(
   } catch {
     return { ok: false, reason: "Card não encontrado." };
   }
-
-  const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
-  // Etapa de origem e tempo de permanência: lidos ANTES do movimento, porque o
-  // `applyMove` sobrescreve `stage_entered_at`. Base dos relatórios por etapa.
-  const { data: before } = await createAdminClient()
-    .from("card")
-    .select("stage_id, stage_entered_at")
-    .eq("id", cardId)
-    .maybeSingle();
-  try {
-    const res = await service.move(actor, cardId, toStageId);
-    if (res.moved) {
-      await recordActivity(cardId, actor.userId, "card_moved", {
-        toStageId,
-        fromStageId: before?.stage_id ?? null,
-        secondsInStage: before?.stage_entered_at
-          ? Math.max(0, Math.round((Date.now() - new Date(before.stage_entered_at).getTime()) / 1000))
-          : null,
-      });
-    }
-    // Foi para revisão ou concluído: o trabalho ativo parou, pausa o cronômetro.
-    if (res.moved) {
-      const { data: stage } = await createAdminClient()
-        .from("stage")
-        .select("category")
-        .eq("id", toStageId)
-        .maybeSingle();
-      if (stage?.category === "review" || stage?.category === "done") await stopTimersOnCard(cardId);
-    }
-    // Trocou de etapa sem dizer onde (ex.: pela Lista) → fim da coluna.
-    if (res.moved || placement) {
-      await placeCardInStage(
-        createAdminClient(),
-        cardId,
-        toStageId,
-        placement && {
-          beforeId: typeof placement.beforeId === "string" ? placement.beforeId : null,
-          afterId: typeof placement.afterId === "string" ? placement.afterId : null,
-        },
-      );
-    }
-      return { ok: true };
-  } catch (e) {
-    if (e instanceof GateBlockedError) {
-      const violations = (e.details ?? []) as RuleViolation[];
-      return { ok: false, reason: violations[0]?.message ?? "Transição bloqueada." };
-    }
-    if (e instanceof ForbiddenError) {
-      return { ok: false, reason: "Você não tem permissão para mover cards." };
-    }
-    throw e;
-  }
+  return moveCardAs(actor, cardId, toStageId, placement);
 }
 
 /** Atualiza o card: título e/ou descrição (só os campos informados). */
@@ -1002,66 +871,7 @@ export async function setCardResponsible(
 ): Promise<void> {
   const actor = await requireActor("card:assign");
   await assertCardScope(actor, cardId);
-  const db = createAdminClient();
-  const { data: card } = await db
-    .from("card")
-    .select("organization_id, number, title, board_id")
-    .eq("id", cardId)
-    .single();
-  if (!card) throw new Error("Card não encontrado.");
-
-  // Um responsável por card: limpa qualquer assignment e recria se houver.
-  await db.from("assignment").delete().eq("card_id", cardId);
-  if (userId) {
-    const { error } = await db.from("assignment").insert({
-      organization_id: card.organization_id,
-      card_id: cardId,
-      stage_id: null,
-      user_id: userId,
-    });
-    if (error) throw new Error(error.message);
-    await recordActivity(cardId, actor.userId, "assignment_changed", { userId });
-
-    // Notifica quem foi atribuído (exceto se atribuiu a si mesmo).
-    if (userId !== (actor.userId as string)) {
-      const [{ data: meU }, { data: board }] = await Promise.all([
-        db.from("app_user").select("name, email").eq("id", actor.userId as string).maybeSingle(),
-        db.from("board").select("name").eq("id", card.board_id).maybeSingle(),
-      ]);
-      const boardName = board?.name ?? "";
-      await db.from("notification").insert({
-        organization_id: card.organization_id,
-        user_id: userId,
-        kind: "assignment",
-        payload: {
-          actorName: meU?.name || meU?.email || "Alguém",
-          cardNumber: card.number,
-          cardTitle: card.title,
-          boardName,
-        },
-      });
-      // Também nas Conversas (mensagem direta de quem atribuiu), com o link
-      // "Abrir o card" — o mesmo caminho do aviso de menção.
-      try {
-        const channelId = await ensureDmChannel(db, card.organization_id, actor.userId as string, userId);
-        await db.from("message").insert({
-          organization_id: card.organization_id,
-          channel_id: channelId,
-          author_id: actor.userId,
-          body: `📌 atribuiu você como responsável pelo card #${card.number} «${card.title}»${boardName ? ` · ${boardName}` : ""}\n/board?card=${cardId}`,
-          mentions: [],
-        });
-      } catch {
-        // O aviso do sininho e o push já foram; a mensagem é um reforço.
-      }
-      await sendPush([userId], {
-        title: `${meU?.name || meU?.email || "Alguém"} atribuiu um card a você`,
-        body: `#${card.number} ${card.title}`,
-        url: `/board?card=${cardId}`,
-        tag: `card-${cardId}`,
-      });
-    }
-  }
+  await setResponsibleAs(actor, cardId, userId);
   revalidatePath("/board");
 }
 
