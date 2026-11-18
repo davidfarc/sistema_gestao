@@ -1,5 +1,6 @@
 "use client";
 
+import { agentInstructionsText } from "@ecco/core";
 import { useEffect, useState } from "react";
 
 import { loadBoardWhatsapp, type BoardWhatsapp } from "@/lib/board/whatsapp";
@@ -106,6 +107,20 @@ export function WhatsappOptions({
           </label>
         </>
       )}
+      <details className="rounded-lg border border-neutral-200 text-sm">
+        <summary className="cursor-pointer px-3 py-2 font-medium text-neutral-800">
+          Ver as instruções gerais do agente
+        </summary>
+        <div className="border-t border-neutral-200 p-3">
+          <p className="mb-2 text-neutral-600">
+            É o texto completo que o agente recebe em toda conversa, igual para todos os pipelines. Só leitura: o
+            que muda por pipeline é o campo “O que o agente precisa saber”, acima.
+          </p>
+          <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap break-words rounded bg-neutral-50 p-3 font-sans text-xs text-neutral-800">
+            {agentInstructionsText(typeof window === "undefined" ? "" : window.location.host)}
+          </pre>
+        </div>
+      </details>
       {msg && (
         <p role={msg.ok ? "status" : "alert"} className={"text-sm " + (msg.ok ? "text-emerald-700" : "text-red-700")}>
           {msg.text}

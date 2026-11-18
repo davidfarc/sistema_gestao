@@ -13,3 +13,4 @@ export * from "./services/cardService.ts";
 export * from "./webpush.ts";
 export * from "./phone.ts";
 export * from "./fieldSync.ts";
+export * from "./whatsappAgent.ts";
