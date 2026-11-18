@@ -227,6 +227,9 @@ export async function callOpenAI(apiKey: string, request: ChatRequest, fetcher: 
   }
 }
 
+const TRANSCRIBE_PROMPT =
+  "Áudio em português do Brasil, de um funcionário de uma escola pedindo um serviço (manutenção, informática, eventos). Pode citar o número de uma sala.";
+
 /**
  * Transcreve um áudio pela OpenAI. Devolve o texto, ou null em qualquer falha.
  * O arquivo vai só na chamada; não é guardado em lugar nenhum.
@@ -241,7 +244,8 @@ export async function transcribeOpenAI(
     const ext = audio.mimetype.includes("mp4") || audio.mimetype.includes("m4a") ? "m4a" : audio.mimetype.includes("mpeg") ? "mp3" : "ogg";
     const form = new FormData();
     form.append("model", model);
-    form.append("language", "pt");
+    // Contexto em texto livre. O modelo atual não aceita mais o campo "language".
+    form.append("prompt", TRANSCRIBE_PROMPT);
     form.append("file", new Blob([audio.bytes as BlobPart], { type: audio.mimetype }), `audio.${ext}`);
     const res = await fetcher("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",

@@ -23,7 +23,7 @@
     // Modelo da OpenAI que conversa com a pessoa. Para trocar, mude aqui e publique de novo.
     "OPENAI_MODEL": "gpt-5.4-mini",
     // Modelo da OpenAI que transcreve os áudios.
-    "OPENAI_TRANSCRIBE_MODEL": "gpt-4o-mini-transcribe"
+    "OPENAI_TRANSCRIBE_MODEL": "gpt-transcribe"
   },
   "observability": { "enabled": true }
 }

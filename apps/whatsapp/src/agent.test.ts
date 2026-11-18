@@ -275,7 +275,8 @@ test("transcribeOpenAI: manda o arquivo em formulário e devolve o texto", async
   assert.equal(seen!.url, "https://api.openai.com/v1/audio/transcriptions");
   const form = seen!.init.body as FormData;
   assert.equal(form.get("model"), "modelo-voz");
-  assert.equal(form.get("language"), "pt");
+  assert.equal(form.get("language"), null);
+  assert.match(String(form.get("prompt")), /português do Brasil/);
   assert.equal((form.get("file") as File).name, "audio.ogg");
   assert.equal((seen!.init.headers as Record<string, string>).Authorization, "Bearer sk-t");
   const bad = (async () => new Response("{}", { status: 400 })) as unknown as typeof fetch;
