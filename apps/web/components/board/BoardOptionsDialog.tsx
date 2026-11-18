@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { syncFieldsFromBoard, type FieldSyncResult } from "@/lib/board/actions";
 import type { BoardSummary } from "@/lib/board/types";
+import { setBoardWhatsapp, type BoardWhatsapp } from "@/lib/board/whatsapp";
 import { setBoardOptions } from "@/lib/time/actions";
+
+import { WhatsappOptions } from "./WhatsappOptions";
 
 /** Opções do pipeline: visão "Minhas demandas" e controle de tempo. */
 export function BoardOptionsDialog({
@@ -63,6 +66,8 @@ export function BoardOptionsDialog({
   const nothingToDo = !!preview && preview.created.length === 0 && preview.optionsAdded.length === 0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Atendimento pelo WhatsApp: só grava se a pessoa mexeu.
+  const whatsapp = useRef<BoardWhatsapp | null>(null);
 
   async function save() {
     setBusy(true);
@@ -76,6 +81,13 @@ export function BoardOptionsDialog({
       if (!res.ok) {
         setError(res.error);
         return;
+      }
+      if (whatsapp.current) {
+        const wa = await setBoardWhatsapp(boardId, whatsapp.current);
+        if (!wa.ok) {
+          setError(`Atendimento pelo WhatsApp: ${wa.error}`);
+          return;
+        }
       }
       onSaved();
       onClose();
@@ -125,11 +137,6 @@ export function BoardOptionsDialog({
               </span>
             </span>
           </label>
-          {error && (
-            <p role="alert" className="text-sm text-red-700">
-              {error}
-            </p>
-          )}
         </div>
         {canSyncFields && others.length > 0 && (
           <div className="grid gap-3 border-t border-neutral-200 p-5">
@@ -139,6 +146,8 @@ export function BoardOptionsDialog({
                 Copia para <strong>{boardName}</strong> as propriedades que faltam, e as opções que faltam nas
                 que já existem, para os cards enviados de um pipeline para o outro chegarem com tudo no lugar.
                 Não apaga nem altera nada do que já existe, e não mexe nas etapas.
+                Esta parte não usa o “Salvar” lá embaixo: escolha a origem, clique em “Ver o que muda” e depois
+                em “Trazer propriedades”.
               </p>
             </div>
             <div className="flex flex-wrap items-end gap-2">
@@ -218,6 +227,18 @@ export function BoardOptionsDialog({
               </p>
             )}
           </div>
+        )}
+        <WhatsappOptions
+          boardId={boardId}
+          boardName={boardName}
+          onChange={(value, dirty) => {
+            if (dirty) whatsapp.current = value;
+          }}
+        />
+        {error && (
+          <p role="alert" className="px-5 pb-3 text-sm text-red-700">
+            {error}
+          </p>
         )}
         <div className="flex justify-end gap-2 border-t border-neutral-200 p-4">
           <button type="button" onClick={onClose} className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700">

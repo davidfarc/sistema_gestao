@@ -218,7 +218,9 @@ chave da API do Claude; cadastro dos telefones da equipe.
 | Etapa | Situação |
 |---|---|
 | C1 telefone no cadastro | Código pronto em 16/11: tabela `user_phone` (0044; cada um lê o seu, a gestão lê todos), convite "Complete seu cadastro" para quem não tem telefone (adiável por 7 dias), "Meu telefone" em Avisos, telefone na edição do usuário e aviso "sem telefone" na lista. Normalização em `core/phone.ts` (com as formas com e sem o nono dígito, para casar com o WhatsApp) |
-| C1 Worker, webhook e envio | A fazer (depende da Evolution API instalada para testar) |
+| C1 Worker, webhook e envio | Código pronto em 18/11 (número pareado na Evolution, instância "Eccoprime Zap"): Worker `ecco-whatsapp` (`apps/whatsapp`) recebe o webhook da Evolution com senha no endereço, reconhece a pessoa pelo telefone (`whatsapp_inbound`, 0049), ignora grupos, repetidas e enxurrada, e responde. Resposta ainda FIXA (confirma a quem é da equipe; orienta o desconhecido uma vez por dia). Falta publicar: túnel do Cloudflare, 3 segredos (`WEBHOOK_SECRET`, `EVOLUTION_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), `npx wrangler deploy` e o webhook na Evolution |
+| C1 em produção | Feito em 18/11: túnel `zap.eccoprime.com.br` fechado pelo Cloudflare Access (credencial de serviço), Worker publicado, webhook ligado; teste real respondeu |
+| C2 agente | Código pronto em 18/11, ainda NÃO testado com o modelo de verdade (falta a chave): `apps/whatsapp/src/agent.ts` (a pedido do David em 18/11, o modelo é da **OpenAI**, não o Claude: API de conversa com ferramentas chamada direto, sem biblioteca; laço de ferramentas no próprio Worker; modelo na variável `OPENAI_MODEL`) e `whatsapp_agent` (0050), que roda com a identidade da pessoa. Ferramentas: buscar pedidos abertos (para não duplicar), criar, reforçar o existente (comentário) e consultar situação. Liga-se por pipeline em Opções do pipeline → Atendimento pelo WhatsApp (liga/desliga + instruções); as perguntas saem dos campos "pedir na criação" obrigatórios. Sem `OPENAI_API_KEY` o Worker segue na resposta fixa. **Áudio (18/11):** o Worker baixa o áudio da Evolution, transcreve pela OpenAI (`OPENAI_TRANSCRIBE_MODEL`), grava só o texto na conversa (`whatsapp_set_transcript`, 0051) e segue para o agente; até 3 minutos. **Menu (18/11):** só quando há dúvida entre pipelines o agente manda um menu numerado com os pipelines atendidos; o nome de cada item pode ser definido nas instruções do pipeline. Fica para depois: acompanhantes e avisos (C3), liberação e lembretes (C4) |
 
 ---
 
@@ -236,11 +238,12 @@ em linguagem natural: "o que a equipe fez esta semana?", "quais pipelines estão
 |---|---|
 | `listar_pipelines` | Pipelines visíveis, com etapas e contagem de cards |
 | `resumo_pipeline(pipeline, período)` | Cards por etapa, criados × concluídos, atrasados, parados, tempo médio por etapa e do início ao fim |
-| `atividades(período, pipeline?, usuário?)` | Linha do tempo: criações, movimentações, atribuições, comentários, checklists |
+| `atividades(período, pipeline?, usuário?, pular?)` | Linha do tempo: criações, movimentações, atribuições, prazos, emendas, comentários, checklists. Paginada (`truncado`, `proxima_pagina`), com hora de São Paulo e ações em lote agrupadas (0048) |
+| `tempo_por_tarefa(período, pipeline?, usuário?)` | Horas do cronômetro: total, por pessoa, pipeline, dia e card; quem está cronometrando agora (0048). Sem `time:read`, só o próprio tempo |
 | `produtividade_usuario(usuário?, período)` | Por pessoa: cards concluídos, movimentações, comentários, itens de checklist, cards em aberto e atrasados, tempo médio de conclusão |
 | `produtividade_pipeline(período)` | Comparativo entre pipelines: vazão semanal, tempo de ciclo, gargalo (etapa com maior permanência) |
 | `buscar_cards(texto, filtros)` | Cards por título, responsável, etapa, prazo |
-| `detalhe_card(id ou #número)` | Card com campos, checklist, comentários e histórico |
+| `detalhe_card(id ou #número)` | Card com campos, checklist, comentários, emendas, horas registradas e histórico |
 
 As contas ficam em funções SQL no Postgres (`report_*`), usadas também pelo Painel (B.4).
 `produtividade_*` depende dos dados novos da seção A (`fromStageId`, `completed_at`); para
@@ -642,6 +645,31 @@ cards do pipeline ou só os dele.
 - No cabeçalho do quadro, quem está restrito vê "· só os seus" ao lado da contagem.
 - Papel novo criado na tela nasce sem a permissão (como as demais): marcar se for o caso.
 
+### E.15 Importação dos quadros do Trello (roteiro pronto em 18/11)
+
+Dois quadros exportados do Trello em JSON: DIAGRAMAÇÃO (119 cards ativos, 1.531 arquivados) e
+PEDAGÓGICO (114 ativos, 77 arquivados). Decidido com o David em 18/11: trazer ativos **e**
+arquivados; card ativo em lista arquivada vai para a primeira etapa; lista, etiquetas e membros do
+Trello ficam no topo da descrição do card.
+
+- Os JSON são convertidos (fora do repositório) num CSV único, `trello_cards.csv`, com uma linha
+  por card. Os dados não entram no repositório.
+- Roteiro em `infra/import/trello_{1_preparo,2_importar,3_limpeza}.sql`, no mesmo molde da
+  importação anterior: tabela de passagem, função com simulação e gravação idempotente, limpeza.
+- `import_trello(quadro, pipeline, e-mail, modo, gravar)`. Modo `'ordem'`: a N-ésima lista aberta do
+  Trello vai para a N-ésima etapa do pipeline (Diagramação). Modo `'primeira'`: tudo na primeira
+  etapa (Pedagógico → Backlog).
+- Card arquivado no Trello entra arquivado no sistema, na etapa da lista dele. Vêm título,
+  descrição, links anexados (todos do Google Drive/Docs) e checklists com o que já estava marcado.
+  Comentários não vêm (não há nenhum nos arquivos). A data de criação é a do Trello.
+
+**Executada em 18/11 pelo David:** Diagramação → Editora Diagramação por ordem (Backlog 82, Em
+produção 6, Aguardando aprovação 15, Fechamento 9, Finalizado 7; 1.531 arquivados) e Pedagógico →
+Backlog do Editora Pedagógico (114 ativos, 77 arquivados).
+
+Testado em banco local com os dados reais (1.841 cards, menos de 1 segundo): contagens por etapa
+conferem com os quadros, simulação não grava, segunda execução não duplica.
+
 ### E.3 Ordem sugerida
 
 **Antes de tudo:** publicar no `main` o que já está pronto (blocos A, B e D), decidido em 12/11.
@@ -693,6 +721,10 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0045_checklist_templates.sql` | Tabela `checklist_template`: modelos de checklist por pipeline | ✅ Aplicada em 17/11 |
 | `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | ✅ Aplicada em 17/11 |
 | `0047_card_read_all.sql` | Permissão `card:read_all` nos papéis existentes e `can_see_card` passa a conferi-la | **A aplicar** |
+| `0048_mcp_reports_v2.sql` | MCP: `report_time` (horas), `atividades` paginada com lotes agrupados e hora local, detalhe do card com emendas e tempo, alcance respeitando `card:read_all`. Só troca funções | **A aplicar** (depois, republicar o Worker `ecco-mcp`) |
+| `0049_whatsapp_base.sql` | Tabela `whatsapp_message` (90 dias, sem leitura pelo navegador) e funções `whatsapp_inbound`/`whatsapp_outbound` (só chave de servidor) | ✅ Aplicada em 18/11 |
+| `0050_whatsapp_agent.sql` | `board.whatsapp_enabled`/`whatsapp_instructions` e a função `whatsapp_agent` (porta única do agente, só chave de servidor, age como a pessoa) | **A aplicar** |
+| `0051_whatsapp_audio.sql` | Função `whatsapp_set_transcript` (guarda o texto do áudio transcrito; só chave de servidor) | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 
