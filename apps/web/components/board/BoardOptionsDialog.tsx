@@ -6,6 +6,8 @@ import { syncFieldsFromBoard, type FieldSyncResult } from "@/lib/board/actions";
 import type { BoardSummary } from "@/lib/board/types";
 import { setBoardOptions } from "@/lib/time/actions";
 
+import { WhatsappOptions } from "./WhatsappOptions";
+
 /** Opções do pipeline: visão "Minhas demandas" e controle de tempo. */
 export function BoardOptionsDialog({
   boardId,
@@ -219,6 +221,7 @@ export function BoardOptionsDialog({
             )}
           </div>
         )}
+        <WhatsappOptions boardId={boardId} boardName={boardName} />
         <div className="flex justify-end gap-2 border-t border-neutral-200 p-4">
           <button type="button" onClick={onClose} className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700">
             Fechar

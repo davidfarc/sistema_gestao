@@ -1,10 +1,10 @@
 /**
- * Atendimento pelo WhatsApp — base (SPEC-FASE2 §C, etapa C1).
+ * Atendimento pelo WhatsApp (SPEC-FASE2 §C).
  *
- * Recebe o webhook da Evolution, confere a senha, reconhece a pessoa pelo
- * telefone cadastrado e responde. Nesta etapa a resposta é fixa: confirma o
- * recebimento a quem é da equipe e orienta quem não está cadastrado. O agente
- * que abre demandas (C2) entra no lugar de `replyFor`.
+ * Recebe o webhook da Evolution, confere a senha e reconhece a pessoa pelo
+ * telefone cadastrado. Quem é da equipe conversa com o agente (agent.ts); quem
+ * não está cadastrado recebe uma orientação por dia. Sem a chave do modelo
+ * configurada, a pessoa recebe só a confirmação fixa de recebimento.
  */
 
 import { phoneVariants } from "../../../packages/core/src/phone.ts";
@@ -27,6 +27,10 @@ export interface Deps {
   recordInbound(msg: Inbound, phones: string[]): Promise<InboundResult | null>;
   recordOutbound(phone: string, userId: string | null, body: string, error: string | null): Promise<void>;
   send(phone: string, text: string): Promise<string | null>;
+  /** Resposta do agente para a pessoa (ausente = sem chave do modelo). */
+  agent?(userId: string): Promise<string | null>;
+  /** Deixa o trabalho continuar depois de responder ao webhook (`waitUntil`). */
+  defer?(work: Promise<void>): void;
 }
 
 const MAX_PER_HOUR = 30;
@@ -93,9 +97,37 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
 
   const result = await deps.recordInbound(msg, phoneVariants(msg.phone));
   if (!result) return text("indisponível", 503);
-  const reply = replyFor(msg, result, deps.appUrl);
-  if (!reply) return text("ok");
+
+  // Responde já ao webhook; a conversa com o modelo leva alguns segundos.
+  const work = answer(msg, result, deps).catch((e) => {
+    console.error("atendimento", e instanceof Error ? e.name : "erro");
+  });
+  if (deps.defer) deps.defer(work);
+  else await work;
+  return text("ok");
+}
+
+async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<void> {
+  const reply = await chooseReply(msg, result, deps);
+  if (!reply) return;
   const error = await deps.send(msg.phone, reply);
   await deps.recordOutbound(msg.phone, result.usuario?.id ?? null, reply, error);
-  return text("ok");
+}
+
+async function chooseReply(msg: Inbound, r: InboundResult, deps: Deps): Promise<string | null> {
+  if (!r.usuario || !deps.agent) return replyFor(msg, r, deps.appUrl);
+  if (r.duplicada || r.recentes > MAX_PER_HOUR) return null;
+  if (msg.kind !== "text") {
+    return msg.kind === "audio"
+      ? "Ainda não consigo ouvir áudio. Pode escrever o seu pedido em texto?"
+      : "Por aqui eu só leio mensagens de texto. Pode escrever o seu pedido?";
+  }
+  let reply: string | null = null;
+  try {
+    reply = await deps.agent(r.usuario.id);
+  } catch (e) {
+    console.error("agente", e instanceof Error ? e.name : "erro");
+  }
+  const site = deps.appUrl.replace(/^https?:\/\//, "");
+  return reply ?? `Tive um problema para atender agora. Tente de novo em alguns minutos ou registre o pedido em ${site}.`;
 }

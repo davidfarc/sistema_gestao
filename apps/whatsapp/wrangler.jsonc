@@ -6,6 +6,7 @@
   //   WEBHOOK_SECRET             senha que a Evolution manda no endereço do webhook
   //   EVOLUTION_API_KEY          chave da instância na Evolution (para enviar)
   //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
+  //   ANTHROPIC_API_KEY          chave da API do Claude (sem ela, só confirma o recebimento)
   //   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (opcionais) credencial de serviço do
   //                              Cloudflare Access, quando o endereço do gateway está fechado
   "$schema": "node_modules/wrangler/config-schema.json",
