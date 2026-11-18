@@ -730,6 +730,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0051_whatsapp_audio.sql` | Função `whatsapp_set_transcript` (guarda o texto do áudio transcrito; só chave de servidor) | ✅ Aplicada em 18/11 |
 | `0052_whatsapp_flow.sql` | `board.release_required` e `whatsapp_reminder_days`; fila `whatsapp_outbox` com gatilho em `activity`; funções de fila e de lembrete; `whatsapp_inbound` e `whatsapp_agent` atualizadas | **A aplicar** |
 | `0053_whatsapp_reinforce.sql` | `whatsapp_agent`: o reforço de pedido entra no fim da descrição e num comentário com o nome de quem reforçou (solicitante original mantido) | **A aplicar** |
+| `0054_whatsapp_same_request.sql` | `whatsapp_agent`: `reforcar_pedido` exige os campos obrigatórios e só aceita se forem iguais aos do card; com mais de um card aberto igual, devolve a lista e exige a escolha da pessoa | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

@@ -77,6 +77,17 @@ function tool(name: string, description: string, properties: Record<string, unkn
   };
 }
 
+/** Campos do pipeline como lista de pares (o esquema fechado não aceita chaves livres). */
+const CAMPOS = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { nome: text, valor: text },
+    required: ["nome", "valor"],
+    additionalProperties: false,
+  },
+} as const;
+
 export const TOOLS: ChatTool[] = [
   tool(
     "buscar_pedidos",
@@ -91,23 +102,24 @@ export const TOOLS: ChatTool[] = [
       pipeline_id: text,
       titulo: { type: "string", description: "Curto e específico, com o local. Ex.: 'Ar-condicionado não liga - sala 12'." },
       descricao: { type: "string", description: "O que a pessoa relatou, com as palavras dela." },
-      campos: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: { nome: text, valor: text },
-          required: ["nome", "valor"],
-          additionalProperties: false,
-        },
-      },
+      campos: CAMPOS,
     },
     ["pipeline_id", "titulo", "descricao", "campos"],
   ),
   tool(
     "reforcar_pedido",
     describe("reforcar_pedido"),
-    { pipeline_id: text, numero: text, texto: { type: "string", description: "O que a pessoa relatou agora." } },
-    ["pipeline_id", "numero", "texto"],
+    {
+      pipeline_id: text,
+      numero: text,
+      texto: { type: "string", description: "O que a pessoa relatou agora." },
+      campos: CAMPOS,
+      confirmado_pela_pessoa: {
+        type: "boolean",
+        description: "true somente quando a pessoa escolheu este número depois de você listar os pedidos iguais. Caso contrário, false.",
+      },
+    },
+    ["pipeline_id", "numero", "texto", "campos", "confirmado_pela_pessoa"],
   ),
   tool(
     "liberar_pedido",
@@ -163,7 +175,7 @@ function toolArgs(name: string, raw: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-  if (name === "criar_pedido" && Array.isArray(args.campos)) {
+  if ((name === "criar_pedido" || name === "reforcar_pedido") && Array.isArray(args.campos)) {
     const campos: Record<string, string> = {};
     for (const c of args.campos as { nome?: unknown; valor?: unknown }[]) {
       if (typeof c?.nome === "string" && typeof c?.valor === "string") campos[c.nome] = c.valor;

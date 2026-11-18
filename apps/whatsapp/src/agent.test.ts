@@ -386,7 +386,7 @@ test("promessa sem ação: o agente é cobrado e reforça na mesma rodada", asyn
     [
       call("buscar_pedidos", { pipeline_id: "p1" }),
       say("Já existe pedido aberto desse problema na sala 12: o #5, em Demanda Estrutura. Vou registrar seu reforço nele."),
-      call("reforcar_pedido", { pipeline_id: "p1", numero: "5", texto: "ar não liga" }, "t2"),
+      call("reforcar_pedido", { pipeline_id: "p1", numero: "5", texto: "ar não liga", campos: [{ nome: "Vila", valor: "Vila 1" }], confirmado_pela_pessoa: false }, "t2"),
       say("Já existe o pedido #5 em Demanda Estrutura; registrei o seu reforço nele."),
     ],
     ctx(),
@@ -395,6 +395,7 @@ test("promessa sem ação: o agente é cobrado e reforça na mesma rodada", asyn
   assert.equal(await runAgent(a.d), "Já existe o pedido #5 em Demanda Estrutura; registrei o seu reforço nele.");
   assert.deepEqual(a.log.db.map((c) => c[0]), ["contexto", "buscar_pedidos", "reforcar_pedido"]);
   assert.match(a.log.model[2].messages.at(-1).content, /Faça agora/);
+  assert.deepEqual((a.log.db[2]![1] as any).campos, { Vila: "Vila 1" });
   // Insistiu na promessa: contingência, nunca a promessa vazia.
   assert.equal(await runAgent(deps([say("Vou abrir o pedido para você."), say("Pode deixar que vou registrar.")]).d), null);
 });
