@@ -19,6 +19,8 @@ export interface InboundResult {
   recentes: number;
   /** Minutos desde a nossa última resposta a este telefone (null = nunca). */
   minutos_desde_resposta: number | null;
+  /** Quantas vezes já respondemos a este número enquanto não cadastrado. */
+  respostas_sem_cadastro?: number;
 }
 
 export interface Deps {
@@ -40,6 +42,7 @@ export interface Deps {
 
 const MAX_PER_HOUR = 30;
 const MAX_AUDIO_SECONDS = 180;
+const MAX_UNKNOWN_REPLIES = 3;
 
 /** Comparação em tempo constante (não revela a senha pelo tempo de resposta). */
 export function safeEqual(a: string, b: string): boolean {
@@ -55,11 +58,12 @@ export function replyFor(msg: Inbound, r: InboundResult, appUrl: string): string
   if (r.duplicada || r.recentes > MAX_PER_HOUR) return null;
   const site = appUrl.replace(/^https?:\/\//, "");
   if (!r.usuario) {
-    // Número desconhecido: uma orientação por dia, e nada mais (C.2).
-    if (r.minutos_desde_resposta !== null && r.minutos_desde_resposta < 24 * 60) return null;
+    // Número não cadastrado: não conversa nem pede nada. Orienta até 3 vezes e
+    // depois fica em silêncio, até a pessoa entrar no cadastro (C.2).
+    if ((r.respostas_sem_cadastro ?? 0) >= MAX_UNKNOWN_REPLIES) return null;
     return (
-      "Olá! Este é o atendimento automático da Eccoprime e só atende telefones cadastrados no Sistema de Gestão. " +
-      `Se você é da equipe, cadastre o seu celular em ${site} (Avisos → Meu telefone) e escreva de novo.`
+      "Olá! Este é o atendimento automático da Eccoprime e só atende a equipe com telefone cadastrado no Sistema de Gestão. " +
+      "O seu número não está cadastrado. Entre em contato com o gestor do serviço para regularizar o cadastro."
     );
   }
   // Fase de testes: uma confirmação a cada 10 minutos, para não repetir a cada frase.
@@ -145,4 +149,32 @@ async function chooseReply(msg: Inbound, r: InboundResult, deps: Deps): Promise<
   }
   const site = deps.appUrl.replace(/^https?:\/\//, "");
   return reply ?? `Tive um problema para atender agora. Tente de novo em alguns minutos ou registre o pedido em ${site}.`;
+}
+
+export interface OutboxItem {
+  id: string;
+  phone: string;
+  body: string;
+}
+
+export interface OutboxDeps {
+  /** Enfileira os lembretes de card parado que estiverem na hora. */
+  enqueueReminders(): Promise<void>;
+  take(): Promise<OutboxItem[] | null>;
+  done(id: string, error: string | null): Promise<void>;
+  send(phone: string, text: string): Promise<string | null>;
+}
+
+/** Rotina de cada minuto: envia os avisos pendentes. Devolve quantos enviou. */
+export async function deliverOutbox(deps: OutboxDeps): Promise<number> {
+  await deps.enqueueReminders().catch(() => {});
+  const items = (await deps.take()) ?? [];
+  let sent = 0;
+  for (const item of items) {
+    if (typeof item?.id !== "string" || typeof item.phone !== "string" || !item.body) continue;
+    const error = await deps.send(item.phone, item.body);
+    await deps.done(item.id, error);
+    if (!error) sent++;
+  }
+  return sent;
 }

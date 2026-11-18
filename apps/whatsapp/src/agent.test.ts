@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { callOpenAI, runAgent, transcribeOpenAI, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
 import { fetchMedia } from "./evolution.ts";
-import { handleRequest, type Deps } from "./handler.ts";
+import { deliverOutbox, handleRequest, type Deps } from "./handler.ts";
 
 const ctx = (over: Partial<AgentContext> = {}): AgentContext => ({
   pessoa: "Ana Lima",
@@ -115,7 +115,7 @@ test("histórico: começa na pessoa e precisa terminar nela", async () => {
 });
 
 test("ferramentas: esquema fechado, e nenhuma que mova, apague ou configure", () => {
-  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["buscar_pedidos", "criar_pedido", "reforcar_pedido", "situacao_pedido"]);
+  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "situacao_pedido"]);
   for (const t of TOOLS) {
     const p = t.function.parameters as any;
     assert.equal(t.type, "function");
@@ -198,7 +198,7 @@ test("áudio pede texto; agente que falha manda a contingência; desconhecido n�
   const c = hdeps({ agent: async () => (ran++, "x"), recordInbound: async () => ({ duplicada: false, usuario: null, recentes: 1, minutos_desde_resposta: null }) });
   await handleRequest(hook({ conversation: "oi" }), c.d);
   await Promise.all(c.pending);
-  assert.match(c.sent[0]!, /só atende telefones cadastrados/);
+  assert.match(c.sent[0]!, /não está cadastrado/);
   assert.equal(ran, 0);
 });
 
@@ -290,4 +290,52 @@ test("prompt: menu só na dúvida e transcrição de áudio", () => {
   assert.match(p, /menu numerado/);
   assert.match(p, /siga direto/);
   assert.match(p, /\[áudio\]/);
+});
+
+test("liberar_pedido: o banco confere, o site executa; erro do banco não chega ao site", async () => {
+  const released: any[] = [];
+  const ok = deps([call("liberar_pedido", { pipeline_id: "p1", numero: "3", responsavel: "" }), say("Pedido #3 liberado para a Maria.")], ctx(), {
+    ok: true,
+    card_id: "c-1",
+    assignee_id: "u-9",
+  });
+  ok.d.release = async (cardId, assigneeId) => (released.push([cardId, assigneeId]), { ok: true, etapa: "Em andamento", responsavel: "Maria" });
+  assert.equal(await runAgent(ok.d), "Pedido #3 liberado para a Maria.");
+  assert.deepEqual(ok.log.db.map((c) => c[0]), ["contexto", "preparar_liberacao"]);
+  assert.deepEqual(released, [["c-1", "u-9"]]);
+  assert.match(ok.log.model[1].messages[3].content, /Em andamento/);
+
+  const many = deps([call("liberar_pedido", { pipeline_id: "p1", numero: "3", responsavel: "" }), say("Com quem fica?")], ctx(), {
+    erro: "Há mais de uma pessoa",
+    equipe: ["Ana", "Bia"],
+  });
+  let wrong = 0;
+  many.d.release = async () => (wrong++, null);
+  assert.equal(await runAgent(many.d), "Com quem fica?");
+  assert.equal(wrong, 0);
+  assert.match(many.log.model[1].messages[3].content, /Bia/);
+
+  const off = deps([call("liberar_pedido", { pipeline_id: "p1", numero: "3", responsavel: "" }), say("Libere pelo site.")]);
+  await runAgent(off.d);
+  assert.deepEqual(off.log.db.map((c) => c[0]), ["contexto"]);
+  assert.match(off.log.model[1].messages[3].content, /não está disponível/);
+});
+
+test("fila de avisos: envia, confirma e registra a falha", async () => {
+  const done: [string, string | null][] = [];
+  let reminders = 0;
+  const sent = await deliverOutbox({
+    enqueueReminders: async () => void reminders++,
+    take: async () => [
+      { id: "1", phone: "+5584911110001", body: "Novo pedido #3" },
+      { id: "2", phone: "+5584911110002", body: "Lembrete" },
+      { id: "3", phone: "+5584911110003", body: "" },
+    ],
+    done: async (id, error) => void done.push([id, error]),
+    send: async (phone) => (phone.endsWith("2") ? "HTTP 500" : null),
+  });
+  assert.equal(sent, 1);
+  assert.equal(reminders, 1);
+  assert.deepEqual(done, [["1", null], ["2", "HTTP 500"]]);
+  assert.equal(await deliverOutbox({ enqueueReminders: async () => Promise.reject(new Error("x")), take: async () => null, done: async () => {}, send: async () => null }), 0);
 });

@@ -7,6 +7,7 @@
   //   EVOLUTION_API_KEY          chave da instância na Evolution (para enviar)
   //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
   //   OPENAI_API_KEY             chave da API da OpenAI (sem ela, só confirma o recebimento)
+  //   WHATSAPP_SERVICE_SECRET    o mesmo segredo gravado no Worker do site (ecco-sistema)
   //   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (opcionais) credencial de serviço do
   //                              Cloudflare Access, quando o endereço do gateway está fechado
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -25,5 +26,9 @@
     // Modelo da OpenAI que transcreve os áudios.
     "OPENAI_TRANSCRIBE_MODEL": "gpt-transcribe"
   },
+  // A cada minuto: envia os avisos pendentes e enfileira os lembretes.
+  "triggers": { "crons": ["* * * * *"] },
+  // Chamada direta ao Worker do site, para a liberação passar pelas regras dele.
+  "services": [{ "binding": "SITE", "service": "ecco-sistema" }],
   "observability": { "enabled": true }
 }
