@@ -6,7 +6,7 @@
   //   WEBHOOK_SECRET             senha que a Evolution manda no endereço do webhook
   //   EVOLUTION_API_KEY          chave da instância na Evolution (para enviar)
   //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
-  //   ANTHROPIC_API_KEY          chave da API do Claude (sem ela, só confirma o recebimento)
+  //   OPENAI_API_KEY             chave da API da OpenAI (sem ela, só confirma o recebimento)
   //   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (opcionais) credencial de serviço do
   //                              Cloudflare Access, quando o endereço do gateway está fechado
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -19,7 +19,9 @@
     // Endereço público do gateway (túnel do Cloudflare) e nome da instância.
     "EVOLUTION_URL": "https://zap.eccoprime.com.br",
     "EVOLUTION_INSTANCE": "Eccoprime Zap",
-    "APP_URL": "https://gestao.eccoprime.com.br"
+    "APP_URL": "https://gestao.eccoprime.com.br",
+    // Modelo da OpenAI que conversa com a pessoa. Para trocar, mude aqui e publique de novo.
+    "OPENAI_MODEL": "gpt-6.2-sol"
   },
   "observability": { "enabled": true }
 }

@@ -4,9 +4,7 @@
  * servidor, guardada como segredo do Cloudflare.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-
-import { runAgent } from "./agent.ts";
+import { callOpenAI, runAgent } from "./agent.ts";
 import { sendText } from "./evolution.ts";
 import { handleRequest, type InboundResult } from "./handler.ts";
 
@@ -20,8 +18,9 @@ interface Env {
   CF_ACCESS_CLIENT_ID?: string;
   CF_ACCESS_CLIENT_SECRET?: string;
   APP_URL: string;
-  /** Chave da API do Claude. Sem ela o atendimento só confirma o recebimento. */
-  ANTHROPIC_API_KEY?: string;
+  /** Chave da API da OpenAI. Sem ela o atendimento só confirma o recebimento. */
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL: string;
 }
 
 async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null> {
@@ -49,12 +48,10 @@ async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null>
 
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
-    const claude = env.ANTHROPIC_API_KEY
-      ? new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 25_000, maxRetries: 1 })
-      : null;
+    const openaiKey = env.OPENAI_API_KEY;
     return handleRequest(request, {
       defer: (work) => ctx.waitUntil(work),
-      agent: claude
+      agent: openaiKey
         ? (userId) =>
             runAgent({
               appUrl: env.APP_URL,
@@ -63,7 +60,8 @@ export default {
                   string,
                   unknown
                 > | null,
-              model: (params) => claude.beta.messages.create(params),
+              modelName: env.OPENAI_MODEL,
+              model: (request) => callOpenAI(openaiKey, request),
             })
         : undefined,
       webhookSecret: env.WEBHOOK_SECRET ?? "",

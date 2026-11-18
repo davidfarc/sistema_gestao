@@ -2,14 +2,33 @@
  * Agente de demandas (SPEC-FASE2 §C, etapa C2): conversa com a pessoa, pergunta
  * o que falta, confere se o pedido já existe e abre o card.
  *
- * O modelo decide O QUE fazer; quem FAZ é o banco, pela função `whatsapp_agent`
+ * O modelo (OpenAI, API de conversa com ferramentas) decide O QUE fazer; quem FAZ é o banco, pela função `whatsapp_agent`
  * (migration 0050), que roda com a identidade e as permissões de quem escreveu.
  * O agente não tem nenhuma outra porta: não move card, não apaga, não configura.
  */
 
-import type Anthropic from "@anthropic-ai/sdk";
-
-
+/** Formato da API de conversa da OpenAI (Chat Completions), só o que usamos. */
+export interface ChatToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+export type ChatMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: ChatToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+export interface ChatTool {
+  type: "function";
+  function: { name: string; description: string; strict: true; parameters: Record<string, unknown> };
+}
+export interface ChatRequest {
+  model: string;
+  messages: ChatMessage[];
+  tools: ChatTool[];
+}
+export interface ChatResponse {
+  choices?: { finish_reason?: string; message?: { content?: string | null; refusal?: string | null; tool_calls?: ChatToolCall[] } }[];
+}
 
 export interface AgentContext {
   pessoa: string;
@@ -21,26 +40,30 @@ export interface AgentContext {
 export interface AgentDeps {
   /** Chama `whatsapp_agent` como a pessoa. Devolve null se o banco falhar. */
   db(tool: string, args: Record<string, unknown>): Promise<Record<string, unknown> | null>;
-  /** Uma chamada ao modelo (injetável nos testes). */
-  model(params: Anthropic.Beta.MessageCreateParamsNonStreaming): Promise<Anthropic.Beta.BetaMessage>;
+  /** Uma chamada ao modelo (injetável nos testes). Null se a API falhar. */
+  model(request: ChatRequest): Promise<ChatResponse | null>;
+  /** Nome do modelo da OpenAI (variável OPENAI_MODEL). */
+  modelName: string;
   appUrl: string;
 }
 
-export const MODEL = "claude-opus-5-5";
 const MAX_TURNS = 6;
 
 const text = { type: "string" } as const;
 
-function tool(name: string, description: string, properties: Record<string, unknown>, required: string[]): Anthropic.Beta.BetaTool {
+function tool(name: string, description: string, properties: Record<string, unknown>, required: string[]): ChatTool {
   return {
-    name,
-    description,
-    strict: true,
-    input_schema: { type: "object", properties, required, additionalProperties: false },
+    type: "function",
+    function: {
+      name,
+      description,
+      strict: true,
+      parameters: { type: "object", properties, required, additionalProperties: false },
+    },
   };
 }
 
-export const TOOLS: Anthropic.Beta.BetaTool[] = [
+export const TOOLS: ChatTool[] = [
   tool(
     "buscar_pedidos",
     "Lista os pedidos EM ABERTO de um pipeline (número, título, etapa, campos). Chame SEMPRE antes de criar_pedido, para ver se o mesmo problema no mesmo lugar já foi pedido. 'texto' filtra por título ou campo (ex.: o número da sala); deixe vazio para ver todos.",
@@ -111,17 +134,24 @@ export function systemPrompt(ctx: AgentContext, appUrl: string): string {
 }
 
 /** A conversa recente vira o histórico; a primeira mensagem tem de ser da pessoa. */
-export function toMessages(conversa: AgentContext["conversa"]): Anthropic.Beta.BetaMessageParam[] {
+export function toMessages(conversa: AgentContext["conversa"]): ChatMessage[] {
   const start = conversa.findIndex((m) => m.de === "pessoa");
   if (start < 0) return [];
-  return conversa.slice(start).map((m) => ({
-    role: m.de === "pessoa" ? ("user" as const) : ("assistant" as const),
-    content: m.texto,
-  }));
+  return conversa.slice(start).map((m) =>
+    m.de === "pessoa" ? { role: "user" as const, content: m.texto } : { role: "assistant" as const, content: m.texto },
+  );
 }
 
-function toolArgs(name: string, input: unknown): Record<string, unknown> {
-  const args = { ...(input as Record<string, unknown>) };
+/** Lê os argumentos (texto JSON) de uma chamada de ferramenta. Null se inválidos. */
+function toolArgs(name: string, raw: string): Record<string, unknown> | null {
+  let args: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(raw || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    args = { ...(parsed as Record<string, unknown>) };
+  } catch {
+    return null;
+  }
   if (name === "criar_pedido" && Array.isArray(args.campos)) {
     const campos: Record<string, string> = {};
     for (const c of args.campos as { nome?: unknown; valor?: unknown }[]) {
@@ -139,49 +169,58 @@ function toolArgs(name: string, input: unknown): Record<string, unknown> {
 export async function runAgent(deps: AgentDeps): Promise<string | null> {
   const ctx = (await deps.db("contexto", {})) as unknown as AgentContext | null;
   if (!ctx || !Array.isArray(ctx.conversa)) return null;
-  const messages = toMessages(ctx.conversa);
-  if (messages.length === 0 || messages[messages.length - 1]!.role !== "user") return null;
-  const system = systemPrompt(ctx, deps.appUrl);
+  const history = toMessages(ctx.conversa);
+  if (history.length === 0 || history[history.length - 1]!.role !== "user") return null;
+  const messages: ChatMessage[] = [{ role: "system", content: systemPrompt(ctx, deps.appUrl) }, ...history];
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const res = await deps.model({
-      model: MODEL,
-      max_tokens: 16000,
-      system,
-      tools: TOOLS,
-      messages,
-      // Conversa curta: profundidade baixa responde mais rápido.
-      output_config: { effort: "low" },
-      // Se o modelo recusar por política, a API tenta de novo num modelo substituto.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-    });
+    const res = await deps.model({ model: deps.modelName, messages, tools: TOOLS });
+    const choice = res?.choices?.[0];
+    const message = choice?.message;
+    if (!choice || !message) return null;
 
-    if (res.stop_reason === "tool_use") {
-      messages.push({ role: "assistant", content: res.content });
-      const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-      for (const block of res.content) {
-        if (block.type !== "tool_use") continue;
-        const known = TOOLS.some((t) => t.name === block.name);
-        const out = known ? await deps.db(block.name, toolArgs(block.name, block.input)) : null;
-        results.push({
-          type: "tool_result",
-          tool_use_id: block.id,
-          content: JSON.stringify(out ?? { erro: "O sistema não respondeu. Peça para tentar de novo em instantes." }),
-          is_error: out === null || typeof out.erro === "string",
-        });
+    const calls = message.tool_calls ?? [];
+    if (calls.length > 0) {
+      messages.push({ role: "assistant", content: message.content ?? null, tool_calls: calls });
+      for (const call of calls) {
+        const name = call.function?.name ?? "";
+        const known = TOOLS.some((t) => t.function.name === name);
+        const args = known ? toolArgs(name, call.function.arguments) : null;
+        const out = !known
+          ? { erro: "Ferramenta desconhecida." }
+          : !args
+            ? { erro: "Argumentos inválidos." }
+            : ((await deps.db(name, args)) ?? { erro: "O sistema não respondeu. Peça para tentar de novo em instantes." });
+        messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(out) });
       }
-      messages.push({ role: "user", content: results });
       continue;
     }
 
-    if (res.stop_reason !== "end_turn") return null; // recusa, corte por tamanho etc.
-    const reply = res.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
+    // Recusa, corte por tamanho ou filtro de conteúdo: melhor a contingência.
+    if (choice.finish_reason !== "stop" || message.refusal) return null;
+    const reply = (message.content ?? "").trim();
     return reply ? reply.slice(0, 3500) : null;
   }
   return null;
+}
+
+/** Chamada real à OpenAI. Devolve null em qualquer falha (o agente trata). */
+export async function callOpenAI(apiKey: string, request: ChatRequest, fetcher: typeof fetch = fetch): Promise<ChatResponse | null> {
+  try {
+    const res = await fetcher("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) {
+      // O corpo do erro da OpenAI não traz a chave; ajuda a ver modelo errado ou falta de crédito.
+      console.error("openai HTTP", res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    return (await res.json()) as ChatResponse;
+  } catch (e) {
+    console.error("openai", e instanceof Error ? e.name : "erro");
+    return null;
+  }
 }
