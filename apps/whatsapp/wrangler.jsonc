@@ -21,7 +21,7 @@
     "EVOLUTION_INSTANCE": "Eccoprime Zap",
     "APP_URL": "https://gestao.eccoprime.com.br",
     // Modelo da OpenAI que conversa com a pessoa. Para trocar, mude aqui e publique de novo.
-    "OPENAI_MODEL": "gpt-6.2-sol"
+    "OPENAI_MODEL": "gpt-5.4-mini"
   },
   "observability": { "enabled": true }
 }
