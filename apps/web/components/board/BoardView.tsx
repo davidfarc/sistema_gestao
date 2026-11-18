@@ -120,8 +120,10 @@ export function BoardView({
     }
     if (saved === "kanban" || saved === "list") setView(saved);
     else if (saved === "mine" && board.myTasks) setView("mine");
-    else setView(board.myTasks && !caps.boards ? "mine" : "kanban");
-  }, [board.id, board.myTasks, caps.boards]);
+    // Quem gerencia (Gestor, Gestor Master e também o Gestor de área, que tem
+    // `stage:manage`) abre no Kanban, com todos os cards do pipeline.
+    else setView(board.myTasks && !caps.boards && !caps.stages ? "mine" : "kanban");
+  }, [board.id, board.myTasks, caps.boards, caps.stages]);
 
   function chooseView(next: View) {
     setView(next);
