@@ -705,6 +705,8 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > tarefa já estão no `main` (PR #3). O que vem depois fica no ramo `claude/fase2-quadro` (prévia
 > do Cloudflare) até o próximo envio ao `main`.
 
+> **18/11:** a seção "Trazer propriedades de outro pipeline" (Opções do pipeline) foi retirada a pedido do David, que relatou propriedades sumindo depois de salvar outras opções do mesmo diálogo. A causa não foi reproduzida: no código a cópia só acrescenta e nada no "Salvar" apaga propriedade. Saíram a tela e a action `syncFieldsFromBoard`; `planFieldSync` continua no core, sem uso.
+
 ### Banco
 
 | Migration | O que faz | Situação |
