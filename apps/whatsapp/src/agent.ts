@@ -71,9 +71,9 @@ function tool(name: string, description: string, properties: Record<string, unkn
 export const TOOLS: ChatTool[] = [
   tool(
     "buscar_pedidos",
-    "Lista os pedidos EM ABERTO de um pipeline (número, título, etapa, campos). Chame SEMPRE antes de criar_pedido, para ver se o mesmo problema no mesmo lugar já foi pedido. 'texto' filtra por título ou campo (ex.: o número da sala); deixe vazio para ver todos.",
-    { pipeline_id: text, texto: text },
-    ["pipeline_id", "texto"],
+    "Lista os pedidos EM ABERTO de um pipeline (número, título, etapa, campos), dos mais recentes para os mais antigos. Chame SEMPRE antes de criar_pedido e compare você mesmo: se já houver pedido do mesmo problema no mesmo lugar (mesma sala, mesmo equipamento), não crie outro.",
+    { pipeline_id: text },
+    ["pipeline_id"],
   ),
   tool(
     "criar_pedido",
@@ -242,6 +242,9 @@ export function unbackedClaim(reply: string, done: ReadonlySet<string>, known: R
  * (as regras de movimentação vivem só lá).
  */
 async function runTool(deps: AgentDeps, name: string, args: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  // A busca devolve todos os abertos: quem compara é o modelo. Um filtro de
+  // texto escolhido por ele já deixou passar pedido repetido.
+  if (name === "buscar_pedidos") return deps.db(name, { pipeline_id: args.pipeline_id, texto: "" });
   if (name !== "liberar_pedido") return deps.db(name, args);
   if (!deps.release) return { erro: "A liberação por mensagem não está disponível. Libere pelo site." };
   const plan = await deps.db("preparar_liberacao", args);

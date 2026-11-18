@@ -55,13 +55,14 @@ test("resposta direta: uma chamada ao modelo, com o contexto no prompt", async (
 
 test("busca, cria e confirma: os campos viram objeto e os resultados voltam ao modelo", async () => {
   const { d, log } = deps([
-    call("buscar_pedidos", { pipeline_id: "p1", texto: "12" }),
+    call("buscar_pedidos", { pipeline_id: "p1" }),
     call("criar_pedido", { pipeline_id: "p1", titulo: "Ar não liga - sala 12", descricao: "não liga", campos: [{ nome: "Sala", valor: "12" }] }, "t2"),
     say("Pedido #142 aberto."),
   ]);
   assert.equal(await runAgent(d), "Pedido #142 aberto.");
   assert.deepEqual(log.db.map((c) => c[0]), ["contexto", "buscar_pedidos", "criar_pedido"]);
   assert.deepEqual((log.db[2]![1] as any).campos, { Sala: "12" });
+  assert.deepEqual(log.db[1]![1], { pipeline_id: "p1", texto: "" });
   const last = log.model[2].messages;
   assert.deepEqual(last.map((m: any) => m.role), ["system", "user", "assistant", "tool", "assistant", "tool"]);
   assert.equal(last[2].tool_calls[0].id, "t1");
@@ -355,7 +356,7 @@ test("trava: confirmação sem ferramenta é cobrada uma vez e nunca chega à pe
   // Insistiu na invenção: contingência.
   assert.equal(await runAgent(deps([say("Pedido #7 aberto."), say("Pronto, pedido #7 criado!")]).d), null);
   // Chamou a busca e anunciou um número que nenhuma ferramenta devolveu.
-  assert.equal(await runAgent(deps([call("buscar_pedidos", { pipeline_id: "p1", texto: "" }), say("Pedido #55 aberto."), say("Pedido #55 aberto.")], ctx(), { abertos: [{ numero: 9 }] }).d), null);
+  assert.equal(await runAgent(deps([call("buscar_pedidos", { pipeline_id: "p1" }), say("Pedido #55 aberto."), say("Pedido #55 aberto.")], ctx(), { abertos: [{ numero: 9 }] }).d), null);
 });
 
 test("trava: o que é e o que não é confirmação inventada", () => {
