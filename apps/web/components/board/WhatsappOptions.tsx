@@ -2,15 +2,32 @@
 
 import { useEffect, useState } from "react";
 
-import { loadBoardWhatsapp, setBoardWhatsapp } from "@/lib/board/whatsapp";
+import { loadBoardWhatsapp, type BoardWhatsapp } from "@/lib/board/whatsapp";
 
-/** Seção "Atendimento pelo WhatsApp" das opções do pipeline. */
-export function WhatsappOptions({ boardId, boardName }: { boardId: string; boardName: string }) {
+/**
+ * Seção "Atendimento pelo WhatsApp" das opções do pipeline. Não tem botão
+ * próprio: avisa o valor atual ao diálogo, que grava tudo no "Salvar".
+ */
+export function WhatsappOptions({
+  boardId,
+  boardName,
+  onChange,
+}: {
+  boardId: string;
+  boardName: string;
+  /** Chamado ao carregar e a cada alteração, com o valor a gravar. */
+  onChange: (value: BoardWhatsapp, dirty: boolean) => void;
+}) {
   const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [instructions, setInstructions] = useState("");
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function change(next: BoardWhatsapp) {
+    setEnabled(next.enabled);
+    setInstructions(next.instructions);
+    onChange(next, true);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -29,19 +46,6 @@ export function WhatsappOptions({ boardId, boardName }: { boardId: string; board
     };
   }, [boardId]);
 
-  async function save() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await setBoardWhatsapp(boardId, { enabled, instructions });
-      setMsg(res.ok ? { ok: true, text: "Atendimento salvo." } : { ok: false, text: res.error });
-    } catch {
-      setMsg({ ok: false, text: "Não foi possível salvar. Tente de novo." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="grid gap-3 border-t border-neutral-200 p-5">
       <div>
@@ -55,14 +59,14 @@ export function WhatsappOptions({ boardId, boardName }: { boardId: string; board
       {loaded && (
         <>
           <label className="flex items-center gap-3 text-sm text-neutral-800">
-            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+            <input type="checkbox" checked={enabled} onChange={(e) => change({ enabled: e.target.checked, instructions })} />
             Atender este pipeline pelo WhatsApp
           </label>
           <label className="grid gap-1 text-sm text-neutral-700">
             O que o agente precisa saber
             <textarea
               value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
+              onChange={(e) => change({ enabled, instructions: e.target.value })}
               rows={6}
               maxLength={6000}
               placeholder={"Ex.: Pedidos de conserto e manutenção do prédio. Salas de aula: 1 a 20 (térreo) e 21 a 40 (1º andar). Peça sempre o número da sala que está na placa da porta."}
@@ -72,16 +76,6 @@ export function WhatsappOptions({ boardId, boardName }: { boardId: string; board
               Descreva que tipo de pedido cabe aqui e os lugares (salas, blocos). Não coloque dados de alunos.
             </span>
           </label>
-          <div>
-            <button
-              type="button"
-              onClick={save}
-              disabled={busy}
-              className="min-h-10 rounded-lg border border-neutral-300 px-4 text-sm font-medium text-neutral-700 disabled:opacity-50"
-            >
-              {busy ? "Salvando…" : "Salvar atendimento"}
-            </button>
-          </div>
         </>
       )}
       {msg && (
