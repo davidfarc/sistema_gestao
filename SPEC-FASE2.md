@@ -218,7 +218,8 @@ chave da API do Claude; cadastro dos telefones da equipe.
 | Etapa | Situação |
 |---|---|
 | C1 telefone no cadastro | Código pronto em 16/11: tabela `user_phone` (0044; cada um lê o seu, a gestão lê todos), convite "Complete seu cadastro" para quem não tem telefone (adiável por 7 dias), "Meu telefone" em Avisos, telefone na edição do usuário e aviso "sem telefone" na lista. Normalização em `core/phone.ts` (com as formas com e sem o nono dígito, para casar com o WhatsApp) |
-| C1 Worker, webhook e envio | A fazer (depende da Evolution API instalada para testar) |
+| C1 Worker, webhook e envio | Código pronto em 18/11 (número pareado na Evolution, instância "Eccoprime Zap"): Worker `ecco-whatsapp` (`apps/whatsapp`) recebe o webhook da Evolution com senha no endereço, reconhece a pessoa pelo telefone (`whatsapp_inbound`, 0049), ignora grupos, repetidas e enxurrada, e responde. Resposta ainda FIXA (confirma a quem é da equipe; orienta o desconhecido uma vez por dia). Falta publicar: túnel do Cloudflare, 3 segredos (`WEBHOOK_SECRET`, `EVOLUTION_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), `npx wrangler deploy` e o webhook na Evolution |
+| C2 agente | A fazer (depende da chave da API do Claude) |
 
 ---
 
@@ -720,6 +721,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0046_user_access.sql` | Acessos pontuais (`user_grant`, `has_access`) e leitura da Vila restrita a quem tem acesso | ✅ Aplicada em 17/11 |
 | `0047_card_read_all.sql` | Permissão `card:read_all` nos papéis existentes e `can_see_card` passa a conferi-la | **A aplicar** |
 | `0048_mcp_reports_v2.sql` | MCP: `report_time` (horas), `atividades` paginada com lotes agrupados e hora local, detalhe do card com emendas e tempo, alcance respeitando `card:read_all`. Só troca funções | **A aplicar** (depois, republicar o Worker `ecco-mcp`) |
+| `0049_whatsapp_base.sql` | Tabela `whatsapp_message` (90 dias, sem leitura pelo navegador) e funções `whatsapp_inbound`/`whatsapp_outbound` (só chave de servidor) | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 

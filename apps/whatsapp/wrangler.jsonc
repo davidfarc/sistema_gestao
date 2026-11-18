@@ -1,0 +1,22 @@
+{
+  // Worker SEPARADO do site (ecco-sistema): atendimento pelo WhatsApp (SPEC-FASE2 §C).
+  // Recebe as mensagens que a Evolution API entrega (webhook) e responde por ela.
+  //
+  // SEGREDOS (nunca neste arquivo; gravados com `npx wrangler secret put NOME`):
+  //   WEBHOOK_SECRET             senha que a Evolution manda no endereço do webhook
+  //   EVOLUTION_API_KEY          chave da instância na Evolution (para enviar)
+  //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ecco-whatsapp",
+  "main": "src/index.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-11-01",
+  "vars": {
+    "SUPABASE_URL": "https://rcjjwoajuvnrgeuzsgsj.supabase.co",
+    // Endereço público do gateway (túnel do Cloudflare) e nome da instância.
+    "EVOLUTION_URL": "https://zap.eccoprime.com.br",
+    "EVOLUTION_INSTANCE": "Eccoprime Zap",
+    "APP_URL": "https://gestao.eccoprime.com.br"
+  },
+  "observability": { "enabled": true }
+}
