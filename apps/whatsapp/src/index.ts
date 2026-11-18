@@ -14,6 +14,8 @@ interface Env {
   EVOLUTION_INSTANCE: string;
   EVOLUTION_API_KEY: string;
   WEBHOOK_SECRET: string;
+  CF_ACCESS_CLIENT_ID?: string;
+  CF_ACCESS_CLIENT_SECRET?: string;
   APP_URL: string;
 }
 
@@ -58,7 +60,17 @@ export default {
         await rpc(env, "whatsapp_outbound", { p_phone: phone, p_user: userId, p_body: body, p_error: error });
       },
       send: (phone, text) =>
-        sendText({ url: env.EVOLUTION_URL, instance: env.EVOLUTION_INSTANCE, apiKey: env.EVOLUTION_API_KEY }, phone, text),
+        sendText(
+          {
+            url: env.EVOLUTION_URL,
+            instance: env.EVOLUTION_INSTANCE,
+            apiKey: env.EVOLUTION_API_KEY,
+            accessClientId: env.CF_ACCESS_CLIENT_ID,
+            accessClientSecret: env.CF_ACCESS_CLIENT_SECRET,
+          },
+          phone,
+          text,
+        ),
     });
   },
 };

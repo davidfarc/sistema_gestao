@@ -51,6 +51,12 @@ export interface EvolutionConfig {
   url: string;
   instance: string;
   apiKey: string;
+  /**
+   * Credencial de serviço do Cloudflare Access (opcional). Com ela, o endereço
+   * do gateway fica fechado na internet e só este Worker passa pela porta.
+   */
+  accessClientId?: string;
+  accessClientSecret?: string;
 }
 
 /** Envia um texto. Devolve null se deu certo, ou a descrição curta da falha. */
@@ -65,7 +71,13 @@ export async function sendText(
       `${cfg.url.replace(/\/+$/, "")}/message/sendText/${encodeURIComponent(cfg.instance)}`,
       {
         method: "POST",
-        headers: { apikey: cfg.apiKey, "Content-Type": "application/json" },
+        headers: {
+          apikey: cfg.apiKey,
+          "Content-Type": "application/json",
+          ...(cfg.accessClientId && cfg.accessClientSecret
+            ? { "CF-Access-Client-Id": cfg.accessClientId, "CF-Access-Client-Secret": cfg.accessClientSecret }
+            : {}),
+        },
         body: JSON.stringify({ number: phone.replace(/\D/g, ""), text }),
         signal: AbortSignal.timeout(15_000),
       },

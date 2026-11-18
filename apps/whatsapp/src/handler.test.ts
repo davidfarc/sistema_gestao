@@ -163,6 +163,16 @@ test("sendText chama a Evolution com a instância codificada e só os dígitos",
   assert.equal(err, null);
   assert.equal(seen!.url, "https://zap.exemplo/message/sendText/Eccoprime%20Zap");
   assert.deepEqual(JSON.parse(seen!.init.body as string), { number: "558499998888", text: "oi" });
+  assert.equal((seen!.init.headers as Record<string, string>)["CF-Access-Client-Id"], undefined);
+  await sendText(
+    { url: "https://z", instance: "i", apiKey: "k", accessClientId: "id.access", accessClientSecret: "seg" },
+    "+558499998888",
+    "oi",
+    fake,
+  );
+  const h = seen!.init.headers as Record<string, string>;
+  assert.equal(h["CF-Access-Client-Id"], "id.access");
+  assert.equal(h["CF-Access-Client-Secret"], "seg");
   const bad = (async () => new Response("", { status: 401 })) as unknown as typeof fetch;
   assert.equal(await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+5584", "oi", bad), "HTTP 401");
 });
