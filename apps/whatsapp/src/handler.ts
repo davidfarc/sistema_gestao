@@ -29,11 +29,17 @@ export interface Deps {
   send(phone: string, text: string): Promise<string | null>;
   /** Resposta do agente para a pessoa (ausente = sem chave do modelo). */
   agent?(userId: string): Promise<string | null>;
+  /**
+   * Transcreve o áudio da mensagem e guarda o texto na conversa. Devolve false
+   * se não conseguiu (ausente = áudio não habilitado).
+   */
+  transcribe?(msg: Inbound): Promise<boolean>;
   /** Deixa o trabalho continuar depois de responder ao webhook (`waitUntil`). */
   defer?(work: Promise<void>): void;
 }
 
 const MAX_PER_HOUR = 30;
+const MAX_AUDIO_SECONDS = 180;
 
 /** Comparação em tempo constante (não revela a senha pelo tempo de resposta). */
 export function safeEqual(a: string, b: string): boolean {
@@ -117,10 +123,19 @@ async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<
 async function chooseReply(msg: Inbound, r: InboundResult, deps: Deps): Promise<string | null> {
   if (!r.usuario || !deps.agent) return replyFor(msg, r, deps.appUrl);
   if (r.duplicada || r.recentes > MAX_PER_HOUR) return null;
-  if (msg.kind !== "text") {
-    return msg.kind === "audio"
-      ? "Ainda não consigo ouvir áudio. Pode escrever o seu pedido em texto?"
-      : "Por aqui eu só leio mensagens de texto. Pode escrever o seu pedido?";
+  if (msg.kind === "other") return "Por aqui eu só entendo texto e áudio. Pode escrever ou gravar o seu pedido?";
+  if (msg.kind === "audio") {
+    if (!deps.transcribe) return "Ainda não consigo ouvir áudio. Pode escrever o seu pedido em texto?";
+    if ((msg.seconds ?? 0) > MAX_AUDIO_SECONDS) {
+      return "Esse áudio ficou longo demais para mim. Pode mandar um mais curto (até 3 minutos) ou escrever?";
+    }
+    let heard = false;
+    try {
+      heard = await deps.transcribe(msg);
+    } catch (e) {
+      console.error("transcrição", e instanceof Error ? e.name : "erro");
+    }
+    if (!heard) return "Não consegui entender o áudio. Pode gravar de novo ou escrever o seu pedido?";
   }
   let reply: string | null = null;
   try {

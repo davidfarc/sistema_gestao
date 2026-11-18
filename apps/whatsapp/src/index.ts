@@ -4,8 +4,8 @@
  * servidor, guardada como segredo do Cloudflare.
  */
 
-import { callOpenAI, runAgent } from "./agent.ts";
-import { sendText } from "./evolution.ts";
+import { callOpenAI, runAgent, transcribeOpenAI } from "./agent.ts";
+import { fetchMedia, sendText, type EvolutionConfig } from "./evolution.ts";
 import { handleRequest, type InboundResult } from "./handler.ts";
 
 interface Env {
@@ -21,6 +21,7 @@ interface Env {
   /** Chave da API da OpenAI. Sem ela o atendimento só confirma o recebimento. */
   OPENAI_API_KEY?: string;
   OPENAI_MODEL: string;
+  OPENAI_TRANSCRIBE_MODEL: string;
 }
 
 async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null> {
@@ -49,8 +50,28 @@ async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null>
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const openaiKey = env.OPENAI_API_KEY;
+    const evolution: EvolutionConfig = {
+      url: env.EVOLUTION_URL,
+      instance: env.EVOLUTION_INSTANCE,
+      apiKey: env.EVOLUTION_API_KEY,
+      accessClientId: env.CF_ACCESS_CLIENT_ID,
+      accessClientSecret: env.CF_ACCESS_CLIENT_SECRET,
+    };
     return handleRequest(request, {
       defer: (work) => ctx.waitUntil(work),
+      transcribe: openaiKey
+        ? async (msg) => {
+            const media = await fetchMedia(evolution, msg.providerId);
+            if (!media) return false;
+            const heard = await transcribeOpenAI(openaiKey, env.OPENAI_TRANSCRIBE_MODEL, media);
+            if (!heard) return false;
+            const saved = await rpc(env, "whatsapp_set_transcript", {
+              p_provider_id: msg.providerId,
+              p_body: `[áudio] ${heard}`,
+            });
+            return saved === true;
+          }
+        : undefined,
       agent: openaiKey
         ? (userId) =>
             runAgent({
@@ -78,18 +99,7 @@ export default {
       async recordOutbound(phone, userId, body, error) {
         await rpc(env, "whatsapp_outbound", { p_phone: phone, p_user: userId, p_body: body, p_error: error });
       },
-      send: (phone, text) =>
-        sendText(
-          {
-            url: env.EVOLUTION_URL,
-            instance: env.EVOLUTION_INSTANCE,
-            apiKey: env.EVOLUTION_API_KEY,
-            accessClientId: env.CF_ACCESS_CLIENT_ID,
-            accessClientSecret: env.CF_ACCESS_CLIENT_SECRET,
-          },
-          phone,
-          text,
-        ),
+      send: (phone, text) => sendText(evolution, phone, text),
     });
   },
 };

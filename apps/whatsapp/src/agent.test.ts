@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { callOpenAI, runAgent, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
+import { callOpenAI, runAgent, transcribeOpenAI, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
+import { fetchMedia } from "./evolution.ts";
 import { handleRequest, type Deps } from "./handler.ts";
 
 const ctx = (over: Partial<AgentContext> = {}): AgentContext => ({
@@ -181,6 +182,11 @@ test("áudio pede texto; agente que falha manda a contingência; desconhecido n�
   await Promise.all(a.pending);
   assert.match(a.sent[0]!, /não consigo ouvir áudio/);
   assert.equal(ran, 0);
+  const img = hdeps({ agent: async () => (ran++, "x") });
+  await handleRequest(hook({ imageMessage: {} }), img.d);
+  await Promise.all(img.pending);
+  assert.match(img.sent[0]!, /só entendo texto e áudio/);
+  assert.equal(ran, 0);
 
   for (const agent of [async () => null, async () => Promise.reject(new Error("x"))]) {
     const b = hdeps({ agent });
@@ -205,4 +211,73 @@ test("repetida e enxurrada não chamam o agente", async () => {
     assert.equal(x.sent.length, 0);
   }
   assert.equal(ran, 0);
+});
+
+test("áudio: transcreve e segue para o agente; falha ou áudio longo pedem outro", async () => {
+  let ran = 0;
+  const heard: string[] = [];
+  const ok = hdeps({ agent: async () => (ran++, "Pedido #9 aberto."), transcribe: async (m) => (heard.push(m.providerId), true) });
+  await handleRequest(hook({ audioMessage: { seconds: 12 } }), ok.d);
+  await Promise.all(ok.pending);
+  assert.deepEqual(heard, ["A1"]);
+  assert.deepEqual(ok.sent, ["Pedido #9 aberto."]);
+
+  for (const transcribe of [async () => false, async () => Promise.reject(new Error("x"))]) {
+    const bad = hdeps({ agent: async () => (ran++, "x"), transcribe });
+    await handleRequest(hook({ audioMessage: { seconds: 5 } }), bad.d);
+    await Promise.all(bad.pending);
+    assert.match(bad.sent[0]!, /Não consegui entender o áudio/);
+  }
+  const long = hdeps({ agent: async () => (ran++, "x"), transcribe: async () => (heard.push("longo"), true) });
+  await handleRequest(hook({ audioMessage: { seconds: 400 } }), long.d);
+  await Promise.all(long.pending);
+  assert.match(long.sent[0]!, /longo demais/);
+  assert.equal(ran, 1);
+  assert.equal(heard.includes("longo"), false);
+});
+
+test("fetchMedia: pede o arquivo pelo id e decodifica; recusa falha e arquivo grande", async () => {
+  let seen: { url: string; init: RequestInit } | null = null;
+  const cfg = { url: "https://zap.exemplo", instance: "Eccoprime Zap", apiKey: "k", accessClientId: "id", accessClientSecret: "seg" };
+  const ok = (async (url: string, init: RequestInit) => {
+    seen = { url, init };
+    return new Response(JSON.stringify({ base64: btoa("OggS"), mimetype: "audio/ogg; codecs=opus" }));
+  }) as unknown as typeof fetch;
+  const media = await fetchMedia(cfg, "A1", ok);
+  assert.equal(seen!.url, "https://zap.exemplo/chat/getBase64FromMediaMessage/Eccoprime%20Zap");
+  assert.deepEqual(JSON.parse(seen!.init.body as string), { message: { key: { id: "A1" } }, convertToMp4: false });
+  assert.equal((seen!.init.headers as Record<string, string>)["CF-Access-Client-Id"], "id");
+  assert.equal(new TextDecoder().decode(media!.bytes), "OggS");
+  assert.equal(media!.mimetype, "audio/ogg");
+  const big = (async () => new Response(JSON.stringify({ base64: "A".repeat(6_000_000) }))) as unknown as typeof fetch;
+  assert.equal(await fetchMedia(cfg, "A1", big), null);
+  const bad = (async () => new Response("", { status: 404 })) as unknown as typeof fetch;
+  assert.equal(await fetchMedia(cfg, "A1", bad), null);
+});
+
+test("transcribeOpenAI: manda o arquivo em formulário e devolve o texto", async () => {
+  let seen: { url: string; init: RequestInit } | null = null;
+  const ok = (async (url: string, init: RequestInit) => {
+    seen = { url, init };
+    return new Response(JSON.stringify({ text: "  o ar da sala doze não liga " }));
+  }) as unknown as typeof fetch;
+  const audio = { bytes: new TextEncoder().encode("OggS"), mimetype: "audio/ogg" };
+  assert.equal(await transcribeOpenAI("sk-t", "modelo-voz", audio, ok), "o ar da sala doze não liga");
+  assert.equal(seen!.url, "https://api.openai.com/v1/audio/transcriptions");
+  const form = seen!.init.body as FormData;
+  assert.equal(form.get("model"), "modelo-voz");
+  assert.equal(form.get("language"), "pt");
+  assert.equal((form.get("file") as File).name, "audio.ogg");
+  assert.equal((seen!.init.headers as Record<string, string>).Authorization, "Bearer sk-t");
+  const bad = (async () => new Response("{}", { status: 400 })) as unknown as typeof fetch;
+  assert.equal(await transcribeOpenAI("k", "m", audio, bad), null);
+  const empty = (async () => new Response(JSON.stringify({ text: " " }))) as unknown as typeof fetch;
+  assert.equal(await transcribeOpenAI("k", "m", audio, empty), null);
+});
+
+test("prompt: menu só na dúvida e transcrição de áudio", () => {
+  const p = systemPrompt(ctx(), "https://x");
+  assert.match(p, /menu numerado/);
+  assert.match(p, /siga direto/);
+  assert.match(p, /\[áudio\]/);
 });

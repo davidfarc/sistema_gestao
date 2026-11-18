@@ -11,6 +11,8 @@ export interface Inbound {
   providerId: string;
   kind: "text" | "audio" | "other";
   text: string;
+  /** Duração do áudio em segundos, quando o WhatsApp informa. */
+  seconds?: number;
 }
 
 function str(v: unknown): string {
@@ -43,7 +45,16 @@ export function parseInbound(payload: unknown): Inbound | null {
   const text =
     str(message.conversation) || str((message.extendedTextMessage as { text?: unknown } | undefined)?.text);
   if (text.trim()) return { phone: `+${digits}`, providerId, kind: "text", text: text.trim().slice(0, 4000) };
-  if (message.audioMessage) return { phone: `+${digits}`, providerId, kind: "audio", text: "" };
+  if (message.audioMessage) {
+    const seconds = Number((message.audioMessage as { seconds?: unknown }).seconds);
+    return {
+      phone: `+${digits}`,
+      providerId,
+      kind: "audio",
+      text: "",
+      ...(Number.isFinite(seconds) && seconds > 0 ? { seconds } : {}),
+    };
+  }
   return { phone: `+${digits}`, providerId, kind: "other", text: "" };
 }
 
@@ -59,6 +70,57 @@ export interface EvolutionConfig {
   accessClientSecret?: string;
 }
 
+function headers(cfg: EvolutionConfig): Record<string, string> {
+  return {
+    apikey: cfg.apiKey,
+    "Content-Type": "application/json",
+    ...(cfg.accessClientId && cfg.accessClientSecret
+      ? { "CF-Access-Client-Id": cfg.accessClientId, "CF-Access-Client-Secret": cfg.accessClientSecret }
+      : {}),
+  };
+}
+
+export interface Media {
+  bytes: Uint8Array;
+  mimetype: string;
+}
+
+/** Tamanho máximo do áudio aceito (cerca de 5 minutos de voz no WhatsApp). */
+export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+
+/** Baixa da Evolution o arquivo de uma mensagem de mídia. Null se não der. */
+export async function fetchMedia(
+  cfg: EvolutionConfig,
+  providerId: string,
+  fetcher: typeof fetch = fetch,
+): Promise<Media | null> {
+  try {
+    const res = await fetcher(
+      `${cfg.url.replace(/\/+$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`,
+      {
+        method: "POST",
+        headers: headers(cfg),
+        body: JSON.stringify({ message: { key: { id: providerId } }, convertToMp4: false }),
+        signal: AbortSignal.timeout(15_000),
+      },
+    );
+    if (!res.ok) {
+      console.error("evolution mídia HTTP", res.status);
+      return null;
+    }
+    const data = (await res.json()) as { base64?: unknown; mimetype?: unknown };
+    const b64 = typeof data.base64 === "string" ? data.base64.replace(/^data:[^,]*,/, "") : "";
+    if (!b64 || b64.length > (MAX_AUDIO_BYTES * 4) / 3 + 8) return null;
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, mimetype: (typeof data.mimetype === "string" ? data.mimetype : "audio/ogg").split(";")[0]!.trim() };
+  } catch (e) {
+    console.error("evolution mídia", e instanceof Error ? e.name : "erro");
+    return null;
+  }
+}
+
 /** Envia um texto. Devolve null se deu certo, ou a descrição curta da falha. */
 export async function sendText(
   cfg: EvolutionConfig,
@@ -71,13 +133,7 @@ export async function sendText(
       `${cfg.url.replace(/\/+$/, "")}/message/sendText/${encodeURIComponent(cfg.instance)}`,
       {
         method: "POST",
-        headers: {
-          apikey: cfg.apiKey,
-          "Content-Type": "application/json",
-          ...(cfg.accessClientId && cfg.accessClientSecret
-            ? { "CF-Access-Client-Id": cfg.accessClientId, "CF-Access-Client-Secret": cfg.accessClientSecret }
-            : {}),
-        },
+        headers: headers(cfg),
         body: JSON.stringify({ number: phone.replace(/\D/g, ""), text }),
         signal: AbortSignal.timeout(15_000),
       },

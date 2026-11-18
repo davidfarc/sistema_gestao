@@ -114,6 +114,8 @@ export function systemPrompt(ctx: AgentContext, appUrl: string): string {
     "",
     "## Como atender",
     "- Entenda o pedido e escolha o pipeline pela descrição e pelas instruções de cada um. Se nenhum servir, diga que por aqui você só atende os assuntos listados e indique o site.",
+    "- Se o pedido couber claramente em um pipeline, siga direto, sem perguntar o tipo. Só quando houver dúvida real entre dois ou mais, mande um menu numerado com os pipelines disponíveis para esta pessoa, um por linha (ex.: \"1 - Demanda de TI\"), usando o nome de menu que as instruções do pipeline indicarem (ou o nome do pipeline), e peça para responder com o número. Quando a pessoa responder com o número, use o pipeline correspondente do menu que você enviou.",
+    "- Mensagens que começam com \"[áudio]\" são a transcrição automática de um áudio da pessoa: trate como texto normal, tolerando erros de transcrição; se um dado importante (como o número da sala) parecer mal transcrito, confirme com a pessoa.",
     "- Pergunte só o que falta para os campos obrigatórios do pipeline, uma pergunta por vez, em linguagem simples. Se a pessoa disser o nome de um lugar em vez do número da sala, peça para conferir o número na placa da porta.",
     "- Antes de abrir, chame buscar_pedidos. Se já houver pedido aberto do mesmo problema no mesmo lugar, não crie outro: use reforcar_pedido e diga o número do pedido existente e que o reforço foi registrado.",
     "- Ao abrir um pedido, confirme com o número (ex.: \"Pedido #142 aberto\") e diga que ele aguarda a liberação da gestão.",
@@ -221,6 +223,41 @@ export async function callOpenAI(apiKey: string, request: ChatRequest, fetcher: 
     return (await res.json()) as ChatResponse;
   } catch (e) {
     console.error("openai", e instanceof Error ? e.name : "erro");
+    return null;
+  }
+}
+
+/**
+ * Transcreve um áudio pela OpenAI. Devolve o texto, ou null em qualquer falha.
+ * O arquivo vai só na chamada; não é guardado em lugar nenhum.
+ */
+export async function transcribeOpenAI(
+  apiKey: string,
+  model: string,
+  audio: { bytes: Uint8Array; mimetype: string },
+  fetcher: typeof fetch = fetch,
+): Promise<string | null> {
+  try {
+    const ext = audio.mimetype.includes("mp4") || audio.mimetype.includes("m4a") ? "m4a" : audio.mimetype.includes("mpeg") ? "mp3" : "ogg";
+    const form = new FormData();
+    form.append("model", model);
+    form.append("language", "pt");
+    form.append("file", new Blob([audio.bytes as BlobPart], { type: audio.mimetype }), `audio.${ext}`);
+    const res = await fetcher("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(25_000),
+    });
+    if (!res.ok) {
+      console.error("openai transcrição HTTP", res.status, (await res.text()).slice(0, 300));
+      return null;
+    }
+    const data = (await res.json()) as { text?: unknown };
+    const out = typeof data.text === "string" ? data.text.trim() : "";
+    return out ? out.slice(0, 3500) : null;
+  } catch (e) {
+    console.error("openai transcrição", e instanceof Error ? e.name : "erro");
     return null;
   }
 }
