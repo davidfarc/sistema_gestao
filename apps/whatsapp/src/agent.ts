@@ -192,6 +192,22 @@ const CLAIMS: { tool: string; what: string; pattern: RegExp }[] = [
   },
 ];
 
+/**
+ * O texto PROMETE fazer algo ("vou registrar o reforço") em vez de ter feito?
+ * Uma promessa sem pergunta encerra a conversa com a pessoa achando que está
+ * resolvido, e nada acontece: o agente só age dentro da própria resposta.
+ */
+export function emptyPromise(reply: string, done: ReadonlySet<string>): boolean {
+  if (done.has("criar_pedido") || done.has("reforcar_pedido") || done.has("comentar_pedido") || done.has("liberar_pedido")) {
+    return false;
+  }
+  // Se termina perguntando algo, a promessa depende da resposta da pessoa: tudo bem.
+  if (/\?\s*$/.test(reply.trim())) return false;
+  return /\b(vou|irei|j[áa] vou|estou|deixa que eu|pode deixar que)\s+(j[áa]\s+)?(registr|abr|cri|refor[çc]|liber|anot|inclu|adicion|coment|encaminh)\w*/i.test(
+    reply,
+  );
+}
+
 /** Números de pedido que aparecem numa resposta de ferramenta (campo "numero"). */
 function collectNumbers(value: unknown, into: Set<number>): void {
   if (Array.isArray(value)) {
@@ -292,6 +308,18 @@ export async function runAgent(deps: AgentDeps): Promise<string | null> {
     // Trava contra confirmação inventada: se o texto afirma que algo foi feito
     // e nenhuma ferramenta correspondente deu certo nesta rodada, o modelo é
     // cobrado uma vez; se insistir, vai a contingência (nunca a falsa confirmação).
+    if (emptyPromise(reply, done)) {
+      console.error("agente: prometeu sem fazer");
+      if (corrected) return null;
+      corrected = true;
+      messages.push({ role: "assistant", content: reply });
+      messages.push({
+        role: "user",
+        content:
+          "[aviso do sistema, não é a pessoa] Você disse que VAI fazer, mas não chamou a ferramenta, e depois desta resposta nada mais acontece sozinho. Faça agora, nesta rodada, com o que a pessoa já informou (use o relato dela como texto), e só então responda confirmando. Se realmente faltar um dado, pergunte.",
+      });
+      continue;
+    }
     const claim = unbackedClaim(reply, done, numbers);
     if (claim) {
       console.error("agente: confirmação sem ferramenta:", claim);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { callOpenAI, runAgent, transcribeOpenAI, unbackedClaim, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
+import { callOpenAI, emptyPromise, runAgent, transcribeOpenAI, unbackedClaim, systemPrompt, toMessages, TOOLS, type AgentContext, type AgentDeps } from "./agent.ts";
 import { fetchMedia } from "./evolution.ts";
 import { deliverOutbox, handleRequest, type Deps } from "./handler.ts";
 
@@ -378,4 +378,33 @@ test("trava: o que é e o que não é confirmação inventada", () => {
   assert.equal(unbackedClaim("Pedido #3 liberado para a Maria.", new Set(["liberar_pedido"]), new Set([3])), null);
   // Número trocado em relação ao que a ferramenta devolveu.
   assert.match(unbackedClaim("Pedido #143 aberto.", new Set(["criar_pedido"]), new Set([142]))!, /aberto/);
+});
+
+test("promessa sem ação: o agente é cobrado e reforça na mesma rodada", async () => {
+  // O caso real: achou o repetido e disse "vou registrar" sem registrar.
+  const a = deps(
+    [
+      call("buscar_pedidos", { pipeline_id: "p1" }),
+      say("Já existe pedido aberto desse problema na sala 12: o #5, em Demanda Estrutura. Vou registrar seu reforço nele."),
+      call("reforcar_pedido", { pipeline_id: "p1", numero: "5", texto: "ar não liga" }, "t2"),
+      say("Já existe o pedido #5 em Demanda Estrutura; registrei o seu reforço nele."),
+    ],
+    ctx(),
+    { ok: true, numero: 5, abertos: [{ numero: 5 }] },
+  );
+  assert.equal(await runAgent(a.d), "Já existe o pedido #5 em Demanda Estrutura; registrei o seu reforço nele.");
+  assert.deepEqual(a.log.db.map((c) => c[0]), ["contexto", "buscar_pedidos", "reforcar_pedido"]);
+  assert.match(a.log.model[2].messages.at(-1).content, /Faça agora/);
+  // Insistiu na promessa: contingência, nunca a promessa vazia.
+  assert.equal(await runAgent(deps([say("Vou abrir o pedido para você."), say("Pode deixar que vou registrar.")]).d), null);
+});
+
+test("promessa vazia: o que conta e o que não conta", () => {
+  const none = new Set<string>();
+  assert.equal(emptyPromise("Vou registrar seu reforço nele.", none), true);
+  assert.equal(emptyPromise("Pode deixar que já vou abrir o pedido.", none), true);
+  assert.equal(emptyPromise("Vou abrir o pedido. Qual é o número da sala?", none), false);
+  assert.equal(emptyPromise("Qual é o número da sala?", none), false);
+  assert.equal(emptyPromise("Pedido #5 em Estrutura: registrei o seu reforço.", new Set(["reforcar_pedido"])), false);
+  assert.equal(emptyPromise("O pedido #5 está em Backlog, sem responsável.", new Set(["situacao_pedido"])), false);
 });
