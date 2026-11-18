@@ -58,7 +58,12 @@ test("parseInbound lê texto simples e texto estendido", () => {
 });
 
 test("parseInbound reconhece áudio e outros tipos", () => {
-  assert.equal(parseInbound(upsert({ message: { audioMessage: { url: "x" } } }))?.kind, "audio");
+  const audio = parseInbound(upsert({ message: { audioMessage: { url: "x", seconds: 7, mimetype: "audio/ogg; codecs=opus" } } }));
+  assert.equal(audio?.kind, "audio");
+  assert.equal(audio?.seconds, 7);
+  assert.equal((audio?.media?.key as { id: string }).id, "ABC123");
+  assert.deepEqual(audio?.media?.message, { audioMessage: { url: "x", seconds: 7, mimetype: "audio/ogg; codecs=opus" } });
+  assert.equal(parseInbound(upsert({ message: { audioMessage: {}, base64: "QUJD" } }))?.media?.base64, "QUJD");
   assert.equal(parseInbound(upsert({ message: { imageMessage: {} } }))?.kind, "other");
 });
 

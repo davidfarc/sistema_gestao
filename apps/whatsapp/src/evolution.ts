@@ -13,6 +13,11 @@ export interface Inbound {
   text: string;
   /** Duração do áudio em segundos, quando o WhatsApp informa. */
   seconds?: number;
+  /**
+   * Só em áudio: a mensagem como a Evolution entregou (chave + conteúdo). É o
+   * que ela precisa para devolver o arquivo, já que não guardamos mensagens lá.
+   */
+  media?: { key: unknown; message: unknown; base64?: string; mimetype?: string };
 }
 
 function str(v: unknown): string {
@@ -53,6 +58,13 @@ export function parseInbound(payload: unknown): Inbound | null {
       kind: "audio",
       text: "",
       ...(Number.isFinite(seconds) && seconds > 0 ? { seconds } : {}),
+      media: {
+        key,
+        message,
+        // Com "Base64" ligado no webhook, o arquivo já vem junto.
+        ...(str(message.base64) ? { base64: str(message.base64) } : {}),
+        mimetype: str((message.audioMessage as { mimetype?: unknown }).mimetype) || "audio/ogg",
+      },
     };
   }
   return { phone: `+${digits}`, providerId, kind: "other", text: "" };
@@ -88,33 +100,50 @@ export interface Media {
 /** Tamanho máximo do áudio aceito (cerca de 5 minutos de voz no WhatsApp). */
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
 
-/** Baixa da Evolution o arquivo de uma mensagem de mídia. Null se não der. */
+function decode(b64raw: string, mimetype: string): Media | null {
+  const b64 = b64raw.replace(/^data:[^,]*,/, "");
+  if (!b64 || b64.length > (MAX_AUDIO_BYTES * 4) / 3 + 8) return null;
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, mimetype: (mimetype || "audio/ogg").split(";")[0]!.trim() };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Arquivo de uma mensagem de áudio. Usa o que veio no webhook, se veio; senão
+ * pede à Evolution, mandando a mensagem inteira (ela não a tem guardada).
+ * Null se não der.
+ */
 export async function fetchMedia(
   cfg: EvolutionConfig,
-  providerId: string,
+  media: NonNullable<Inbound["media"]>,
   fetcher: typeof fetch = fetch,
 ): Promise<Media | null> {
+  if (media.base64) return decode(media.base64, media.mimetype ?? "");
   try {
     const res = await fetcher(
       `${cfg.url.replace(/\/+$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`,
       {
         method: "POST",
         headers: headers(cfg),
-        body: JSON.stringify({ message: { key: { id: providerId } }, convertToMp4: false }),
+        body: JSON.stringify({ message: { key: media.key, message: media.message }, convertToMp4: false }),
         signal: AbortSignal.timeout(15_000),
       },
     );
     if (!res.ok) {
-      console.error("evolution mídia HTTP", res.status);
+      console.error("evolution mídia HTTP", res.status, (await res.text()).slice(0, 200));
       return null;
     }
     const data = (await res.json()) as { base64?: unknown; mimetype?: unknown };
-    const b64 = typeof data.base64 === "string" ? data.base64.replace(/^data:[^,]*,/, "") : "";
-    if (!b64 || b64.length > (MAX_AUDIO_BYTES * 4) / 3 + 8) return null;
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return { bytes, mimetype: (typeof data.mimetype === "string" ? data.mimetype : "audio/ogg").split(";")[0]!.trim() };
+    if (typeof data.base64 !== "string") {
+      console.error("evolution mídia: resposta sem arquivo");
+      return null;
+    }
+    return decode(data.base64, typeof data.mimetype === "string" ? data.mimetype : (media.mimetype ?? ""));
   } catch (e) {
     console.error("evolution mídia", e instanceof Error ? e.name : "erro");
     return null;

@@ -236,23 +236,32 @@ test("áudio: transcreve e segue para o agente; falha ou áudio longo pedem outr
   assert.equal(heard.includes("longo"), false);
 });
 
-test("fetchMedia: pede o arquivo pelo id e decodifica; recusa falha e arquivo grande", async () => {
+test("fetchMedia: manda a mensagem inteira à Evolution e decodifica; usa o base64 do webhook se veio", async () => {
   let seen: { url: string; init: RequestInit } | null = null;
   const cfg = { url: "https://zap.exemplo", instance: "Eccoprime Zap", apiKey: "k", accessClientId: "id", accessClientSecret: "seg" };
   const ok = (async (url: string, init: RequestInit) => {
     seen = { url, init };
     return new Response(JSON.stringify({ base64: btoa("OggS"), mimetype: "audio/ogg; codecs=opus" }));
   }) as unknown as typeof fetch;
-  const media = await fetchMedia(cfg, "A1", ok);
+  const ref = { key: { id: "A1", remoteJid: "x" }, message: { audioMessage: { mediaKey: "mk" } } };
+  const media = await fetchMedia(cfg, ref, ok);
   assert.equal(seen!.url, "https://zap.exemplo/chat/getBase64FromMediaMessage/Eccoprime%20Zap");
-  assert.deepEqual(JSON.parse(seen!.init.body as string), { message: { key: { id: "A1" } }, convertToMp4: false });
+  assert.deepEqual(JSON.parse(seen!.init.body as string), { message: ref, convertToMp4: false });
   assert.equal((seen!.init.headers as Record<string, string>)["CF-Access-Client-Id"], "id");
   assert.equal(new TextDecoder().decode(media!.bytes), "OggS");
   assert.equal(media!.mimetype, "audio/ogg");
+
+  const never = (async () => Promise.reject(new Error("não devia chamar"))) as unknown as typeof fetch;
+  const inline = await fetchMedia(cfg, { ...ref, base64: btoa("abc"), mimetype: "audio/mp4" }, never);
+  assert.equal(new TextDecoder().decode(inline!.bytes), "abc");
+  assert.equal(inline!.mimetype, "audio/mp4");
+
   const big = (async () => new Response(JSON.stringify({ base64: "A".repeat(6_000_000) }))) as unknown as typeof fetch;
-  assert.equal(await fetchMedia(cfg, "A1", big), null);
+  assert.equal(await fetchMedia(cfg, ref, big), null);
   const bad = (async () => new Response("", { status: 404 })) as unknown as typeof fetch;
-  assert.equal(await fetchMedia(cfg, "A1", bad), null);
+  assert.equal(await fetchMedia(cfg, ref, bad), null);
+  const empty = (async () => new Response("{}")) as unknown as typeof fetch;
+  assert.equal(await fetchMedia(cfg, ref, empty), null);
 });
 
 test("transcribeOpenAI: manda o arquivo em formulário e devolve o texto", async () => {

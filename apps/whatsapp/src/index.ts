@@ -61,7 +61,7 @@ export default {
       defer: (work) => ctx.waitUntil(work),
       transcribe: openaiKey
         ? async (msg) => {
-            const media = await fetchMedia(evolution, msg.providerId);
+            const media = msg.media ? await fetchMedia(evolution, msg.media) : null;
             if (!media) return false;
             const heard = await transcribeOpenAI(openaiKey, env.OPENAI_TRANSCRIBE_MODEL, media);
             if (!heard) return false;
@@ -69,6 +69,7 @@ export default {
               p_provider_id: msg.providerId,
               p_body: `[áudio] ${heard}`,
             });
+            if (saved !== true) console.error("transcrição não gravada (migration 0051 aplicada?)");
             return saved === true;
           }
         : undefined,
