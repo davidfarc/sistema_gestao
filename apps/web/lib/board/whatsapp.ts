@@ -16,6 +16,8 @@ export interface BoardWhatsapp {
   releaseRequired: boolean;
   /** Dias sem novidade até lembrar o responsável; 0 desliga (0052). */
   reminderDays: number;
+  /** Guardar fotos e descrição de cada card numa pasta do Google Drive (0056). */
+  driveArchive: boolean;
 }
 
 const MAX_INSTRUCTIONS = 6000;
@@ -38,6 +40,7 @@ export async function loadBoardWhatsapp(
     whatsapp_instructions?: string | null;
     release_required?: boolean | null;
     whatsapp_reminder_days?: number | null;
+    drive_archive?: boolean | null;
   };
   if (row.whatsapp_enabled === undefined) return { ok: false, error: PENDING };
   return {
@@ -47,6 +50,7 @@ export async function loadBoardWhatsapp(
       instructions: row.whatsapp_instructions ?? "",
       releaseRequired: row.release_required === true,
       reminderDays: Number(row.whatsapp_reminder_days ?? 3),
+      driveArchive: row.drive_archive === true,
     },
   };
 }
@@ -81,6 +85,17 @@ export async function setBoardWhatsapp(
           ? PENDING
           : "Não foi possível salvar. Tente de novo.",
     };
+  }
+  // Coluna da 0056, gravada à parte: sem a migration, o resto já ficou salvo.
+  if (value.driveArchive !== undefined) {
+    const { error: driveError } = await createAdminClient()
+      .from("board")
+      .update({ drive_archive: !!value.driveArchive } as never)
+      .eq("id", boardId)
+      .eq("organization_id", actor.organizationId as string);
+    if (driveError && value.driveArchive) {
+      return { ok: false, error: "Falta aplicar a atualização do banco (migration 0056) para guardar no Drive." };
+    }
   }
   return { ok: true };
 }

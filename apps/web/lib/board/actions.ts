@@ -298,6 +298,9 @@ export async function createBoard(name: string, templateId?: string): Promise<st
       .from("board")
       .update({ whatsapp_enabled: true, whatsapp_instructions: template.whatsapp.instructions } as never)
       .eq("id", board.id);
+    if (template.whatsapp.driveArchive) {
+      await db.from("board").update({ drive_archive: true } as never).eq("id", board.id);
+    }
   }
 
   revalidatePath("/board");

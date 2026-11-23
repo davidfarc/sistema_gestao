@@ -7,6 +7,8 @@
   //   EVOLUTION_API_KEY          chave da instância na Evolution (para enviar)
   //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
   //   OPENAI_API_KEY             chave da API da OpenAI (sem ela, só confirma o recebimento)
+  //   GOOGLE_SA_EMAIL, GOOGLE_SA_PRIVATE_KEY, DRIVE_ROOT_FOLDER_ID  (opcionais) conta de serviço do
+  //                              Google e pasta-raiz, para guardar evidências no Drive
   //   WHATSAPP_SERVICE_SECRET    o mesmo segredo gravado no Worker do site (ecco-sistema)
   //   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (opcionais) credencial de serviço do
   //                              Cloudflare Access, quando o endereço do gateway está fechado

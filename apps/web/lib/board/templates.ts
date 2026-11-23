@@ -19,7 +19,7 @@ export interface BoardTemplate {
   }[];
   options: { myTasks?: boolean; timeTracking?: boolean; ownPanel?: boolean };
   /** Liga o atendimento pelo WhatsApp já com estas instruções (migration 0050). */
-  whatsapp?: { instructions: string };
+  whatsapp?: { instructions: string; driveArchive?: boolean };
 }
 
 export const BOARD_TEMPLATES: BoardTemplate[] = [
@@ -108,6 +108,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
     ],
     options: {},
     whatsapp: {
+      driveArchive: true,
       instructions:
         "Registro de erros encontrados nos livros da editora (ortografia, conteúdo, imagem, diagramação), normalmente apontados por escolas. No menu, chame de \"Erro em livro\". " +
         "Cada pedido é UM erro. Peça a série, a disciplina, o período do livro (unidade, semestre ou anual), a página e a descrição do erro (qual palavra ou trecho está errado e como deveria ser). " +
