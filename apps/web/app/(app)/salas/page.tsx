@@ -11,6 +11,7 @@ import {
   isAdultInRoom,
   isAdultPresent,
   isStudentPresent,
+  panelRooms,
   roomInVila,
   sameId,
   sortRooms,
@@ -78,7 +79,9 @@ export default function SalasPage() {
     );
   };
 
-  const vilaRooms = allRooms.filter((r) => roomInVila(r, vila));
+  // Painel: só as salas da educação básica (sem Colônia e Oficinas), na ordem
+  // Little Kids, Kids, Junior.
+  const vilaRooms = panelRooms(rooms).filter((r) => roomInVila(r, vila));
   const vilaRoomIds = new Set(vilaRooms.map((r) => String(r.id).trim()));
   const vilaStudents = students.filter((s) => vilaRoomIds.has(String(s.roomId ?? "").trim()));
   const vilaAdults = adults.filter((a) => adultInVila(a, vila));
@@ -115,21 +118,6 @@ export default function SalasPage() {
       </div>
 
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
-        {vilaRooms.map((room) => (
-          <RoomCard
-            key={String(room.id)}
-            room={room}
-            students={students}
-            adults={adults}
-            staffTypes={staffTypes}
-            day={day}
-            shift={shift}
-            onEdit={openEditRoom}
-            onDelete={handleDeleteRoom}
-            onViewStudents={setViewingRoom}
-          />
-        ))}
-
         {/* Pátio: equipe presente no turno e sem sala vinculada */}
         <div className="bg-surface-lowest border border-dashed border-surface-high rounded-2xl p-5 opacity-90">
           <div className="flex items-start justify-between gap-3 border-b border-surface-medium pb-3 mb-3">
@@ -169,6 +157,22 @@ export default function SalasPage() {
             )}
           </div>
         </div>
+
+        {vilaRooms.map((room) => (
+          <RoomCard
+            key={String(room.id)}
+            room={room}
+            students={students}
+            adults={adults}
+            staffTypes={staffTypes}
+            day={day}
+            shift={shift}
+            onEdit={openEditRoom}
+            onDelete={handleDeleteRoom}
+            onViewStudents={setViewingRoom}
+          />
+        ))}
+
       </div>
 
       <RoomFormModal
