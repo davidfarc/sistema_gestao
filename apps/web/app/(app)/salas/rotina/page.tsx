@@ -80,6 +80,7 @@ export default function RotinaPage() {
     if (!weekday) return [];
     const students = data?.students ?? [];
     return students.filter((s) => {
+      if (s.left) return false; // fora da turma não entra na rotina
       const inDay =
         (s.schedule?.morning ?? []).includes(weekday) ||
         (s.schedule?.afternoon ?? []).includes(weekday);

@@ -37,6 +37,7 @@ export default function RoutineSummary({
   const vilaRoomIds = new Set(vilaRooms.map((r) => String(r.id).trim()));
 
   const irregular = students.filter((s) => {
+    if (s.left) return false; // fora da turma não entra no resumo
     const sid = String(s.id ?? "").trim();
     if (!vilaRoomIds.has(String(s.roomId ?? "").trim())) return false;
     return absent.has(sid) || early.has(sid) || extra.has(sid) || !!notes[sid]?.trim();

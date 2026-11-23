@@ -49,7 +49,12 @@ export const isAdultInRoom = (a: Adult, roomId: string | number, day: Day, shift
   Array.isArray(a.assignments) &&
   a.assignments.some((x) => checkStaffAssignment(x, day, shift, roomId));
 
+/** Aluno que conta: não foi marcado como fora da turma. */
+export const isActiveStudent = (s: Student): boolean => s.left !== true;
+
 export function isStudentPresent(s: Student, day: Day, shift: Shift): boolean {
+  // Quem saiu da turma (transferido, cancelado) não entra em contagem nenhuma.
+  if (!isActiveStudent(s)) return false;
   const arr = s.schedule?.[shift];
   return Array.isArray(arr) && arr.includes(day);
 }

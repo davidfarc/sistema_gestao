@@ -101,11 +101,24 @@ export default function AlunosPage() {
         alert("ActiveSoft respondeu, mas não veio nenhum aluno.");
         return;
       }
-      const result = applyActivesoftSync(incoming, students, rooms);
+      let result = applyActivesoftSync(incoming, students, rooms);
+      // Quem está no cadastro e não veio na lista: pergunta antes de marcar.
+      const missing = result.missing.length;
+      const mark =
+        missing > 0 &&
+        confirm(
+          `${missing} aluno(s) do cadastro não estão na lista atual do ActiveSoft ` +
+            `(transferidos, cancelados ou de outro ano letivo).\n\n` +
+            `Marcar como "fora da turma"? Eles continuam na lista, riscados, e saem de todas as contagens. ` +
+            `Dá para desfazer editando o aluno.`
+        );
+      if (mark) result = applyActivesoftSync(incoming, students, rooms, true);
       if (result.newRoomsCount > 0) await write("rooms", result.rooms);
       await write("students", result.students);
       alert(
-        `Sincronização OK:\n- Novos alunos: ${result.countNew}\n- Atualizados: ${result.countUpdated}\n- Novas salas: ${result.newRoomsCount}`
+        `Sincronização OK:\n- Novos alunos: ${result.countNew}\n- Atualizados: ${result.countUpdated}\n- Novas salas: ${result.newRoomsCount}` +
+          (mark ? `\n- Marcados como fora da turma: ${missing}` : missing > 0 ? `\n- Fora da lista do ActiveSoft (não marcados): ${missing}` : "") +
+          (result.countBack > 0 ? `\n- Voltaram a constar: ${result.countBack}` : "")
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -205,7 +218,14 @@ export default function AlunosPage() {
                     <td className="px-4 py-3">
                       <span className="bg-surface-medium text-secondary text-[11px] px-2 py-0.5 rounded-md">{String(s.id)}</span>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-primary">{s.name}</td>
+                    <td className="px-4 py-3 font-semibold text-primary">
+                      <span className={s.left ? "line-through opacity-60" : undefined}>{s.name}</span>
+                      {s.left && (
+                        <span className="ml-2 rounded-md bg-danger/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger">
+                          Fora da turma
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-secondary">{s.age || 0} anos</td>
                     <td className="px-4 py-3 text-secondary">{sala}</td>
                     <td className="px-4 py-3 text-secondary">{periodo(s)}</td>

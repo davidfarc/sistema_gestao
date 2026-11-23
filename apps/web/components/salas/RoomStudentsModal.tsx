@@ -21,9 +21,12 @@ export default function RoomStudentsModal({
 }) {
   if (!room) return null;
 
-  const list = students
+  const all = students
     .filter((s) => sameId(s.roomId, room.id))
     .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR"));
+  // Quem conta na turma; os que saíram aparecem riscados no fim, fora dos números.
+  const list = all.filter((s) => !s.left);
+  const gone = all.filter((s) => s.left);
 
   const rows = list.map((s) => ({
     s,
@@ -45,7 +48,7 @@ export default function RoomStudentsModal({
       size="lg"
     >
       <p className="text-sm text-secondary">
-        {list.length} alunos · Exibindo horários para <strong className="text-primary">{dayLabel}</strong>
+        {list.length} alunos{gone.length > 0 ? ` (${gone.length} fora da turma, não contados)` : ""} · Exibindo horários para <strong className="text-primary">{dayLabel}</strong>
       </p>
       {list.length > 0 && (
         <p className="text-sm text-secondary">
@@ -75,13 +78,24 @@ export default function RoomStudentsModal({
                   <td className="px-3 py-2 text-center">{almoco ? "🍴" : "-"}</td>
                 </tr>
               ))
-            ) : (
+            ) : gone.length > 0 ? null : (
               <tr>
                 <td colSpan={4} className="text-center text-secondary px-4 py-8">
                   Nenhum aluno matriculado nesta sala.
                 </td>
               </tr>
             )}
+            {gone.map((s) => (
+              <tr key={String(s.id)} className="border-t border-surface-medium opacity-60">
+                <td className="px-4 py-2 text-secondary">
+                  <span className="line-through">{s.name}</span>
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-danger">Fora da turma</span>
+                </td>
+                <td colSpan={3} className="px-3 py-2 text-center text-xs text-secondary">
+                  não conta
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
