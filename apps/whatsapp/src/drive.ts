@@ -158,6 +158,7 @@ const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "
 export async function archiveToDrive(deps: ArchiveDeps): Promise<number> {
   const jobs = (await deps.take()) ?? [];
   if (jobs.length === 0) return 0;
+  console.log("drive: pendentes", jobs.length);
   const token = await deps.token();
   if (!token) return 0;
   // Pastas de nível criadas nesta rodada (dois cards novos do mesmo livro).

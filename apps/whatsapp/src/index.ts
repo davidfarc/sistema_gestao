@@ -49,7 +49,9 @@ async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null>
       console.error(fn, "HTTP", res.status, (await res.text()).slice(0, 300));
       return null;
     }
-    return await res.json();
+    // Função sem retorno responde vazio (204): deu certo, só não há o que ler.
+    const body = await res.text();
+    return body ? (JSON.parse(body) as unknown) : true;
   } catch (e) {
     console.error(fn, e instanceof Error ? e.name : "erro");
     return null;
@@ -223,6 +225,14 @@ export default {
     });
 
     // Evidências no Google Drive (migration 0056): só com a credencial configurada.
+    const driveSecrets = {
+      GOOGLE_SA_EMAIL: env.GOOGLE_SA_EMAIL,
+      GOOGLE_SA_PRIVATE_KEY: env.GOOGLE_SA_PRIVATE_KEY,
+      DRIVE_ROOT_FOLDER_ID: env.DRIVE_ROOT_FOLDER_ID,
+    };
+    const missing = Object.entries(driveSecrets).filter(([, v]) => !v).map(([k]) => k);
+    // Diz no log, a cada rodada, por que o Drive está parado (só os nomes, nunca os valores).
+    if (missing.length > 0) console.log("drive: desligado, falta o segredo", missing.join(", "));
     if (env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_PRIVATE_KEY && env.DRIVE_ROOT_FOLDER_ID) {
       const drive: DriveConfig = {
         clientEmail: env.GOOGLE_SA_EMAIL,
@@ -240,7 +250,9 @@ export default {
           void (await rpc(env, "whatsapp_drive_folder", { p_board: boardId, p_path: path, p_folder_id: folderId })),
         saveCard: async (cardId, folderId) => void (await rpc(env, "whatsapp_drive_card", { p_card: cardId, p_folder_id: folderId })),
         saveImage: async (mediaId) => void (await rpc(env, "whatsapp_drive_image", { p_media: mediaId })),
-      }).catch((e) => console.error("drive", e instanceof Error ? e.name : "erro"));
+      })
+        .then((n) => console.log("drive: pedidos gravados nesta rodada:", n))
+        .catch((e) => console.error("drive", e instanceof Error ? e.name : "erro"));
     }
   },
 };
