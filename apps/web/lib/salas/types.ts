@@ -37,6 +37,8 @@ export interface Adult {
   assignments?: Assignment[];
   absences?: Absence[];
   leave?: Leave | null;
+  /** Afastamentos já encerrados, para o relatório. */
+  leaveHistory?: Leave[];
 }
 
 export interface StudentSchedule {

@@ -152,6 +152,33 @@ export function isAdultAbsentToday(a: Adult, today = todayISO()): boolean {
   return Array.isArray(a.absences) && a.absences.some((abs) => abs?.date === today);
 }
 
+/** Todos os afastamentos da pessoa (o atual e os encerrados), do mais recente ao mais antigo. */
+export function allLeaves(a: Adult): Leave[] {
+  const list = [...(a.leave ? [a.leave] : []), ...toArray<Leave>(a.leaveHistory)];
+  return list.filter((l) => l?.from).sort((x, y) => y.from.localeCompare(x.from));
+}
+
+/**
+ * Dias úteis (segunda a sexta) de um afastamento dentro do período [start, end].
+ * O dia do retorno não conta; afastamento sem retorno vai até o fim do período.
+ */
+export function leaveWeekdaysIn(l: Leave, start: string, end: string): number {
+  const from = l.from > start ? l.from : start;
+  const lastDay = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const to = l.until && lastDay(l.until) < end ? lastDay(l.until) : end;
+  if (from > to) return 0;
+  let n = 0;
+  for (let d = new Date(`${from}T12:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const wd = d.getUTCDay();
+    if (wd >= 1 && wd <= 5) n++;
+  }
+  return n;
+}
+
 /** Texto curto da ausência de hoje: o afastamento, se houver, ou "Ausente". */
 export function absenceLabel(a: Adult, today = todayISO()): string {
   const l = adultLeave(a, today);

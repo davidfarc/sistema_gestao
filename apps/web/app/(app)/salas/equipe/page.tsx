@@ -80,9 +80,19 @@ export default function EquipePage() {
     setLeaveUntil(cur?.until ?? "");
     setLeaveAdult(a);
   };
+  // Grava o afastamento novo (ou nenhum) e guarda o anterior no histórico, com
+  // a data em que de fato terminou, para o relatório de faltas e afastamentos.
   const writeLeave = async (adult: Adult, leave: Adult["leave"]) => {
     const idx = (data?.adults ?? []).findIndex((a) => sameId(a.id, adult.id));
     if (idx < 0) return;
+    const prev = adult.leave;
+    const today = todayISO();
+    if (prev?.from && prev.from <= today) {
+      const endedOn = prev.until && prev.until <= today ? prev.until : today;
+      if (endedOn > prev.from) {
+        await write(`adults/${idx}/leaveHistory`, [...(adult.leaveHistory ?? []), { ...prev, until: endedOn }]);
+      }
+    }
     await write(`adults/${idx}/leave`, leave ?? null);
   };
   const confirmLeave = async () => {
