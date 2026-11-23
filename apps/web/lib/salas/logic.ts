@@ -71,6 +71,41 @@ export const sortRooms = (rooms: Room[]) =>
     (a.name || "").localeCompare(b.name || "", undefined, { numeric: true, sensitivity: "base" })
   );
 
+/** Nome sem acento e em minúsculas, para reconhecer o tipo da sala pelo nome. */
+const plainName = (room: Room) =>
+  (room.name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+/**
+ * Sala da educação básica? As salas de Colônia e de Oficina (Ballet, Basquete,
+ * Futsal…) existem no cadastro, mas ficam fora do painel de Atualização de
+ * salas. O tipo vem do começo do nome ("Colônia - Kids", "Oficina Ballet").
+ */
+export function isBasicEducationRoom(room: Room): boolean {
+  // Também sem o prefixo, caso a sala se chame só "Ballet", "Basquete" ou "Futsal".
+  return !/^(colonia|oficina|ballet|basquete|futsal)\b/.test(plainName(room));
+}
+
+/**
+ * Ordem dos grupos no painel: Little Kids, Kids, Junior; o resto por último.
+ * Aceita o nome por extenso ("Kids A", "Junior 1A") e a sigla da turma
+ * ("LK1A", "K1A", "J1A"): K1A é uma turma de Kids, então vem antes de Junior.
+ */
+function roomGroupRank(room: Room): number {
+  const name = plainName(room);
+  if (/\blittle\s*kids\b|^lk\s*\d/.test(name)) return 0;
+  if (/\bkids\b|^k\s*\d/.test(name)) return 1;
+  if (/\bjunior\b|^jr?\.?\s*\d/.test(name)) return 2;
+  return 3;
+}
+
+/** Salas do painel: só educação básica, por grupo e, dentro do grupo, por nome. */
+export const panelRooms = (rooms: Room[]) =>
+  sortRooms(rooms.filter(isBasicEducationRoom)).sort((a, b) => roomGroupRank(a) - roomGroupRank(b));
+
 export function translateType(staffTypes: StaffType[], typeId?: string): string {
   const t = staffTypes.find((s) => s.id === typeId);
   return t?.label || typeId || "—";
