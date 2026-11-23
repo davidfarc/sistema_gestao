@@ -49,7 +49,9 @@ async function rpc(env: Env, fn: string, args: unknown): Promise<unknown | null>
       console.error(fn, "HTTP", res.status, (await res.text()).slice(0, 300));
       return null;
     }
-    return await res.json();
+    // Função sem retorno responde vazio (204): deu certo, só não há o que ler.
+    const body = await res.text();
+    return body ? (JSON.parse(body) as unknown) : true;
   } catch (e) {
     console.error(fn, e instanceof Error ? e.name : "erro");
     return null;
