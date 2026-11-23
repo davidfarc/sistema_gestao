@@ -55,7 +55,8 @@ function StatCard({
 }
 
 export default function SalasHeader({ stats }: { stats: Stats }) {
-  const { vila, day, shift, scenario, setVila, setDay, setShift, setScenario, resetSim } = useSalasControls();
+  const { vila, day, shift, scenario, year, currentYear, years, setYear, setVila, setDay, setShift, setScenario, resetSim } =
+    useSalasControls();
   const sim = scenario === "simulated";
 
   return (
@@ -76,7 +77,25 @@ export default function SalasHeader({ stats }: { stats: Stats }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            aria-label="Ano letivo"
+            title="Ano letivo"
+            className={clsx(
+              "border rounded-lg px-3 py-1.5 text-sm font-semibold cursor-pointer",
+              year === currentYear
+                ? "bg-surface-lowest border-surface-medium text-primary"
+                : "bg-warning/15 border-warning/40 text-warning"
+            )}
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y === currentYear ? y : `${y} (matrículas)`}
+              </option>
+            ))}
+          </select>
           <select
             value={day}
             onChange={(e) => setDay(e.target.value as Day)}

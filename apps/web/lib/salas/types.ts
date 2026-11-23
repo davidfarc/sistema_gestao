@@ -66,6 +66,11 @@ export interface Student {
   left?: boolean;
   /** Dia em que foi marcado como fora (ISO "YYYY-MM-DD"). */
   leftAt?: string;
+  /**
+   * Ainda não é aluno da turma: pré-matrícula ou lista de espera. Aparece na
+   * lista com a etiqueta, mas não entra nas contagens.
+   */
+  pending?: boolean;
 }
 
 export interface Room {
@@ -113,4 +118,8 @@ export interface EscolaSimState {
   staffTypes: StaffType[];
   dailyRoutine: Record<string, DailyRoutine>;
   buscaAtivaLogs: Record<string, BuscaAtivaLog>;
+  /** Ano letivo corrente segundo o ActiveSoft (gravado na sincronização). */
+  activeYear?: string;
+  /** Alunos de OUTROS anos letivos (ex.: matrículas de 2027), por ano. */
+  yearStudents?: Record<string, Student[]>;
 }
