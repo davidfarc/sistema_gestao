@@ -5,7 +5,8 @@
  */
 
 import { callOpenAI, runAgent, transcribeOpenAI } from "./agent.ts";
-import { fetchMedia, sendText, type EvolutionConfig } from "./evolution.ts";
+import { accessToken, archiveToDrive, createFile, createFolder, type DriveConfig, type DriveJob } from "./drive.ts";
+import { fetchMedia, MAX_IMAGE_BYTES, sendText, type EvolutionConfig } from "./evolution.ts";
 import { deliverOutbox, handleRequest, type InboundResult, type OutboxItem } from "./handler.ts";
 
 interface Env {
@@ -22,6 +23,10 @@ interface Env {
   OPENAI_API_KEY?: string;
   OPENAI_MODEL: string;
   OPENAI_TRANSCRIBE_MODEL: string;
+  /** Conta de serviço do Google e pasta-raiz, para guardar evidências no Drive (opcional). */
+  GOOGLE_SA_EMAIL?: string;
+  GOOGLE_SA_PRIVATE_KEY?: string;
+  DRIVE_ROOT_FOLDER_ID?: string;
   /** O site (Worker ecco-sistema), para executar a liberação pelas regras dele. */
   SITE?: { fetch(request: Request): Promise<Response> };
   /** Segredo igual nos dois Workers; prova ao site que a chamada é nossa. */
@@ -89,6 +94,56 @@ async function releaseOnSite(
   }
 }
 
+const IMAGE_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+/**
+ * Guarda a imagem no armazenamento de imagens dos cards (bucket `card-images`,
+ * o mesmo das imagens coladas na descrição). Devolve o endereço público, com
+ * nome aleatório, ou null se o tipo não for aceito ou o envio falhar.
+ */
+async function uploadImage(env: Env, bytes: Uint8Array, mimetype: string): Promise<string | null> {
+  const ext = IMAGE_EXT[mimetype];
+  if (!ext) {
+    console.error("imagem: tipo não aceito", mimetype.slice(0, 40));
+    return null;
+  }
+  const path = `whatsapp/${crypto.randomUUID()}.${ext}`;
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/storage/v1/object/card-images/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": mimetype === "image/jpg" ? "image/jpeg" : mimetype,
+      },
+      body: bytes as BodyInit,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      console.error("imagem: armazenamento HTTP", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    return `${env.SUPABASE_URL}/storage/v1/object/public/card-images/${path}`;
+  } catch (e) {
+    console.error("imagem: armazenamento", e instanceof Error ? e.name : "erro");
+    return null;
+  }
+}
+
+/** Baixa uma foto que nós mesmos guardamos (só do nosso armazenamento de imagens). */
+async function downloadStored(env: Env, url: string): Promise<{ bytes: Uint8Array; mimetype: string } | null> {
+  if (!url.startsWith(`${env.SUPABASE_URL}/storage/v1/object/public/card-images/`)) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) return null;
+    return { bytes, mimetype: (res.headers.get("content-type") ?? "image/jpeg").split(";")[0]!.trim() };
+  } catch {
+    return null;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const openaiKey = env.OPENAI_API_KEY;
@@ -106,6 +161,22 @@ export default {
               p_body: `[áudio] ${heard}`,
             });
             if (saved !== true) console.error("transcrição não gravada (migration 0051 aplicada?)");
+            return saved === true;
+          }
+        : undefined,
+      // Fotos não dependem do modelo, mas só fazem sentido com o agente ligado.
+      storeImage: openaiKey
+        ? async (msg) => {
+            const media = msg.media ? await fetchMedia(evolution, msg.media, fetch, MAX_IMAGE_BYTES) : null;
+            if (!media) return false;
+            const url = await uploadImage(env, media.bytes, media.mimetype);
+            if (!url) return false;
+            const saved = await rpc(env, "whatsapp_media_add", {
+              p_provider_id: msg.providerId,
+              p_url: url,
+              p_caption: msg.text,
+            });
+            if (saved !== true) console.error("foto não registrada (migration 0055 aplicada?)");
             return saved === true;
           }
         : undefined,
@@ -150,5 +221,26 @@ export default {
       done: async (id, error) => void (await rpc(env, "whatsapp_outbox_done", { p_id: id, p_error: error })),
       send: (phone, text) => sendText(evolution, phone, text),
     });
+
+    // Evidências no Google Drive (migration 0056): só com a credencial configurada.
+    if (env.GOOGLE_SA_EMAIL && env.GOOGLE_SA_PRIVATE_KEY && env.DRIVE_ROOT_FOLDER_ID) {
+      const drive: DriveConfig = {
+        clientEmail: env.GOOGLE_SA_EMAIL,
+        privateKey: env.GOOGLE_SA_PRIVATE_KEY,
+        rootFolderId: env.DRIVE_ROOT_FOLDER_ID,
+      };
+      await archiveToDrive({
+        rootFolderId: drive.rootFolderId,
+        take: async () => (await rpc(env, "whatsapp_drive_take", { p_limit: 3 })) as DriveJob[] | null,
+        token: () => accessToken(drive),
+        createFolder: (token, name, parentId) => createFolder(token, name, parentId),
+        createFile: (token, file, parentId) => createFile(token, file, parentId),
+        download: (url) => downloadStored(env, url),
+        saveLevel: async (boardId, path, folderId) =>
+          void (await rpc(env, "whatsapp_drive_folder", { p_board: boardId, p_path: path, p_folder_id: folderId })),
+        saveCard: async (cardId, folderId) => void (await rpc(env, "whatsapp_drive_card", { p_card: cardId, p_folder_id: folderId })),
+        saveImage: async (mediaId) => void (await rpc(env, "whatsapp_drive_image", { p_media: mediaId })),
+      }).catch((e) => console.error("drive", e instanceof Error ? e.name : "erro"));
+    }
   },
 };

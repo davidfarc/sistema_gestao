@@ -64,7 +64,11 @@ test("parseInbound reconhece áudio e outros tipos", () => {
   assert.equal((audio?.media?.key as { id: string }).id, "ABC123");
   assert.deepEqual(audio?.media?.message, { audioMessage: { url: "x", seconds: 7, mimetype: "audio/ogg; codecs=opus" } });
   assert.equal(parseInbound(upsert({ message: { audioMessage: {}, base64: "QUJD" } }))?.media?.base64, "QUJD");
-  assert.equal(parseInbound(upsert({ message: { imageMessage: {} } }))?.kind, "other");
+  const image = parseInbound(upsert({ message: { imageMessage: { caption: " foto do ar ", mimetype: "image/png" } } }));
+  assert.equal(image?.kind, "image");
+  assert.equal(image?.text, "foto do ar");
+  assert.equal(image?.media?.mimetype, "image/png");
+  assert.equal(parseInbound(upsert({ message: { documentMessage: {} } }))?.kind, "other");
 });
 
 test("parseInbound ignora o que não é mensagem de uma pessoa para nós", () => {

@@ -21,12 +21,13 @@ export function agentRules(site: string): string[] {
     "- Ao abrir um pedido, confirme com o número (ex.: \"Pedido #142 aberto\"). Se o pipeline tiver exige_liberacao = true, diga também que ele aguarda a liberação da gestão.",
     "- Para \"como está o pedido N?\", use situacao_pedido e responda etapa, responsável e prazo. Se não vier nada, o pedido não existe ou a pessoa não tem acesso a ele.",
     "- Liberação (só nos pipelines com voce_gerencia = true): quando o gestor escrever algo como \"liberar 142\" ou \"pode seguir o 142 com a Maria\", use liberar_pedido. Se a ferramenta devolver a lista da equipe, pergunte com quem fica e chame de novo com o nome. Confirme dizendo a etapa e o responsável. Se o gestor recusar um pedido, registre o motivo com comentar_pedido e avise que mover ou arquivar é pelo site.",
+    "- Fotos: uma mensagem que começa com \"[imagem]\" é uma foto que a pessoa enviou (o texto depois é a legenda). Você não vê a foto; ela fica guardada, pendente, até ir para um pedido. Se a foto veio junto de um pedido novo, siga o fluxo normal: ao abrir ou reforçar o pedido, as fotos pendentes são anexadas sozinhas (a ferramenta devolve imagens_anexadas). Se a pessoa quer colocar a foto num pedido que já existe (por exemplo, a evidência do defeito ou da solução), use anexar_imagens com o número e uma legenda curta. Se chegou uma foto e não está claro de qual pedido é, pergunte. Diga na resposta quantas fotos foram anexadas.",
     "- Atualização de andamento: quando a pessoa responder a um lembrete ou contar uma novidade de um pedido, registre com comentar_pedido e confirme. Se não estiver claro de qual pedido ela fala, pergunte o número.",
     "- Mensagens suas no histórico que começam com \"Novo pedido\", \"Lembrete\", \"Pedido #\" ou \"Seu pedido\" foram avisos automáticos enviados à pessoa; a resposta dela costuma se referir ao pedido citado ali.",
     "- Se uma ferramenta devolver erro, corrija o que der (por exemplo, perguntando o campo que falta) ou explique em palavras simples.",
     "",
     "## Limites",
-    `- Você abre, reforça, consulta e comenta pedidos e, para a gestão, libera. Fora da liberação você não move nem atribui; não apaga, não altera cadastro e não tem dados de alunos ou famílias. Para o resto, indique ${site}.`,
+    `- Você abre, reforça, consulta e comenta pedidos e, para a gestão, libera. Fora da liberação você não move nem atribui; não apaga, não altera cadastro, não vê o conteúdo das fotos e não tem dados de alunos ou famílias. Para o resto, indique ${site}.`,
     "- Nunca diga que abriu, reforçou, liberou ou registrou algo sem ter chamado a ferramenta NESTA resposta e ela ter devolvido ok. O histórico da conversa mostra só os textos, não as chamadas de ferramenta de antes: uma confirmação antiga sua não é modelo de resposta nem prova de que algo foi feito agora.",
     "- Nunca prometa para depois (\"vou registrar\", \"vou abrir\"): você só age dentro da própria resposta. Se já tem os dados, chame a ferramenta agora e responda com o que foi feito. Ao encontrar um pedido repetido, chame reforcar_pedido na mesma resposta, usando o relato da pessoa como texto, sem esperar ela pedir de novo.",
     "- Ao confirmar um pedido aberto, use o número e o nome do pipeline que a ferramenta devolveu, e diga o pipeline na mensagem.",
@@ -63,6 +64,11 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
     name: "comentar_pedido",
     description:
       "Registra no pedido uma atualização dada pela pessoa (ex.: resposta a um lembrete: 'peça encomendada, chega sexta'). Vira comentário no card, em nome dela. 'pipeline_id' pode ficar vazio; só é preciso se houver pedidos com o mesmo número em pipelines diferentes.",
+  },
+  {
+    name: "anexar_imagens",
+    description:
+      "Anexa a um pedido que já existe as fotos que a pessoa enviou há pouco (até uma hora). 'legenda' descreve o que a foto mostra, por exemplo 'Evidência do defeito' ou 'Evidência da solução'. Só funciona para quem pediu, para o responsável ou para quem edita cards. 'pipeline_id' pode ficar vazio; só é preciso se houver pedidos com o mesmo número em pipelines diferentes.",
   },
   {
     name: "situacao_pedido",

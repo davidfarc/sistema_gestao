@@ -37,6 +37,8 @@ export interface AgentContext {
   hoje: string;
   pipelines: { id: string; nome: string; instrucoes: string; campos: unknown[] }[];
   conversa: { de: "pessoa" | "agente"; texto: string }[];
+  /** Fotos que a pessoa mandou há pouco e ainda não foram para nenhum card. */
+  imagens_pendentes?: number;
 }
 
 export interface AgentDeps {
@@ -134,6 +136,12 @@ export const TOOLS: ChatTool[] = [
     ["numero", "texto", "pipeline_id"],
   ),
   tool(
+    "anexar_imagens",
+    describe("anexar_imagens"),
+    { numero: text, legenda: text, pipeline_id: text },
+    ["numero", "legenda", "pipeline_id"],
+  ),
+  tool(
     "situacao_pedido",
     describe("situacao_pedido"),
     { numero: text },
@@ -150,6 +158,7 @@ export function systemPrompt(ctx: AgentContext, appUrl: string): string {
     ...agentRules(site),
     "",
     `Quem escreve agora: ${ctx.pessoa}. Data e hora em São Paulo: ${ctx.hoje}.`,
+    `Fotos que esta pessoa enviou há pouco e ainda não foram para nenhum pedido: ${ctx.imagens_pendentes ?? 0}.`,
     "",
     "## Pipelines que você atende para esta pessoa",
     pipelines,
@@ -210,7 +219,13 @@ const CLAIMS: { tool: string; what: string; pattern: RegExp }[] = [
  * resolvido, e nada acontece: o agente só age dentro da própria resposta.
  */
 export function emptyPromise(reply: string, done: ReadonlySet<string>): boolean {
-  if (done.has("criar_pedido") || done.has("reforcar_pedido") || done.has("comentar_pedido") || done.has("liberar_pedido")) {
+  if (
+    done.has("criar_pedido") ||
+    done.has("reforcar_pedido") ||
+    done.has("comentar_pedido") ||
+    done.has("liberar_pedido") ||
+    done.has("anexar_imagens")
+  ) {
     return false;
   }
   // Se termina perguntando algo, a promessa depende da resposta da pessoa: tudo bem.
@@ -248,7 +263,8 @@ export function unbackedClaim(reply: string, done: ReadonlySet<string>, known: R
     Number(m[1] ?? m[2]),
   );
   if (mentioned.length > 0) return mentioned.every((n) => known.has(n)) ? null : claim.what;
-  const wrote = done.has("criar_pedido") || done.has("reforcar_pedido") || done.has("comentar_pedido");
+  const wrote =
+    done.has("criar_pedido") || done.has("reforcar_pedido") || done.has("comentar_pedido") || done.has("anexar_imagens");
   return done.has(claim.tool) || (claim.tool !== "liberar_pedido" && wrote) ? null : claim.what;
 }
 

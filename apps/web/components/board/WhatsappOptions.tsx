@@ -20,8 +20,14 @@ export function WhatsappOptions({
   onChange: (value: BoardWhatsapp, dirty: boolean) => void;
 }) {
   const [loaded, setLoaded] = useState(false);
-  const [value, setValue] = useState<BoardWhatsapp>({ enabled: false, instructions: "", releaseRequired: false, reminderDays: 3 });
-  const { enabled, instructions, releaseRequired, reminderDays } = value;
+  const [value, setValue] = useState<BoardWhatsapp>({
+    enabled: false,
+    instructions: "",
+    releaseRequired: false,
+    reminderDays: 3,
+    driveArchive: false,
+  });
+  const { enabled, instructions, releaseRequired, reminderDays, driveArchive } = value;
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   function change(patch: Partial<BoardWhatsapp>) {
@@ -103,6 +109,22 @@ export function WhatsappOptions({
             />
             <span className="text-xs text-neutral-500">
               Em dias úteis, das 8h às 18h. Use 0 para não lembrar. A resposta ao lembrete vira comentário no card.
+            </span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-neutral-800">
+            <input
+              type="checkbox"
+              checked={driveArchive}
+              onChange={(e) => change({ driveArchive: e.target.checked })}
+              className="mt-0.5"
+            />
+            <span>
+              Guardar as evidências no Google Drive
+              <span className="block text-neutral-600">
+                Cada pedido aberto pelo WhatsApp ganha uma pasta com as fotos e um TXT com a descrição, organizada
+                pelos dois primeiros campos obrigatórios de opções (ex.: Série → Disciplina). O link da pasta
+                aparece nos anexos do card. O sistema só grava no Drive; não lê nem apaga.
+              </span>
             </span>
           </label>
         </>
