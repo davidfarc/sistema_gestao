@@ -179,6 +179,8 @@ export default function SalasPage() {
         open={roomModalOpen}
         room={editingRoom}
         rooms={rooms}
+        students={students}
+        adults={adults}
         defaultVila={vila}
         onClose={() => setRoomModalOpen(false)}
       />

@@ -41,6 +41,18 @@ export interface Student {
   schedule?: StudentSchedule;
   lunchDays?: Day[];
   segmento?: Vila;
+  /** Ano letivo da matrícula no ActiveSoft (ex.: "2026"). */
+  period?: string;
+  /** Situação na turma segundo o ActiveSoft (ex.: "Cursando", "Aprovado"). */
+  status?: string;
+  /**
+   * Fora da turma: transferido, cancelado ou não consta mais na lista do
+   * ActiveSoft. Continua no cadastro (aparece riscado), mas não entra em
+   * nenhuma contagem.
+   */
+  left?: boolean;
+  /** Dia em que foi marcado como fora (ISO "YYYY-MM-DD"). */
+  leftAt?: string;
 }
 
 export interface Room {

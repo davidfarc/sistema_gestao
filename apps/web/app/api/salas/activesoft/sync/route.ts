@@ -22,6 +22,8 @@ interface RawStudent {
   nome_turma?: string;
   serie_nome?: string;
   data_nascimento?: string;
+  sigla_periodo?: string;
+  situacao_aluno_turma?: string;
 }
 
 const DEFAULT_URL = "https://siga.activesoft.com.br/api/v0";
@@ -70,6 +72,9 @@ export async function POST() {
         name: s.nome!,
         roomName: s.nome_turma || s.serie_nome || "Sem Turma",
         birthDate: s.data_nascimento ?? null,
+        // Ano letivo e situação na turma, como o ActiveSoft informa.
+        period: (s.sigla_periodo ?? "").trim() || null,
+        status: (s.situacao_aluno_turma ?? "").trim() || null,
       }));
 
     return NextResponse.json({ students });

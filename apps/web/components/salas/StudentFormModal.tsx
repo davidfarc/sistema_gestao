@@ -61,6 +61,7 @@ export default function StudentFormModal({
   const [morning, setMorning] = useState<Set<Day>>(new Set());
   const [afternoon, setAfternoon] = useState<Set<Day>>(new Set());
   const [lunch, setLunch] = useState<Set<Day>>(new Set());
+  const [left, setLeft] = useState(false);
 
   const sorted = sortRooms(rooms);
 
@@ -73,6 +74,7 @@ export default function StudentFormModal({
     setMorning(new Set((student?.schedule?.morning ?? (student ? [] : DAYS)) as Day[]));
     setAfternoon(new Set((student?.schedule?.afternoon ?? []) as Day[]));
     setLunch(new Set((student?.lunchDays ?? []) as Day[]));
+    setLeft(student?.left === true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, student]);
 
@@ -99,6 +101,8 @@ export default function StudentFormModal({
       roomId,
       schedule: { morning: Array.from(morning), afternoon: Array.from(afternoon) },
       lunchDays: Array.from(lunch),
+      left,
+      ...(left && !student?.leftAt ? { leftAt: new Date().toISOString().slice(0, 10) } : {}),
     };
 
     const next = student
@@ -160,6 +164,15 @@ export default function StudentFormModal({
         <label className={fieldLabel}>Almoço</label>
         <DayPicker value={lunch} onToggle={toggler(setLunch)} />
       </div>
+      <label className="flex items-start gap-2.5 text-sm text-primary">
+        <input type="checkbox" checked={left} onChange={(e) => setLeft(e.target.checked)} className="mt-0.5" />
+        <span>
+          Fora da turma (transferido ou cancelado)
+          <span className="block text-xs text-secondary">
+            Continua no cadastro e aparece riscado, mas não entra em nenhuma contagem.
+          </span>
+        </span>
+      </label>
     </Modal>
   );
 }
