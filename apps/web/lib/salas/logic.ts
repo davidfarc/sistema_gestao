@@ -89,12 +89,16 @@ export function isBasicEducationRoom(room: Room): boolean {
   return !/^(colonia|oficina|ballet|basquete|futsal)\b/.test(plainName(room));
 }
 
-/** Ordem dos grupos no painel: Little Kids, Kids, Junior; o resto por último. */
+/**
+ * Ordem dos grupos no painel: Little Kids, Kids, Junior; o resto por último.
+ * Aceita o nome por extenso ("Kids A", "Junior 1A") e a sigla da turma
+ * ("LK1A", "K1A", "J1A"): K1A é uma turma de Kids, então vem antes de Junior.
+ */
 function roomGroupRank(room: Room): number {
   const name = plainName(room);
-  if (/\blittle\s*kids\b/.test(name)) return 0;
-  if (/\bkids\b/.test(name)) return 1;
-  if (/\bjunior\b/.test(name)) return 2;
+  if (/\blittle\s*kids\b|^lk\s*\d/.test(name)) return 0;
+  if (/\bkids\b|^k\s*\d/.test(name)) return 1;
+  if (/\bjunior\b|^jr?\.?\s*\d/.test(name)) return 2;
   return 3;
 }
 
