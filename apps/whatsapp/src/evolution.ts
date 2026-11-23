@@ -9,12 +9,12 @@ export interface Inbound {
   phone: string;
   /** Identificador da mensagem no WhatsApp (evita processar duas vezes). */
   providerId: string;
-  kind: "text" | "audio" | "other";
+  kind: "text" | "audio" | "image" | "other";
   text: string;
   /** Duração do áudio em segundos, quando o WhatsApp informa. */
   seconds?: number;
   /**
-   * Só em áudio: a mensagem como a Evolution entregou (chave + conteúdo). É o
+   * Em áudio e imagem: a mensagem como a Evolution entregou (chave + conteúdo). É o
    * que ela precisa para devolver o arquivo, já que não guardamos mensagens lá.
    */
   media?: { key: unknown; message: unknown; base64?: string; mimetype?: string };
@@ -67,6 +67,22 @@ export function parseInbound(payload: unknown): Inbound | null {
       },
     };
   }
+  if (message.imageMessage) {
+    const image = message.imageMessage as { caption?: unknown; mimetype?: unknown };
+    return {
+      phone: `+${digits}`,
+      providerId,
+      kind: "image",
+      // A legenda da foto é o texto da mensagem.
+      text: str(image.caption).trim().slice(0, 2000),
+      media: {
+        key,
+        message,
+        ...(str(message.base64) ? { base64: str(message.base64) } : {}),
+        mimetype: str(image.mimetype) || "image/jpeg",
+      },
+    };
+  }
   return { phone: `+${digits}`, providerId, kind: "other", text: "" };
 }
 
@@ -99,15 +115,17 @@ export interface Media {
 
 /** Tamanho máximo do áudio aceito (cerca de 5 minutos de voz no WhatsApp). */
 export const MAX_AUDIO_BYTES = 4 * 1024 * 1024;
+/** Tamanho máximo de imagem (o mesmo limite do armazenamento de imagens dos cards). */
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-function decode(b64raw: string, mimetype: string): Media | null {
+function decode(b64raw: string, mimetype: string, maxBytes: number): Media | null {
   const b64 = b64raw.replace(/^data:[^,]*,/, "");
-  if (!b64 || b64.length > (MAX_AUDIO_BYTES * 4) / 3 + 8) return null;
+  if (!b64 || b64.length > (maxBytes * 4) / 3 + 8) return null;
   try {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return { bytes, mimetype: (mimetype || "audio/ogg").split(";")[0]!.trim() };
+    return { bytes, mimetype: (mimetype || "application/octet-stream").split(";")[0]!.trim() };
   } catch {
     return null;
   }
@@ -122,8 +140,9 @@ export async function fetchMedia(
   cfg: EvolutionConfig,
   media: NonNullable<Inbound["media"]>,
   fetcher: typeof fetch = fetch,
+  maxBytes: number = MAX_AUDIO_BYTES,
 ): Promise<Media | null> {
-  if (media.base64) return decode(media.base64, media.mimetype ?? "");
+  if (media.base64) return decode(media.base64, media.mimetype ?? "", maxBytes);
   try {
     const res = await fetcher(
       `${cfg.url.replace(/\/+$/, "")}/chat/getBase64FromMediaMessage/${encodeURIComponent(cfg.instance)}`,
@@ -143,7 +162,7 @@ export async function fetchMedia(
       console.error("evolution mídia: resposta sem arquivo");
       return null;
     }
-    return decode(data.base64, typeof data.mimetype === "string" ? data.mimetype : (media.mimetype ?? ""));
+    return decode(data.base64, typeof data.mimetype === "string" ? data.mimetype : (media.mimetype ?? ""), maxBytes);
   } catch (e) {
     console.error("evolution mídia", e instanceof Error ? e.name : "erro");
     return null;

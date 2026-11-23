@@ -36,6 +36,11 @@ export interface Deps {
    * se não conseguiu (ausente = áudio não habilitado).
    */
   transcribe?(msg: Inbound): Promise<boolean>;
+  /**
+   * Guarda a foto recebida e a deixa pendente para ir a um card. Devolve false
+   * se não conseguiu (ausente = fotos não habilitadas).
+   */
+  storeImage?(msg: Inbound): Promise<boolean>;
   /** Deixa o trabalho continuar depois de responder ao webhook (`waitUntil`). */
   defer?(work: Promise<void>): void;
 }
@@ -127,7 +132,17 @@ async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<
 async function chooseReply(msg: Inbound, r: InboundResult, deps: Deps): Promise<string | null> {
   if (!r.usuario || !deps.agent) return replyFor(msg, r, deps.appUrl);
   if (r.duplicada || r.recentes > MAX_PER_HOUR) return null;
-  if (msg.kind === "other") return "Por aqui eu só entendo texto e áudio. Pode escrever ou gravar o seu pedido?";
+  if (msg.kind === "other") return "Por aqui eu só entendo texto, áudio e foto. Pode escrever ou gravar o seu pedido?";
+  if (msg.kind === "image") {
+    if (!deps.storeImage) return "Ainda não consigo receber fotos por aqui. Pode descrever em texto?";
+    let stored = false;
+    try {
+      stored = await deps.storeImage(msg);
+    } catch (e) {
+      console.error("imagem", e instanceof Error ? e.name : "erro");
+    }
+    if (!stored) return "Não consegui guardar a foto (ela precisa ser JPG ou PNG de até 10 MB). Pode enviar de novo?";
+  }
   if (msg.kind === "audio") {
     if (!deps.transcribe) return "Ainda não consigo ouvir áudio. Pode escrever o seu pedido em texto?";
     if ((msg.seconds ?? 0) > MAX_AUDIO_SECONDS) {

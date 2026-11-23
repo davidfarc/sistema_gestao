@@ -116,7 +116,7 @@ test("histórico: começa na pessoa e precisa terminar nela", async () => {
 });
 
 test("ferramentas: esquema fechado, e nenhuma que mova, apague ou configure", () => {
-  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "situacao_pedido"]);
+  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "situacao_pedido"]);
   for (const t of TOOLS) {
     const p = t.function.parameters as any;
     assert.equal(t.type, "function");
@@ -183,10 +183,10 @@ test("áudio pede texto; agente que falha manda a contingência; desconhecido n�
   await Promise.all(a.pending);
   assert.match(a.sent[0]!, /não consigo ouvir áudio/);
   assert.equal(ran, 0);
-  const img = hdeps({ agent: async () => (ran++, "x") });
-  await handleRequest(hook({ imageMessage: {} }), img.d);
-  await Promise.all(img.pending);
-  assert.match(img.sent[0]!, /só entendo texto e áudio/);
+  const doc = hdeps({ agent: async () => (ran++, "x") });
+  await handleRequest(hook({ documentMessage: {} }), doc.d);
+  await Promise.all(doc.pending);
+  assert.match(doc.sent[0]!, /só entendo texto, áudio e foto/);
   assert.equal(ran, 0);
 
   for (const agent of [async () => null, async () => Promise.reject(new Error("x"))]) {
@@ -408,4 +408,35 @@ test("promessa vazia: o que conta e o que não conta", () => {
   assert.equal(emptyPromise("Qual é o número da sala?", none), false);
   assert.equal(emptyPromise("Pedido #5 em Estrutura: registrei o seu reforço.", new Set(["reforcar_pedido"])), false);
   assert.equal(emptyPromise("O pedido #5 está em Backlog, sem responsável.", new Set(["situacao_pedido"])), false);
+});
+
+test("foto: é guardada e segue para o agente; falha pede de novo; sem suporte avisa", async () => {
+  let ran = 0;
+  const stored: string[] = [];
+  const ok = hdeps({ agent: async () => (ran++, "Pedido #9 aberto com 1 foto."), storeImage: async (m) => (stored.push(m.text), true) });
+  await handleRequest(hook({ imageMessage: { caption: "ar pingando na sala 3", mimetype: "image/jpeg" } }), ok.d);
+  await Promise.all(ok.pending);
+  assert.deepEqual(stored, ["ar pingando na sala 3"]);
+  assert.deepEqual(ok.sent, ["Pedido #9 aberto com 1 foto."]);
+
+  const bad = hdeps({ agent: async () => (ran++, "x"), storeImage: async () => false });
+  await handleRequest(hook({ imageMessage: {} }), bad.d);
+  await Promise.all(bad.pending);
+  assert.match(bad.sent[0]!, /Não consegui guardar a foto/);
+
+  const off = hdeps({ agent: async () => (ran++, "x") });
+  await handleRequest(hook({ imageMessage: {} }), off.d);
+  await Promise.all(off.pending);
+  assert.match(off.sent[0]!, /não consigo receber fotos/);
+  assert.equal(ran, 1);
+});
+
+test("anexar_imagens respalda a confirmação e o número", async () => {
+  const a = deps([call("anexar_imagens", { numero: "142", legenda: "Evidência da solução", pipeline_id: "" }), say("Anexei 1 foto ao pedido #142.")], ctx({ imagens_pendentes: 1 }), {
+    ok: true,
+    numero: 142,
+    imagens_anexadas: 1,
+  });
+  assert.equal(await runAgent(a.d), "Anexei 1 foto ao pedido #142.");
+  assert.match(a.log.model[0].messages[0].content, /ainda não foram para nenhum pedido: 1/);
 });

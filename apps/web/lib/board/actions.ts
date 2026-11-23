@@ -276,6 +276,7 @@ export async function createBoard(name: string, templateId?: string): Promise<st
           config: f.options ? { options: templateOptions(f.options) } : {},
           show_on_card_face: !!f.showOnCard,
           show_on_create: !!f.showOnCreate,
+          is_required: !!f.required,
           is_filterable: true,
           position: i,
         })),
@@ -289,6 +290,14 @@ export async function createBoard(name: string, templateId?: string): Promise<st
       const { own_panel: _skip, ...rest } = flags;
       await db.from("board").update(rest).eq("id", board.id);
     }
+  }
+
+  if (template?.whatsapp) {
+    // Sem a migration 0050 a coluna não existe: o pipeline nasce sem o atendimento.
+    await db
+      .from("board")
+      .update({ whatsapp_enabled: true, whatsapp_instructions: template.whatsapp.instructions } as never)
+      .eq("id", board.id);
   }
 
   revalidatePath("/board");

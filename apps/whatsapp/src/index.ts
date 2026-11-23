@@ -5,7 +5,7 @@
  */
 
 import { callOpenAI, runAgent, transcribeOpenAI } from "./agent.ts";
-import { fetchMedia, sendText, type EvolutionConfig } from "./evolution.ts";
+import { fetchMedia, MAX_IMAGE_BYTES, sendText, type EvolutionConfig } from "./evolution.ts";
 import { deliverOutbox, handleRequest, type InboundResult, type OutboxItem } from "./handler.ts";
 
 interface Env {
@@ -89,6 +89,42 @@ async function releaseOnSite(
   }
 }
 
+const IMAGE_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+/**
+ * Guarda a imagem no armazenamento de imagens dos cards (bucket `card-images`,
+ * o mesmo das imagens coladas na descrição). Devolve o endereço público, com
+ * nome aleatório, ou null se o tipo não for aceito ou o envio falhar.
+ */
+async function uploadImage(env: Env, bytes: Uint8Array, mimetype: string): Promise<string | null> {
+  const ext = IMAGE_EXT[mimetype];
+  if (!ext) {
+    console.error("imagem: tipo não aceito", mimetype.slice(0, 40));
+    return null;
+  }
+  const path = `whatsapp/${crypto.randomUUID()}.${ext}`;
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/storage/v1/object/card-images/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": mimetype === "image/jpg" ? "image/jpeg" : mimetype,
+      },
+      body: bytes as BodyInit,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) {
+      console.error("imagem: armazenamento HTTP", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    return `${env.SUPABASE_URL}/storage/v1/object/public/card-images/${path}`;
+  } catch (e) {
+    console.error("imagem: armazenamento", e instanceof Error ? e.name : "erro");
+    return null;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const openaiKey = env.OPENAI_API_KEY;
@@ -106,6 +142,22 @@ export default {
               p_body: `[áudio] ${heard}`,
             });
             if (saved !== true) console.error("transcrição não gravada (migration 0051 aplicada?)");
+            return saved === true;
+          }
+        : undefined,
+      // Fotos não dependem do modelo, mas só fazem sentido com o agente ligado.
+      storeImage: openaiKey
+        ? async (msg) => {
+            const media = msg.media ? await fetchMedia(evolution, msg.media, fetch, MAX_IMAGE_BYTES) : null;
+            if (!media) return false;
+            const url = await uploadImage(env, media.bytes, media.mimetype);
+            if (!url) return false;
+            const saved = await rpc(env, "whatsapp_media_add", {
+              p_provider_id: msg.providerId,
+              p_url: url,
+              p_caption: msg.text,
+            });
+            if (saved !== true) console.error("foto não registrada (migration 0055 aplicada?)");
             return saved === true;
           }
         : undefined,
