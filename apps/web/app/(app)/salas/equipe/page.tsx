@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RefreshCw, AlertCircle, Search, CalendarClock, CalendarX, CalendarCheck, Trash2, Plus, Pencil, Tags, Upload } from "lucide-react";
+import { RefreshCw, AlertCircle, Search, CalendarClock, CalendarX, CalendarCheck, CalendarOff, Trash2, Plus, Pencil, Tags, Upload } from "lucide-react";
 import clsx from "clsx";
 import { useSalasData } from "@/lib/salas/SalasContext";
-import { isAdultAbsentToday, sameId, todayISO, translateType } from "@/lib/salas/logic";
+import { adultLeave, formatBR, isAdultAbsentToday, sameId, todayISO, translateType } from "@/lib/salas/logic";
 import { useSalasWrite } from "@/lib/salas/SalasContext";
 import Modal, { fieldInput, fieldLabel } from "@/components/salas/Modal";
 import AdultFormModal from "@/components/salas/AdultFormModal";
 import StaffTypesModal from "@/components/salas/StaffTypesModal";
 import { ImportAdultsModal } from "@/components/salas/ImportModal";
 import type { Absence, Adult, Vila } from "@/lib/salas/types";
+
+const LEAVE_KINDS = ["Licença maternidade", "Licença médica", "Férias", "Outro"];
 
 export default function EquipePage() {
   const { data, loading, error } = useSalasData();
@@ -20,6 +22,11 @@ export default function EquipePage() {
   const [type, setType] = useState("");
   const [absenceAdult, setAbsenceAdult] = useState<Adult | null>(null);
   const [reason, setReason] = useState("Atestado");
+  const [leaveAdult, setLeaveAdult] = useState<Adult | null>(null);
+  const [leaveKind, setLeaveKind] = useState(LEAVE_KINDS[0]!);
+  const [leaveOther, setLeaveOther] = useState("");
+  const [leaveFrom, setLeaveFrom] = useState("");
+  const [leaveUntil, setLeaveUntil] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Adult | null>(null);
   const [typesOpen, setTypesOpen] = useState(false);
@@ -61,6 +68,34 @@ export default function EquipePage() {
       { date: today, reason: reason.trim() || "Não informado" },
     ];
     await writeAbsences(absenceAdult, next);
+  };
+
+  // Afastamento prolongado (licença, férias): vale por um período, não só hoje.
+  const openLeave = (a: Adult) => {
+    const cur = a.leave;
+    const known = cur && LEAVE_KINDS.includes(cur.reason) ? cur.reason : cur ? "Outro" : LEAVE_KINDS[0]!;
+    setLeaveKind(known);
+    setLeaveOther(cur && known === "Outro" ? cur.reason : "");
+    setLeaveFrom(cur?.from ?? todayISO());
+    setLeaveUntil(cur?.until ?? "");
+    setLeaveAdult(a);
+  };
+  const writeLeave = async (adult: Adult, leave: Adult["leave"]) => {
+    const idx = (data?.adults ?? []).findIndex((a) => sameId(a.id, adult.id));
+    if (idx < 0) return;
+    await write(`adults/${idx}/leave`, leave ?? null);
+  };
+  const confirmLeave = async () => {
+    if (!leaveAdult) return;
+    const reasonText = leaveKind === "Outro" ? leaveOther.trim() : leaveKind;
+    if (!reasonText) throw new Error("Informe o motivo do afastamento.");
+    if (!leaveFrom) throw new Error("Informe a data de início.");
+    if (leaveUntil && leaveUntil <= leaveFrom) throw new Error("O retorno precisa ser depois do início.");
+    await writeLeave(leaveAdult, { reason: reasonText, from: leaveFrom, ...(leaveUntil ? { until: leaveUntil } : {}) });
+  };
+  const endLeave = async (a: Adult) => {
+    if (!confirm(`Encerrar o afastamento de ${a.name}? Ela volta a contar na equipe a partir de hoje.`)) return;
+    await writeLeave(a, null);
   };
 
   const removeAdult = async (a: Adult) => {
@@ -178,6 +213,8 @@ export default function EquipePage() {
       ) : (
         <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
           {filtered.map((a) => {
+            const leave = adultLeave(a);
+            const scheduled = !leave && a.leave && a.leave.from > todayISO() ? a.leave : null;
             const absent = isAdultAbsentToday(a);
             const reasonToday = absent
               ? (a.absences ?? []).find((abs) => abs.date === todayISO())?.reason
@@ -212,13 +249,37 @@ export default function EquipePage() {
                   {(a.assignments ?? []).length} período(s) de alocação
                 </div>
 
-                {absent && (
+                {leave ? (
                   <div className="mt-3 bg-danger/10 text-danger rounded-md px-3 py-2 text-xs font-bold">
-                    AUSENTE HOJE · Motivo: {reasonToday || "Não informado"}
+                    AFASTADO(A) · {leave.reason} · desde {formatBR(leave.from)}
+                    {leave.until ? ` · retorno previsto em ${formatBR(leave.until)}` : " · sem data de retorno"}
+                  </div>
+                ) : (
+                  absent && (
+                    <div className="mt-3 bg-danger/10 text-danger rounded-md px-3 py-2 text-xs font-bold">
+                      AUSENTE HOJE · Motivo: {reasonToday || "Não informado"}
+                    </div>
+                  )
+                )}
+                {scheduled && (
+                  <div className="mt-3 bg-warning/10 text-warning rounded-md px-3 py-2 text-xs font-bold">
+                    Afastamento marcado: {scheduled.reason} a partir de {formatBR(scheduled.from)}
                   </div>
                 )}
 
-                <div className="mt-3 flex items-center gap-4">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <button
+                    type="button"
+                    onClick={() => (a.leave ? endLeave(a) : openLeave(a))}
+                    className={clsx(
+                      "inline-flex items-center gap-1.5 text-xs font-semibold",
+                      a.leave ? "text-success hover:opacity-80" : "text-secondary hover:text-danger"
+                    )}
+                  >
+                    <CalendarOff className="w-3.5 h-3.5" aria-hidden="true" />
+                    {a.leave ? "Encerrar afastamento" : "Afastamento"}
+                  </button>
+                  {!leave && (
                   <button
                     type="button"
                     onClick={() => toggleAbsence(a)}
@@ -237,6 +298,7 @@ export default function EquipePage() {
                       </>
                     )}
                   </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => openEdit(a)}
@@ -268,6 +330,43 @@ export default function EquipePage() {
         <div>
           <label className={fieldLabel}>Motivo da falta (hoje)</label>
           <input value={reason} onChange={(e) => setReason(e.target.value)} autoFocus className={fieldInput} />
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!leaveAdult}
+        title={`Afastamento — ${leaveAdult?.name ?? ""}`}
+        onClose={() => setLeaveAdult(null)}
+        onSubmit={confirmLeave}
+        submitLabel="Registrar afastamento"
+      >
+        <p className="text-sm text-secondary">
+          Para ausências longas (licença, férias). A pessoa continua na sala dela, marcada como afastada, e não
+          conta na equipe em turno nem na proporção de alunos por adulto durante o período.
+        </p>
+        <div>
+          <label className={fieldLabel}>Motivo</label>
+          <select value={leaveKind} onChange={(e) => setLeaveKind(e.target.value)} className={fieldInput}>
+            {LEAVE_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </div>
+        {leaveKind === "Outro" && (
+          <div>
+            <label className={fieldLabel}>Qual motivo</label>
+            <input value={leaveOther} onChange={(e) => setLeaveOther(e.target.value)} className={fieldInput} />
+          </div>
+        )}
+        <div>
+          <label className={fieldLabel}>Início</label>
+          <input type="date" value={leaveFrom} onChange={(e) => setLeaveFrom(e.target.value)} className={fieldInput} />
+        </div>
+        <div>
+          <label className={fieldLabel}>Retorno previsto (deixe vazio se ainda não há data)</label>
+          <input type="date" value={leaveUntil} onChange={(e) => setLeaveUntil(e.target.value)} className={fieldInput} />
         </div>
       </Modal>
 

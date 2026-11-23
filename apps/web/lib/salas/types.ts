@@ -19,6 +19,16 @@ export interface Absence {
   reason?: string;
 }
 
+/**
+ * Afastamento prolongado (licença maternidade, licença médica, férias…).
+ * Diferente da falta do dia: vale de `from` até `until` (ou sem data de volta).
+ */
+export interface Leave {
+  reason: string;
+  from: string; // ISO "YYYY-MM-DD"
+  until?: string; // ISO do dia do RETORNO; ausente = sem previsão
+}
+
 export interface Adult {
   id: string | number;
   name: string;
@@ -26,6 +36,7 @@ export interface Adult {
   segmento?: Vila;
   assignments?: Assignment[];
   absences?: Absence[];
+  leave?: Leave | null;
 }
 
 export interface StudentSchedule {
