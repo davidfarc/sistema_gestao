@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { RefreshCw, AlertCircle, Search, Plus, Pencil, Trash2, Upload, RefreshCcw } from "lucide-react";
-import { useSalasData } from "@/lib/salas/SalasContext";
+import { useSalasControls, useSalasData } from "@/lib/salas/SalasContext";
 import { sameId } from "@/lib/salas/logic";
 import { useSalasWrite } from "@/lib/salas/SalasContext";
 import StudentFormModal from "@/components/salas/StudentFormModal";
@@ -22,6 +22,7 @@ function periodo(s: Student): string {
 
 export default function AlunosPage() {
   const { data, loading, error } = useSalasData();
+  const { year, currentYear, years, setYear } = useSalasControls();
   const write = useSalasWrite();
   const [name, setName] = useState("");
   const [vila, setVila] = useState<"" | Vila>("");
@@ -90,15 +91,28 @@ export default function AlunosPage() {
   };
 
   const syncActivesoft = async () => {
-    if (!confirm("Buscar alunos do ActiveSoft e atualizar o cadastro?")) return;
+    if (!confirm(`Buscar no ActiveSoft os alunos de ${year} e atualizar o cadastro?`)) return;
     setSyncing(true);
     try {
-      const res = await fetch("/api/salas/activesoft/sync", { method: "POST" });
+      const res = await fetch("/api/salas/activesoft/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Sincroniza o ano letivo que está em exibição.
+        body: JSON.stringify(year === currentYear ? {} : { ano: year }),
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
       const incoming: ActivesoftStudent[] = body.students ?? [];
+      // Guarda qual é o ano corrente segundo o ActiveSoft (define o padrão do seletor).
+      if (typeof body.currentYear === "string" && body.currentYear !== data?.activeYear) {
+        await write("activeYear", body.currentYear);
+      }
       if (incoming.length === 0) {
-        alert("ActiveSoft respondeu, mas não veio nenhum aluno.");
+        alert(
+          year === currentYear
+            ? "ActiveSoft respondeu, mas não veio nenhum aluno."
+            : `O ActiveSoft ainda não tem nenhum aluno matriculado em ${year} (${body.rooms ?? 0} turmas criadas, sem matrículas lançadas).`
+        );
         return;
       }
       let result = applyActivesoftSync(incoming, students, rooms);
@@ -116,7 +130,7 @@ export default function AlunosPage() {
       if (result.newRoomsCount > 0) await write("rooms", result.rooms);
       await write("students", result.students);
       alert(
-        `Sincronização OK:\n- Novos alunos: ${result.countNew}\n- Atualizados: ${result.countUpdated}\n- Novas salas: ${result.newRoomsCount}` +
+        `Sincronização de ${year} OK:\n- Novos alunos: ${result.countNew}\n- Atualizados: ${result.countUpdated}\n- Novas salas: ${result.newRoomsCount}` +
           (mark ? `\n- Marcados como fora da turma: ${missing}` : missing > 0 ? `\n- Fora da lista do ActiveSoft (não marcados): ${missing}` : "") +
           (result.countBack > 0 ? `\n- Voltaram a constar: ${result.countBack}` : "")
       );
@@ -167,8 +181,21 @@ export default function AlunosPage() {
           />
         </div>
         <div className="bg-surface-medium text-secondary px-4 py-2 rounded-lg text-sm font-bold">
-          Encontrados: {filtered.length}
+          Encontrados: {filtered.length} · Ativos: {filtered.filter((x) => !x.left && !x.pending).length}
         </div>
+        <select
+          value={year}
+          onChange={(e) => setYear(e.target.value)}
+          aria-label="Ano letivo"
+          title="Ano letivo"
+          className="bg-surface-lowest border border-surface-medium text-primary rounded-lg px-3 py-2 text-sm font-semibold cursor-pointer"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y === currentYear ? y : `${y} (matrículas)`}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={syncActivesoft}
@@ -222,7 +249,12 @@ export default function AlunosPage() {
                       <span className={s.left ? "line-through opacity-60" : undefined}>{s.name}</span>
                       {s.left && (
                         <span className="ml-2 rounded-md bg-danger/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-danger">
-                          Fora da turma
+                          {s.status && s.status !== "Cursando" ? s.status : "Fora da turma"}
+                        </span>
+                      )}
+                      {!s.left && s.pending && (
+                        <span className="ml-2 rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
+                          {s.status || "Pré-matrícula"}
                         </span>
                       )}
                     </td>

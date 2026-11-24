@@ -8,6 +8,8 @@ export interface ActivesoftStudent {
   birthDate: string | null;
   period?: string | null;
   status?: string | null;
+  /** A = ativo, I = inativo, P = pré-matrícula, S = lista de espera. */
+  statusType?: string | null;
 }
 
 export interface SyncResult {
@@ -21,6 +23,11 @@ export interface SyncResult {
   /** Quantos voltaram a constar na lista depois de terem sido marcados como fora. */
   countBack: number;
 }
+
+// Situações do ActiveSoft que significam "não está mais na turma". "Aprovado"
+// e "Concluído" não entram: o aluno cumpriu o ano (igual a activesoftApi.ts).
+const LEFT = new Set(["transferido", "cancelado", "desistente", "evadido", "inativo", "não efetivado", "nao efetivado"]);
+const isLeft = (src: ActivesoftStudent) => LEFT.has((src.status ?? "").trim().toLowerCase());
 
 // Deduz Vila 1/2 pelo nome da turma — regra portada do v2.7.
 function guessVila(roomName: string): Vila {
@@ -78,14 +85,18 @@ export function applyActivesoftSync(
       lunchDays: [],
       ...(src.period ? { period: src.period } : {}),
       ...(src.status ? { status: src.status } : {}),
-      // Está na lista do ActiveSoft: é aluno da turma.
-      left: false,
+      // A situação vem do ActiveSoft: saiu (transferido, cancelado…), ainda
+      // não entrou (pré-matrícula, lista de espera) ou é aluno da turma.
+      left: isLeft(src),
+      pending: src.statusType === "P" || src.statusType === "S",
     };
 
     const idx = students.findIndex((s) => sameId(s.id, src.id));
     if (idx >= 0) {
       const current = students[idx]!; // findIndex >= 0 garante o item
-      if (current.left) countBack++;
+      if (current.left && !base.left) countBack++;
+      if (base.left && !current.left) base.leftAt = todayISO();
+      else if (base.left && current.leftAt) base.leftAt = current.leftAt;
       const hasSchedule =
         (current.schedule?.morning ?? []).length > 0 ||
         (current.schedule?.afternoon ?? []).length > 0;

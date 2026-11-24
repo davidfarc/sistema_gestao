@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { provisionAndGetActor } from "@/lib/actor";
+import { loadSigaStudents, SigaError } from "@/lib/salas/activesoftApi";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,19 +17,9 @@ export const revalidate = 0;
 // Opcional: sem o token configurado, o botão apenas informa o erro e o resto
 // do módulo segue funcionando.
 
-interface RawStudent {
-  id_aluno?: number | string;
-  nome?: string;
-  nome_turma?: string;
-  serie_nome?: string;
-  data_nascimento?: string;
-  sigla_periodo?: string;
-  situacao_aluno_turma?: string;
-}
-
 const DEFAULT_URL = "https://siga.activesoft.com.br/api/v0";
 
-export async function POST() {
+export async function POST(request: Request) {
   const actor = await provisionAndGetActor();
   if (!actor?.isInternal) {
     return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
@@ -43,43 +34,20 @@ export async function POST() {
     );
   }
 
-  const endpoint = `${apiUrl.replace(/\/+$/, "")}/acesso/alunos/`;
+  // Ano letivo pedido (opcional): { "ano": "2027" }. Sem ele, o ano corrente do ActiveSoft.
+  let ano: string | undefined;
   try {
-    const res = await fetch(endpoint, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      return NextResponse.json(
-        { error: `ActiveSoft ${res.status}: ${body.slice(0, 240)}` },
-        { status: 502 },
-      );
-    }
+    const body = (await request.json()) as { ano?: unknown };
+    if (typeof body?.ano === "string" && /^\d{4}$/.test(body.ano)) ano = body.ano;
+  } catch {
+    // sem corpo: ano corrente
+  }
 
-    const payload: unknown = await res.json();
-    const list: RawStudent[] = Array.isArray(payload)
-      ? (payload as RawStudent[])
-      : Array.isArray((payload as { data?: unknown })?.data)
-        ? (payload as { data: RawStudent[] }).data
-        : [];
-
-    const students = list
-      .filter((s) => s?.id_aluno && s?.nome)
-      .map((s) => ({
-        id: String(s.id_aluno),
-        name: s.nome!,
-        roomName: s.nome_turma || s.serie_nome || "Sem Turma",
-        birthDate: s.data_nascimento ?? null,
-        // Ano letivo e situação na turma, como o ActiveSoft informa.
-        period: (s.sigla_periodo ?? "").trim() || null,
-        status: (s.situacao_aluno_turma ?? "").trim() || null,
-      }));
-
-    return NextResponse.json({ students });
+  try {
+    const result = await loadSigaStudents(apiUrl, token, ano);
+    return NextResponse.json(result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Falha ao consultar ActiveSoft: ${msg}` }, { status: 502 });
+    const msg = err instanceof SigaError ? err.message : `Falha ao consultar ActiveSoft: ${err instanceof Error ? err.name : "erro"}`;
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

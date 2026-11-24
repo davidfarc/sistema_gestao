@@ -1,7 +1,7 @@
 // Lógica pura portada do app v2.7 (classe EscolaSim). Sem efeitos colaterais —
 // só cálculo de presença, vila e ratios, para reuso em componentes e testes.
 
-import type { Adult, Assignment, Day, Room, Shift, StaffType, Student, Vila } from "./types";
+import type { Adult, Assignment, Day, Leave, Room, Shift, StaffType, Student, Vila } from "./types";
 
 export const DAYS: Day[] = ["segunda", "terca", "quarta", "quinta", "sexta"];
 
@@ -41,8 +41,22 @@ export function checkStaffAssignment(
   return shift === "morning" ? start < 1200 && end > 700 : start < 1800 && end > 1300;
 }
 
+/** Afastamento em vigor hoje (licença, férias…), ou null. */
+export function adultLeave(a: Adult, today = new Date().toISOString().slice(0, 10)): Leave | null {
+  const l = a.leave;
+  if (!l || !l.from || l.from > today) return null;
+  // `until` é o dia do retorno: nesse dia a pessoa já está de volta.
+  if (l.until && l.until <= today) return null;
+  return l;
+}
+export const isAdultOnLeave = (a: Adult) => adultLeave(a) !== null;
+
+// Quem está afastado não conta como presente no turno (nem vai para o Pátio):
+// continua aparecendo na sala dele, marcado como afastado.
 export const isAdultPresent = (a: Adult, day: Day, shift: Shift) =>
-  Array.isArray(a.assignments) && a.assignments.some((x) => checkStaffAssignment(x, day, shift));
+  !isAdultOnLeave(a) &&
+  Array.isArray(a.assignments) &&
+  a.assignments.some((x) => checkStaffAssignment(x, day, shift));
 
 export const isAdultInRoom = (a: Adult, roomId: string | number, day: Day, shift: Shift) =>
   !!roomId &&
@@ -50,7 +64,7 @@ export const isAdultInRoom = (a: Adult, roomId: string | number, day: Day, shift
   a.assignments.some((x) => checkStaffAssignment(x, day, shift, roomId));
 
 /** Aluno que conta: não foi marcado como fora da turma. */
-export const isActiveStudent = (s: Student): boolean => s.left !== true;
+export const isActiveStudent = (s: Student): boolean => s.left !== true && s.pending !== true;
 
 export function isStudentPresent(s: Student, day: Day, shift: Shift): boolean {
   // Quem saiu da turma (transferido, cancelado) não entra em contagem nenhuma.
@@ -134,7 +148,42 @@ export function idSet(ids: (string | number)[] | undefined): Set<string> {
 export const formatBR = (iso: string) => iso.split("-").reverse().join("/");
 
 export function isAdultAbsentToday(a: Adult, today = todayISO()): boolean {
+  if (adultLeave(a, today)) return true;
   return Array.isArray(a.absences) && a.absences.some((abs) => abs?.date === today);
+}
+
+/** Todos os afastamentos da pessoa (o atual e os encerrados), do mais recente ao mais antigo. */
+export function allLeaves(a: Adult): Leave[] {
+  const list = [...(a.leave ? [a.leave] : []), ...toArray<Leave>(a.leaveHistory)];
+  return list.filter((l) => l?.from).sort((x, y) => y.from.localeCompare(x.from));
+}
+
+/**
+ * Dias úteis (segunda a sexta) de um afastamento dentro do período [start, end].
+ * O dia do retorno não conta; afastamento sem retorno vai até o fim do período.
+ */
+export function leaveWeekdaysIn(l: Leave, start: string, end: string): number {
+  const from = l.from > start ? l.from : start;
+  const lastDay = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  };
+  const to = l.until && lastDay(l.until) < end ? lastDay(l.until) : end;
+  if (from > to) return 0;
+  let n = 0;
+  for (let d = new Date(`${from}T12:00:00Z`); d.toISOString().slice(0, 10) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const wd = d.getUTCDay();
+    if (wd >= 1 && wd <= 5) n++;
+  }
+  return n;
+}
+
+/** Texto curto da ausência de hoje: o afastamento, se houver, ou "Ausente". */
+export function absenceLabel(a: Adult, today = todayISO()): string {
+  const l = adultLeave(a, today);
+  if (!l) return "Ausente";
+  return l.until ? `${l.reason}, volta em ${formatBR(l.until).slice(0, 5)}` : l.reason;
 }
 
 export function ratioBadge(ratio: number): "success" | "warning" | "danger" {

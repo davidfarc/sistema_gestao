@@ -39,6 +39,11 @@ interface SalasCtx {
   day: Day;
   shift: Shift;
   scenario: Scenario;
+  /** Ano letivo em exibição, o ano corrente e os anos disponíveis. */
+  year: string;
+  currentYear: string;
+  years: string[];
+  setYear: (y: string) => void;
   setVila: (v: Vila) => void;
   setDay: (d: Day) => void;
   setShift: (s: Shift) => void;
@@ -96,6 +101,10 @@ function normalize(raw: Record<string, unknown> | null): EscolaSimState {
     staffTypes: toArray<StaffType>(src.staffTypes),
     dailyRoutine: (src.dailyRoutine as Record<string, DailyRoutine>) ?? {},
     buscaAtivaLogs: (src.buscaAtivaLogs as Record<string, BuscaAtivaLog>) ?? {},
+    activeYear: typeof src.activeYear === "string" ? src.activeYear : undefined,
+    yearStudents: Object.fromEntries(
+      Object.entries((src.yearStudents as Record<string, unknown>) ?? {}).map(([y, list]) => [y, toArray<Student>(list)]),
+    ),
   };
 }
 
@@ -110,6 +119,8 @@ export function SalasProvider({
   const [day, setDay] = useState<Day>("segunda");
   const [shift, setShift] = useState<Shift>("morning");
   const [scenario, setScenarioState] = useState<Scenario>("real");
+  // null = o ano corrente (o padrão); outro valor = matrículas de outro ano letivo.
+  const [pickedYear, setYear] = useState<string | null>(null);
 
   const [real, setReal] = useState<EscolaSimState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,8 +161,19 @@ export function SalasProvider({
     if (real) setSnapshot(structuredClone(real));
   }, [real]);
 
+  const base = scenario === "simulated" ? (snapshot ?? real) : real;
+  const currentYear = base?.activeYear ?? String(new Date().getFullYear());
+  const year = pickedYear ?? currentYear;
+  const otherYear = year !== currentYear;
+
   const write = useCallback(
-    async (path: string, value: unknown) => {
+    async (rawPath: string, value: unknown) => {
+      // Vendo outro ano letivo, a lista de alunos é a daquele ano: as gravações
+      // em "students" vão para o lugar dela, sem tocar nos alunos do ano corrente.
+      const path =
+        otherYear && (rawPath === "students" || rawPath.startsWith("students/"))
+          ? `yearStudents/${year}${rawPath.slice("students".length)}`
+          : rawPath;
       if (scenario === "simulated") {
         setSnapshot((prev) => {
           const base = prev ?? (real ? structuredClone(real) : normalize(null));
@@ -170,10 +192,17 @@ export function SalasProvider({
       const res = await salasWrite(path, value);
       if (!res.ok) setError(res.error);
     },
-    [scenario, real, canEdit],
+    [scenario, real, canEdit, otherYear, year],
   );
 
-  const data = scenario === "simulated" ? (snapshot ?? real) : real;
+  const data = useMemo(
+    () => (base && otherYear ? { ...base, students: base.yearStudents?.[year] ?? [] } : base),
+    [base, otherYear, year],
+  );
+  const years = useMemo(() => {
+    const set = new Set<string>([currentYear, String(Number(currentYear) + 1), ...Object.keys(base?.yearStudents ?? {})]);
+    return [...set].filter((y) => /^\d{4}$/.test(y)).sort();
+  }, [currentYear, base?.yearStudents]);
 
   const value: SalasCtx = useMemo(
     () => ({
@@ -181,6 +210,10 @@ export function SalasProvider({
       day,
       shift,
       scenario,
+      year,
+      currentYear,
+      years,
+      setYear,
       setVila,
       setDay,
       setShift,
@@ -192,7 +225,7 @@ export function SalasProvider({
       canEdit,
       write,
     }),
-    [vila, day, shift, scenario, data, loading, error, canEdit, setScenario, resetSim, write],
+    [vila, day, shift, scenario, year, currentYear, years, data, loading, error, canEdit, setScenario, resetSim, write],
   );
 
   return <SalasContext.Provider value={value}>{children}</SalasContext.Provider>;
@@ -201,8 +234,8 @@ export function SalasProvider({
 export function useSalasControls() {
   const ctx = useContext(SalasContext);
   if (!ctx) throw new Error("useSalasControls deve ser usado dentro de <SalasProvider>");
-  const { vila, day, shift, scenario, setVila, setDay, setShift, setScenario, resetSim } = ctx;
-  return { vila, day, shift, scenario, setVila, setDay, setShift, setScenario, resetSim };
+  const { vila, day, shift, scenario, year, currentYear, years, setYear, setVila, setDay, setShift, setScenario, resetSim } = ctx;
+  return { vila, day, shift, scenario, year, currentYear, years, setYear, setVila, setDay, setShift, setScenario, resetSim };
 }
 
 export function useSalasScope() {

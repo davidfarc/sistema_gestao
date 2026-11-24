@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw, AlertCircle, Printer, Download } from "lucide-react";
 import clsx from "clsx";
 import { useSalasData } from "@/lib/salas/SalasContext";
-import { formatBR, todayISO, translateType } from "@/lib/salas/logic";
+import { allLeaves, formatBR, leaveWeekdaysIn, todayISO, translateType } from "@/lib/salas/logic";
 import type { Absence } from "@/lib/salas/types";
 
 type Tab = "routine" | "absences";
@@ -20,6 +20,8 @@ interface AbsenceRow {
   type: string;
   total: number;
   details: Absence[];
+  /** Afastamentos (licença, férias) que tocam o período, com os dias úteis dentro dele. */
+  leaves: { text: string; days: number }[];
 }
 
 function downloadCSV(filename: string, rows: Record<string, string | number>[]) {
@@ -78,12 +80,21 @@ export default function RelatoriosPage() {
     const rows: AbsenceRow[] = [];
     for (const a of data?.adults ?? []) {
       const inRange = (a.absences ?? []).filter((abs) => abs.date && abs.date >= start && abs.date <= end);
-      if (inRange.length > 0) {
+      const leaves = allLeaves(a)
+        .map((l) => ({
+          days: leaveWeekdaysIn(l, start, end),
+          text:
+            `${l.reason}: desde ${formatBR(l.from)}` +
+            (l.until ? `, retorno em ${formatBR(l.until)}` : ", sem data de retorno"),
+        }))
+        .filter((l) => l.days > 0);
+      if (inRange.length > 0 || leaves.length > 0) {
         rows.push({
           name: a.name,
           type: translateType(data?.staffTypes ?? [], a.type),
           total: inRange.length,
           details: [...inRange].sort((x, y) => (y.date || "").localeCompare(x.date || "")),
+          leaves,
         });
       }
     }
@@ -128,6 +139,8 @@ export default function RelatoriosPage() {
           CARGO: r.type,
           TOTAL_FALTAS: r.total,
           DATAS_MOTIVOS: r.details.map((d) => `${d.date ? formatBR(d.date) : "-"}: ${d.reason ?? "-"}`).join(" | "),
+          DIAS_UTEIS_AFASTADO: r.leaves.reduce((n, l) => n + l.days, 0),
+          AFASTAMENTOS: r.leaves.map((l) => `${l.text} (${l.days} dias úteis no período)`).join(" | "),
         }))
       );
     }
@@ -149,7 +162,7 @@ export default function RelatoriosPage() {
     <div className="space-y-5">
       <div className="flex gap-2 border-b border-surface-medium">
         {tabBtn("routine", "Rotina dos Alunos")}
-        {tabBtn("absences", "Faltas da Equipe")}
+        {tabBtn("absences", "Faltas e afastamentos da Equipe")}
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -243,6 +256,12 @@ export default function RelatoriosPage() {
                     </td>
                     <td className="px-4 py-3 text-secondary">
                       <div className="flex flex-col gap-1">
+                        {r.leaves.map((l, j) => (
+                          <span key={`l${j}`} className="text-danger">
+                            • <strong>Afastamento</strong> · {l.text} ·{" "}
+                            <strong>{l.days} {l.days === 1 ? "dia útil" : "dias úteis"}</strong> no período
+                          </span>
+                        ))}
                         {r.details.map((d, j) => (
                           <span key={j}>
                             • <strong className="text-primary">{d.date ? formatBR(d.date) : "-"}</strong>: {d.reason ?? "-"}
@@ -255,7 +274,7 @@ export default function RelatoriosPage() {
                 {absenceRows.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-12 text-center text-secondary italic">
-                      Nenhuma falta registrada para a equipe no período.
+                      Nenhuma falta ou afastamento registrado para a equipe no período.
                     </td>
                   </tr>
                 )}

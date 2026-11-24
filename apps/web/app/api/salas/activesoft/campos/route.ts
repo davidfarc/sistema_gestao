@@ -32,9 +32,11 @@ export async function GET(request: Request) {
   const apiUrl = process.env.ACTIVESOFT_API_URL || DEFAULT_URL;
   if (!token) return NextResponse.json({ error: "ACTIVESOFT_API_TOKEN não configurado." }, { status: 500 });
 
-  const path = new URL(request.url).searchParams.get("caminho") ?? "acesso/alunos";
+  const asked = new URL(request.url).searchParams.get("caminho") ?? "acesso/alunos";
+  // "raiz" = o endereço-base da API, que costuma listar os recursos disponíveis.
+  const path = asked === "raiz" ? "" : asked;
   // Só caminhos simples da própria API (sem "..", sem outro servidor).
-  if (!/^[a-z0-9_]+(\/[a-z0-9_]+){0,3}$/i.test(path)) {
+  if (path !== "" && !/^[a-z0-9_-]+(\/[a-z0-9_-]+){0,3}$/i.test(path)) {
     return NextResponse.json({ error: "Caminho inválido." }, { status: 400 });
   }
   // Repassa só filtros simples (?ano=2027), para testar o que a API aceita.
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
   for (const [k, v] of new URL(request.url).searchParams) {
     if (k !== "caminho" && /^[a-z_]{1,30}$/i.test(k) && /^[\w.-]{1,30}$/.test(v)) query.set(k, v);
   }
-  const endpoint = `${apiUrl.replace(/\/+$/, "")}/${path}/${query.size ? `?${query}` : ""}`;
+  const endpoint = `${apiUrl.replace(/\/+$/, "")}/${path ? `${path}/` : ""}${query.size ? `?${query}` : ""}`;
 
   try {
     const res = await fetch(endpoint, {
@@ -50,9 +52,21 @@ export async function GET(request: Request) {
       cache: "no-store",
     });
     if (!res.ok) {
-      return NextResponse.json({ caminho: path, erro: `ActiveSoft respondeu ${res.status}` }, { status: 502 });
+      return NextResponse.json({ caminho: path || "raiz", erro: `ActiveSoft respondeu ${res.status}` }, { status: 502 });
     }
     const payload: unknown = await res.json();
+    // Índice de recursos: um objeto cujos valores são endereços da própria API.
+    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const entries = Object.entries(payload as Record<string, unknown>);
+      const links = entries.filter(([, v]) => typeof v === "string" && /^https?:\/\//.test(v as string));
+      if (links.length > 0 && links.length === entries.length) {
+        const base = apiUrl.replace(/\/+$/, "");
+        return NextResponse.json({
+          caminho: path || "raiz",
+          recursos: Object.fromEntries(links.map(([k, v]) => [k, String(v).replace(base, "").replace(/^\/+|\/+$/g, "")])),
+        });
+      }
+    }
     const envelope = payload && typeof payload === "object" && !Array.isArray(payload) ? Object.keys(payload) : null;
     const list: Record<string, unknown>[] = Array.isArray(payload)
       ? (payload as Record<string, unknown>[])

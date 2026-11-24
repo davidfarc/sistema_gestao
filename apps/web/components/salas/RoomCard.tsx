@@ -3,7 +3,9 @@
 import clsx from "clsx";
 import { User, UserX, Pencil, Trash2, Eye } from "lucide-react";
 import {
+  absenceLabel,
   isAdultAbsentToday,
+  isAdultOnLeave,
   isAdultInRoom,
   isStudentPresent,
   ratioBadge,
@@ -43,7 +45,9 @@ export default function RoomCard({
     (s) => sameId(s.roomId, room.id) && isStudentPresent(s, day, shift)
   );
   const roomAdults = adults.filter((a) => isAdultInRoom(a, room.id, day, shift));
-  const ratio = roomAdults.length > 0 ? roomStudents.length / roomAdults.length : roomStudents.length;
+  // Quem está afastado aparece na sala, mas não conta na proporção.
+  const counting = roomAdults.filter((a) => !isAdultOnLeave(a)).length;
+  const ratio = counting > 0 ? roomStudents.length / counting : roomStudents.length;
   const tone = ratioBadge(ratio);
 
   return (
@@ -112,7 +116,7 @@ export default function RoomCard({
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <strong className="text-primary truncate">
                     {a.name}
-                    {absent && <span className="font-normal text-danger"> (Ausente)</span>}
+                    {absent && <span className="font-normal text-danger"> ({absenceLabel(a)})</span>}
                   </strong>
                   <div className="flex items-center gap-2">
                     <span className="bg-primary/5 text-primary px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide">

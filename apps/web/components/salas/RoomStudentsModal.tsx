@@ -25,8 +25,8 @@ export default function RoomStudentsModal({
     .filter((s) => sameId(s.roomId, room.id))
     .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR"));
   // Quem conta na turma; os que saíram aparecem riscados no fim, fora dos números.
-  const list = all.filter((s) => !s.left);
-  const gone = all.filter((s) => s.left);
+  const list = all.filter((s) => !s.left && !s.pending);
+  const gone = all.filter((s) => s.left || s.pending);
 
   const rows = list.map((s) => ({
     s,
@@ -48,7 +48,7 @@ export default function RoomStudentsModal({
       size="lg"
     >
       <p className="text-sm text-secondary">
-        {list.length} alunos{gone.length > 0 ? ` (${gone.length} fora da turma, não contados)` : ""} · Exibindo horários para <strong className="text-primary">{dayLabel}</strong>
+        {list.length} alunos{gone.length > 0 ? ` (${gone.length} fora da turma ou em pré-matrícula, não contados)` : ""} · Exibindo horários para <strong className="text-primary">{dayLabel}</strong>
       </p>
       {list.length > 0 && (
         <p className="text-sm text-secondary">
@@ -88,8 +88,14 @@ export default function RoomStudentsModal({
             {gone.map((s) => (
               <tr key={String(s.id)} className="border-t border-surface-medium opacity-60">
                 <td className="px-4 py-2 text-secondary">
-                  <span className="line-through">{s.name}</span>
-                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-danger">Fora da turma</span>
+                  <span className={s.left ? "line-through" : undefined}>{s.name}</span>
+                  <span
+                    className={
+                      "ml-2 text-[10px] font-bold uppercase tracking-wide " + (s.left ? "text-danger" : "text-warning")
+                    }
+                  >
+                    {s.status && s.status !== "Cursando" ? s.status : s.left ? "Fora da turma" : "Pré-matrícula"}
+                  </span>
                 </td>
                 <td colSpan={3} className="px-3 py-2 text-center text-xs text-secondary">
                   não conta
