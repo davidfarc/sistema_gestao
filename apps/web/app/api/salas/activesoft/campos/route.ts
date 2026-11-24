@@ -80,8 +80,11 @@ export async function GET(request: Request) {
         if (value !== null && value !== undefined && value !== "") {
           s.preenchidos++;
           s.tipos.add(Array.isArray(value) ? "lista" : typeof value);
-          if (typeof value !== "object" && s.valores.size <= 200) {
-            const v = String(value).slice(0, 60);
+          // Listas (ex.: id_turmas) contam cada elemento.
+          const items = Array.isArray(value) ? value : typeof value === "object" ? [] : [value];
+          for (const item of items) {
+            if (typeof item === "object" || s.valores.size > 200) continue;
+            const v = String(item).slice(0, 60);
             s.valores.set(v, (s.valores.get(v) ?? 0) + 1);
           }
         }
