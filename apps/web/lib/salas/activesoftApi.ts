@@ -121,14 +121,25 @@ export async function loadSigaStudents(base: string, token: string, askedYear?: 
   }
   const roomName = (id: string) => legacyRoomName.get(id) || str(roomById.get(id)?.nome) || "Sem Turma";
 
-  // Matrículas com situação.
-  const enrollments = isCurrent
-    ? await getAll(root, token, "/enturmacao_com_detalhes/")
-    : (
-        await inBatches([...roomById.keys()], 6, (id) =>
-          getAll(root, token, `/enturmacao_com_detalhes/?turma=${encodeURIComponent(id)}`),
-        )
-      ).flat();
+  // Matrículas com situação. A lista geral já traz as pré-matrículas do ano
+  // seguinte (a turma delas é de 2027); a consulta turma a turma cobre o resto.
+  // Para outro ano, junta as duas e descarta repetidas.
+  const all = await getAll(root, token, "/enturmacao_com_detalhes/");
+  let enrollments = all;
+  if (!isCurrent) {
+    const perRoom = (
+      await inBatches([...roomById.keys()], 6, (id) =>
+        getAll(root, token, `/enturmacao_com_detalhes/?turma=${encodeURIComponent(id)}`),
+      )
+    ).flat();
+    const seen = new Set<string>();
+    enrollments = [...all.filter((e) => roomById.has(str(e.turma_id))), ...perRoom].filter((e) => {
+      const key = `${str(e.aluno_id)}|${str(e.turma_id)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
   // Nomes e nascimento (a enturmação só traz o id do aluno).
   const people = new Map<string, { name: string; birthDate: string | null }>();

@@ -91,7 +91,9 @@ export async function GET(request: Request) {
 
     const campos = [...stats.entries()].map(([campo, s]) => {
       const limite = CLASSIFIER.test(campo) ? 120 : 25;
-      const listar = !PERSONAL.test(campo) && s.valores.size > 0 && s.valores.size <= limite;
+      // "nome_turma…" e afins são classificação, não dado pessoal.
+      const pessoal = PERSONAL.test(campo) && !/turma|curso|serie/i.test(campo);
+      const listar = !pessoal && s.valores.size > 0 && s.valores.size <= limite;
       return {
         campo,
         preenchidos: s.preenchidos,
