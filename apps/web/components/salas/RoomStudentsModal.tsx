@@ -72,7 +72,12 @@ export default function RoomStudentsModal({
             {rows.length > 0 ? (
               rows.map(({ s, manha, tarde, almoco }) => (
                 <tr key={String(s.id)} className="border-t border-surface-medium">
-                  <td className="px-4 py-2 font-semibold text-primary">{s.name}</td>
+                  <td className="px-4 py-2 font-semibold text-primary">
+                    {s.name}
+                    {s.status === "Pré-matrícula" && (
+                      <span className="ml-2 text-[10px] font-bold uppercase tracking-wide text-warning">Pré-matrícula</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-center">{manha ? "☀️" : "-"}</td>
                   <td className="px-3 py-2 text-center">{tarde ? "🌤️" : "-"}</td>
                   <td className="px-3 py-2 text-center">{almoco ? "🍴" : "-"}</td>

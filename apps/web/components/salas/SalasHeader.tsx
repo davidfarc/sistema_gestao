@@ -74,6 +74,11 @@ export default function SalasHeader({ stats }: { stats: Stats }) {
               {sim ? "Cenário Simulado" : "Cenário Real"}
             </span>{" "}
             <span className="ml-1">{DAY_LABELS[day]}</span>
+            {year !== currentYear && (
+              <span className="ml-2 inline-block px-2 py-0.5 rounded-md text-xs font-bold bg-warning/15 text-warning">
+                Previsão {year}: inclui pré-matrículas
+              </span>
+            )}
           </p>
         </div>
 
@@ -92,7 +97,7 @@ export default function SalasHeader({ stats }: { stats: Stats }) {
           >
             {years.map((y) => (
               <option key={y} value={y}>
-                {y === currentYear ? y : `${y} (matrículas)`}
+                {y === currentYear ? y : `${y} (previsão)`}
               </option>
             ))}
           </select>

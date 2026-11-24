@@ -115,7 +115,9 @@ export default function AlunosPage() {
         );
         return;
       }
-      let result = applyActivesoftSync(incoming, students, rooms);
+      // Ano futuro é previsão: a pré-matrícula conta na turma. O ano corrente não muda.
+      const forecast = year !== currentYear;
+      let result = applyActivesoftSync(incoming, students, rooms, false, forecast);
       // Quem está no cadastro e não veio na lista: pergunta antes de marcar.
       const missing = result.missing.length;
       const mark =
@@ -126,7 +128,7 @@ export default function AlunosPage() {
             `Marcar como "fora da turma"? Eles continuam na lista, riscados, e saem de todas as contagens. ` +
             `Dá para desfazer editando o aluno.`
         );
-      if (mark) result = applyActivesoftSync(incoming, students, rooms, true);
+      if (mark) result = applyActivesoftSync(incoming, students, rooms, true, forecast);
       if (result.newRoomsCount > 0) await write("rooms", result.rooms);
       await write("students", result.students);
       alert(
@@ -192,7 +194,7 @@ export default function AlunosPage() {
         >
           {years.map((y) => (
             <option key={y} value={y}>
-              {y === currentYear ? y : `${y} (matrículas)`}
+              {y === currentYear ? y : `${y} (previsão)`}
             </option>
           ))}
         </select>
@@ -252,7 +254,7 @@ export default function AlunosPage() {
                           {s.status && s.status !== "Cursando" ? s.status : "Fora da turma"}
                         </span>
                       )}
-                      {!s.left && s.pending && (
+                      {!s.left && (s.pending || s.status === "Pré-matrícula") && (
                         <span className="ml-2 rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">
                           {s.status || "Pré-matrícula"}
                         </span>
