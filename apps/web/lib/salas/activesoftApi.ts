@@ -8,10 +8,11 @@ import "server-only";
  * pré-matrícula…). O `/acesso/alunos/`, usado antes, só lista quem está ativo
  * no ano corrente: quem saía simplesmente sumia.
  *
- * Particularidades conferidas na API em 23/11/2026:
- *  - outro ano letivo só por `/lista_turmas/?periodo_sigla=AAAA` e depois
- *    `/enturmacao_com_detalhes/?turma=<id>` turma a turma (o filtro de período
- *    não funciona na enturmação);
+ * Particularidades conferidas na API em 23 e 24/11/2026:
+ *  - o período se pede com `periodo=AAAA` na enturmação e com
+ *    `periodo_sigla=AAAA` em /lista_turmas/ (nomes diferentes, nenhum
+ *    documentado); sem ele vem o ano corrente, e `turma=<id>` sozinho não
+ *    alcança outro ano (volta vazio, sem erro);
  *  - a paginação só liga com `limit`; aí a resposta vem em `{count, results}`;
  *  - a mesma chave tem três nomes: `id` / `id_aluno` / `aluno_id` (e turma idem);
  *  - `sigla_periodo` vem com espaços à direita;
@@ -73,13 +74,6 @@ async function getAll(base: string, token: string, path: string): Promise<Row[]>
   return out;
 }
 
-/** Em lotes, para não abrir dezenas de conexões de uma vez. */
-async function inBatches<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out: R[] = [];
-  for (let i = 0; i < items.length; i += size) out.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
-  return out;
-}
-
 // Situações que significam "não está mais na turma". "Aprovado" e "Concluído"
 // são inativos para o ActiveSoft, mas o aluno cumpriu o ano: não é uma saída
 // (no fim do ano letivo a turma inteira fica "Aprovado").
@@ -121,14 +115,11 @@ export async function loadSigaStudents(base: string, token: string, askedYear?: 
   }
   const roomName = (id: string) => legacyRoomName.get(id) || str(roomById.get(id)?.nome) || "Sem Turma";
 
-  // Matrículas com situação.
-  const enrollments = isCurrent
-    ? await getAll(root, token, "/enturmacao_com_detalhes/")
-    : (
-        await inBatches([...roomById.keys()], 6, (id) =>
-          getAll(root, token, `/enturmacao_com_detalhes/?turma=${encodeURIComponent(id)}`),
-        )
-      ).flat();
+  // Matrículas com situação, SEMPRE com o período explícito: sem ele a API
+  // devolve o ano corrente, e o filtro por turma sozinho não alcança outro
+  // ano (volta vazio, sem erro). Neste recurso o parâmetro é `periodo`; em
+  // /lista_turmas/ é `periodo_sigla`.
+  const enrollments = await getAll(root, token, `/enturmacao_com_detalhes/?periodo=${year}`);
 
   // Nomes e nascimento (a enturmação só traz o id do aluno).
   const people = new Map<string, { name: string; birthDate: string | null }>();

@@ -51,7 +51,12 @@ export function applyActivesoftSync(
   currentStudents: Student[],
   currentRooms: Room[],
   /** Marcar como fora da turma quem não veio na lista (o chamador confirma antes). */
-  markMissing = false
+  markMissing = false,
+  /**
+   * Pré-matrícula conta como aluno da turma? Só na previsão de um ano futuro;
+   * no ano corrente, pré-matrícula não entra nas contagens.
+   */
+  countPreEnrolled = false
 ): SyncResult {
   const rooms = [...currentRooms];
   const students = [...currentStudents];
@@ -88,7 +93,7 @@ export function applyActivesoftSync(
       // A situação vem do ActiveSoft: saiu (transferido, cancelado…), ainda
       // não entrou (pré-matrícula, lista de espera) ou é aluno da turma.
       left: isLeft(src),
-      pending: src.statusType === "P" || src.statusType === "S",
+      pending: (src.statusType === "P" && !countPreEnrolled) || src.statusType === "S",
     };
 
     const idx = students.findIndex((s) => sameId(s.id, src.id));
