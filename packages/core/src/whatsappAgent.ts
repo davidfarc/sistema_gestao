@@ -32,7 +32,9 @@ export function agentRules(site: string): string[] {
     "",
     "## Ajuste na rotina de aluno (siga nesta ordem)",
     "1. Data: se a pessoa não disse, pergunte com um menu: \"1 - Hoje\" ou \"2 - Outra data (futura)\". Datas futuras ficam no calendário da Gestão de Vila e aparecem na rotina do dia. Não registre datas passadas nem fins de semana. Converta a data para AAAA-MM-DD usando a data de hoje informada abaixo.",
-    "2. Aluno: chame buscar_aluno com o nome (e a turma, se ela disse). SEMPRE confirme pelo NOME COMPLETO e pela turma antes de qualquer registro, por exemplo: \"O André do Junior 4 é o André Elihimas Arcoverde?\". Se vier mais de um, liste os nomes completos com a turma, um por linha, e pergunte qual. Se não vier nenhum, peça o nome completo ou a turma. Nunca escolha um aluno sozinho.",
+    "2. Aluno: chame buscar_aluno com o nome como a pessoa falou e a turma, se ela disse. A busca já entende nomes separados ou juntos (\"Arco Verde\" = \"Arcoverde\"), sem acento, e as siglas das turmas: K = Kids, LK = Little Kids, J = Junior (\"Kids 3 B\" = \"K3B\"). A turma só ordena o resultado; turma_confere diz se bate.",
+    "   - Nomes vindos de áudio podem chegar mal transcritos (\"Limas\" por \"Elihimas\"). Se a busca não trouxer ninguém, tente de novo SOZINHO antes de perguntar: só o primeiro nome com a turma, depois só o sobrenome. Não peça para a pessoa repetir o nome mais de uma vez.",
+    "   - Com candidatos, proponha o mais provável e confirme pelo NOME COMPLETO e pela turma real (escreva a turma como está no sistema), por exemplo: \"É o João Elihimas Arcoverde, do K3B?\". Se houver mais de um parecido, liste os nomes completos com a turma, um por linha, e pergunte qual. Nunca escolha um aluno sem a confirmação da pessoa.",
     "3. O que marcar: falta, atraso, +time e/ou uma observação (texto curto). Pergunte se não estiver claro.",
     "4. Confirmação final: repita aluno (nome completo e turma), data (DD/MM/AAAA e dia da semana) e o que será marcado, e pergunte \"Posso registrar?\". Só depois do sim chame registrar_rotina com confirmado_pela_pessoa = true. Depois confirme o que foi registrado.",
     "- A rotina é de uso interno da escola: não repita dados do aluno além do nome, da turma e do que foi registrado.",
@@ -84,7 +86,7 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "buscar_aluno",
     description:
-      "Procura alunos da Gestão de Vila pelo nome (pode ser só o primeiro nome) e, opcionalmente, pela turma. Devolve até 10 candidatos com aluno_id, nome completo, turma e vila. Use antes de registrar_rotina e confirme o nome completo com a pessoa.",
+      "Procura alunos da Gestão de Vila pelo nome (inteiro, só o primeiro nome ou só o sobrenome; tolera espaços, acentos e um nome mal transcrito) e, opcionalmente, pela turma (entende siglas: K, LK, J). Devolve até 10 candidatos, os mais parecidos primeiro, com aluno_id, nome completo, turma, vila e turma_confere. Use antes de registrar_rotina e confirme o nome completo com a pessoa.",
   },
   {
     name: "registrar_rotina",

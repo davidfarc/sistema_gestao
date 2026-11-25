@@ -736,6 +736,7 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 | `0055_whatsapp_images.sql` | `whatsapp_message.kind` aceita 'image'; tabela `whatsapp_media`; `whatsapp_media_add` e `whatsapp_attach_media`; `whatsapp_agent` anexa fotos pendentes ao abrir/reforçar e ganha `anexar_imagens` | **A aplicar** |
 | `0056_drive_archive.sql` | `board.drive_archive`; tabelas `drive_folder` e `card_drive`; fila `whatsapp_drive_take` e confirmações (`_folder`, `_card`, `_image`) para gravar evidências no Google Drive | **A aplicar** |
 | `0057_whatsapp_routine.sql` | Função `whatsapp_routine` (Luix na rotina da Gestão de Vila: buscar aluno e registrar falta, atraso, +time e observação; só chave de servidor, exige `has_access('salas')`) | **A aplicar** |
+| `0058_whatsapp_routine_search.sql` | `buscar_aluno` tolerante: ignora espaços e acentos, aceita nome mal transcrito, entende siglas de turma (K, LK, J); a turma ordena em vez de excluir | **A aplicar** |
 
 ### Bloco A — Quadro (código completo)
 
