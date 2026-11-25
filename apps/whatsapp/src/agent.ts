@@ -39,6 +39,10 @@ export interface AgentContext {
   conversa: { de: "pessoa" | "agente"; texto: string }[];
   /** Fotos que a pessoa mandou há pouco e ainda não foram para nenhum card. */
   imagens_pendentes?: number;
+  /** Pode registrar ajustes na rotina da Gestão de Vila? (migration 0057) */
+  pode_rotina?: boolean;
+  /** Data de hoje em São Paulo, AAAA-MM-DD. */
+  hoje_iso?: string;
 }
 
 export interface AgentDeps {
@@ -142,6 +146,26 @@ export const TOOLS: ChatTool[] = [
     ["numero", "legenda", "pipeline_id"],
   ),
   tool(
+    "buscar_aluno",
+    describe("buscar_aluno"),
+    { nome: text, turma: { type: "string", description: "Turma, se a pessoa disse (ex.: 'Junior 4'); senão, vazio." } },
+    ["nome", "turma"],
+  ),
+  tool(
+    "registrar_rotina",
+    describe("registrar_rotina"),
+    {
+      aluno_id: text,
+      data: { type: "string", description: "AAAA-MM-DD" },
+      falta: { type: "boolean" },
+      atraso: { type: "boolean" },
+      mais_time: { type: "boolean" },
+      observacao: { type: "string", description: "Texto curto, ou vazio." },
+      confirmado_pela_pessoa: { type: "boolean" },
+    },
+    ["aluno_id", "data", "falta", "atraso", "mais_time", "observacao", "confirmado_pela_pessoa"],
+  ),
+  tool(
     "situacao_pedido",
     describe("situacao_pedido"),
     { numero: text },
@@ -159,6 +183,7 @@ export function systemPrompt(ctx: AgentContext, appUrl: string): string {
     "",
     `Quem escreve agora: ${ctx.pessoa}. Data e hora em São Paulo: ${ctx.hoje}.`,
     `Fotos que esta pessoa enviou há pouco e ainda não foram para nenhum pedido: ${ctx.imagens_pendentes ?? 0}.`,
+    `Ajuste na rotina de aluno disponível para esta pessoa (pode_rotina): ${ctx.pode_rotina ? "sim" : "não"}. Data de hoje (AAAA-MM-DD): ${ctx.hoje_iso ?? "desconhecida"}.`,
     "",
     "## Pipelines que você atende para esta pessoa",
     pipelines,
@@ -207,6 +232,11 @@ const CLAIMS: { tool: string; what: string; pattern: RegExp }[] = [
     pattern: /\b(pedido|demanda|card)\b[^.!?\n]{0,60}\b(liberad[oa])\b|\bliberei\b/i,
   },
   {
+    tool: "registrar_rotina",
+    what: "um ajuste na rotina foi registrado",
+    pattern: /\b(falta|atraso|\+\s*time|mais time|observa[çc][ãa]o)\b[^.!?\n]{0,50}\b(registrad[oa]|marcad[oa]|anotad[oa]|lan[çc]ad[oa])\b|\b(registrei|marquei|anotei|lancei)\b[^.!?\n]{0,50}\b(falta|atraso|time|observa[çc][ãa]o|rotina)\b/i,
+  },
+  {
     tool: "comentar_pedido",
     what: "uma atualização foi registrada no pedido",
     pattern: /\b(coment[áa]rio|atualiza[çc][ãa]o|novidade)\b[^.!?\n]{0,40}\b(registrad[oa]|anotad[oa]|adicionad[oa])\b|\b(registrei|anotei)\b[^.!?\n]{0,40}\b(coment[áa]rio|atualiza[çc][ãa]o|novidade|no card|no pedido)\b/i,
@@ -224,13 +254,14 @@ export function emptyPromise(reply: string, done: ReadonlySet<string>): boolean 
     done.has("reforcar_pedido") ||
     done.has("comentar_pedido") ||
     done.has("liberar_pedido") ||
-    done.has("anexar_imagens")
+    done.has("anexar_imagens") ||
+    done.has("registrar_rotina")
   ) {
     return false;
   }
   // Se termina perguntando algo, a promessa depende da resposta da pessoa: tudo bem.
   if (/\?\s*$/.test(reply.trim())) return false;
-  return /\b(vou|irei|j[áa] vou|estou|deixa que eu|pode deixar que)\s+(j[áa]\s+)?(registr|abr|cri|refor[çc]|liber|anot|inclu|adicion|coment|encaminh)\w*/i.test(
+  return /\b(vou|irei|j[áa] vou|estou|deixa que eu|pode deixar que)\s+(j[áa]\s+)?(registr|abr|cri|refor[çc]|liber|anot|inclu|adicion|coment|encaminh|marc|lan[çc])\w*/i.test(
     reply,
   );
 }
@@ -264,7 +295,11 @@ export function unbackedClaim(reply: string, done: ReadonlySet<string>, known: R
   );
   if (mentioned.length > 0) return mentioned.every((n) => known.has(n)) ? null : claim.what;
   const wrote =
-    done.has("criar_pedido") || done.has("reforcar_pedido") || done.has("comentar_pedido") || done.has("anexar_imagens");
+    done.has("criar_pedido") ||
+    done.has("reforcar_pedido") ||
+    done.has("comentar_pedido") ||
+    done.has("anexar_imagens") ||
+    done.has("registrar_rotina");
   return done.has(claim.tool) || (claim.tool !== "liberar_pedido" && wrote) ? null : claim.what;
 }
 

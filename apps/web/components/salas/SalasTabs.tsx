@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { School, Users, UserCog, CalendarDays, ClipboardList, UserSearch, type LucideIcon } from "lucide-react";
+import { School, Users, UserCog, CalendarDays, ClipboardList, UserSearch, type LucideIcon, CalendarRange } from "lucide-react";
 
 interface Tab {
   href: string;
@@ -16,6 +16,7 @@ const tabs: Tab[] = [
   { href: "/salas/alunos", label: "Alunos", Icon: Users },
   { href: "/salas/equipe", label: "Equipe", Icon: UserCog },
   { href: "/salas/rotina", label: "Rotina", Icon: CalendarDays },
+  { href: "/salas/calendario", label: "Calendário", Icon: CalendarRange },
   { href: "/salas/relatorios", label: "Relatórios", Icon: ClipboardList },
   { href: "/salas/busca-ativa", label: "Busca Ativa", Icon: UserSearch },
 ];

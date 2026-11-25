@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import Modal, { fieldInput, fieldLabel } from "./Modal";
 import { useSalasWrite } from "@/lib/salas/SalasContext";
-import { DAYS, sameId, sortRooms } from "@/lib/salas/logic";
+import { DAYS, formatBR, routineEntries, sameId, sortRooms } from "@/lib/salas/logic";
+import { useSalasData } from "@/lib/salas/SalasContext";
 import type { Day, Room, Student } from "@/lib/salas/types";
 
 const DAY_SHORT: Record<Day, string> = {
@@ -62,6 +63,8 @@ export default function StudentFormModal({
   const [afternoon, setAfternoon] = useState<Set<Day>>(new Set());
   const [lunch, setLunch] = useState<Set<Day>>(new Set());
   const [left, setLeft] = useState(false);
+  const { data: salas } = useSalasData();
+  const history = student ? routineEntries(salas?.dailyRoutine, student.id) : [];
 
   const sorted = sortRooms(rooms);
 
@@ -164,6 +167,26 @@ export default function StudentFormModal({
         <label className={fieldLabel}>Almoço</label>
         <DayPicker value={lunch} onToggle={toggler(setLunch)} />
       </div>
+      {student && (
+        <div>
+          <label className={fieldLabel}>Histórico da rotina</label>
+          {history.length === 0 ? (
+            <p className="text-xs italic text-secondary">Nenhuma falta, atraso, +time ou observação registrada.</p>
+          ) : (
+            <ul className="max-h-48 overflow-y-auto rounded-lg border border-surface-medium text-sm">
+              {history.map((e) => (
+                <li key={e.date} className="border-b border-surface-medium px-3 py-2 last:border-b-0">
+                  <span className="font-semibold text-primary">{formatBR(e.date)}</span>
+                  <span className="ml-2 text-xs font-bold uppercase tracking-wide text-secondary">
+                    {[e.falta && "Falta", e.atraso && "Atraso", e.maisTime && "+Time"].filter(Boolean).join(" · ")}
+                  </span>
+                  {e.nota && <p className="text-secondary">{e.nota}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <label className="flex items-start gap-2.5 text-sm text-primary">
         <input type="checkbox" checked={left} onChange={(e) => setLeft(e.target.checked)} className="mt-0.5" />
         <span>
