@@ -149,6 +149,28 @@ async function releaseBlock(actor: Actor, cardId: string, toStageId: string): Pr
   return "Este pedido aguarda a liberação da gestão do pipeline.";
 }
 
+/**
+ * Quem pode mudar o card de etapa: a gestão do pipeline (Gestor, Gestor Master
+ * e o Gestor de área dele) ou o RESPONSÁVEL pela demanda. Membro interno que
+ * não é o responsável vê o card, mas não o tira da coluna. Reordenar dentro da
+ * mesma etapa não passa por aqui. Devolve o motivo do bloqueio, ou null.
+ */
+async function responsibleBlock(actor: Actor, cardId: string, toStageId: string): Promise<string | null> {
+  const db = createAdminClient();
+  const { data: card } = await db.from("card").select("board_id, stage_id").eq("id", cardId).maybeSingle();
+  if (!card || card.stage_id === toStageId) return null;
+  if (await managesBoard(actor, card.board_id)) return null;
+  const { data: mine } = await db
+    .from("assignment")
+    .select("user_id")
+    .eq("card_id", cardId)
+    .eq("user_id", actor.userId as string)
+    .is("stage_id", null)
+    .maybeSingle();
+  if (mine) return null;
+  return "Só o responsável pela demanda ou a gestão do pipeline pode mudar o card de etapa.";
+}
+
 /** Move o card pelo CardService (regras de fluxo, histórico, cronômetro, ordem). */
 export async function moveCardAs(
   actor: Actor,
@@ -156,7 +178,7 @@ export async function moveCardAs(
   toStageId: string,
   placement?: Placement,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const blocked = await releaseBlock(actor, cardId, toStageId);
+  const blocked = (await releaseBlock(actor, cardId, toStageId)) ?? (await responsibleBlock(actor, cardId, toStageId));
   if (blocked) return { ok: false, reason: blocked };
 
   const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
