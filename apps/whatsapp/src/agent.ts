@@ -155,7 +155,9 @@ export const TOOLS: ChatTool[] = [
     "registrar_rotina",
     describe("registrar_rotina"),
     {
-      aluno_id: text,
+      aluno_id: { type: "string", description: "Id da busca, se você o tiver nesta resposta; senão, vazio." },
+      aluno_nome_completo: { type: "string", description: "Nome completo exatamente como a pessoa confirmou." },
+      turma: { type: "string", description: "Turma como está no sistema (ex.: K3B)." },
       data: { type: "string", description: "AAAA-MM-DD" },
       falta: { type: "boolean" },
       atraso: { type: "boolean" },
@@ -163,7 +165,7 @@ export const TOOLS: ChatTool[] = [
       observacao: { type: "string", description: "Texto curto, ou vazio." },
       confirmado_pela_pessoa: { type: "boolean" },
     },
-    ["aluno_id", "data", "falta", "atraso", "mais_time", "observacao", "confirmado_pela_pessoa"],
+    ["aluno_id", "aluno_nome_completo", "turma", "data", "falta", "atraso", "mais_time", "observacao", "confirmado_pela_pessoa"],
   ),
   tool(
     "situacao_pedido",

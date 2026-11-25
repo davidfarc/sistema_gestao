@@ -34,9 +34,10 @@ export function agentRules(site: string): string[] {
     "1. Data: se a pessoa não disse, pergunte com um menu: \"1 - Hoje\" ou \"2 - Outra data (futura)\". Datas futuras ficam no calendário da Gestão de Vila e aparecem na rotina do dia. Não registre datas passadas nem fins de semana. Converta a data para AAAA-MM-DD usando a data de hoje informada abaixo.",
     "2. Aluno: chame buscar_aluno com o nome como a pessoa falou e a turma, se ela disse. A busca já entende nomes separados ou juntos (\"Arco Verde\" = \"Arcoverde\"), sem acento, e as siglas das turmas: K = Kids, LK = Little Kids, J = Junior (\"Kids 3 B\" = \"K3B\"). A turma só ordena o resultado; turma_confere diz se bate.",
     "   - Nomes vindos de áudio podem chegar mal transcritos (\"Limas\" por \"Elihimas\"). Se a busca não trouxer ninguém, tente de novo SOZINHO antes de perguntar: só o primeiro nome com a turma, depois só o sobrenome. Não peça para a pessoa repetir o nome mais de uma vez.",
-    "   - Com candidatos, proponha o mais provável e confirme pelo NOME COMPLETO e pela turma real (escreva a turma como está no sistema), por exemplo: \"É o João Elihimas Arcoverde, do K3B?\". Se houver mais de um parecido, liste os nomes completos com a turma, um por linha, e pergunte qual. Nunca escolha um aluno sem a confirmação da pessoa.",
+    "   - Escolhas sempre em OPÇÕES NUMERADAS, para a pessoa responder só com o número. Com um candidato só: \"É o João Elihimas Arcoverde, do K3B? 1 - Sim, 2 - Não\". Com mais de um parecido, liste até 3 com nome completo e turma (como está no sistema), um por linha: \"1 - João Elihimas Arcoverde (K3B)\", \"2 - …\", e acrescente \"0 - Nenhum destes\". Se a dúvida for só a turma, faça o mesmo com as turmas parecidas. Quando a pessoa responder um número, use exatamente a opção correspondente da sua última mensagem; não refaça a pergunta nem peça para confirmar de novo o que ela já escolheu.",
+    "   - Nunca escolha um aluno sem a pessoa ter escolhido a opção.",
     "3. O que marcar: falta, atraso, +time e/ou uma observação (texto curto). Pergunte se não estiver claro.",
-    "4. Confirmação final: repita aluno (nome completo e turma), data (DD/MM/AAAA e dia da semana) e o que será marcado, e pergunte \"Posso registrar?\". Só depois do sim chame registrar_rotina com confirmado_pela_pessoa = true. Depois confirme o que foi registrado.",
+    "4. Confirmação final: repita aluno (nome completo e turma), data (DD/MM/AAAA e dia da semana) e o que será marcado, com \"1 - Sim, registrar\" e \"2 - Corrigir\". Depois do 1 (ou \"sim\"), chame registrar_rotina com confirmado_pela_pessoa = true, passando aluno_nome_completo e turma exatamente como confirmados (o aluno_id pode ir vazio: o histórico da conversa não guarda o id da busca). Depois confirme o que foi registrado.",
     "- A rotina é de uso interno da escola: não repita dados do aluno além do nome, da turma e do que foi registrado.",
     "",
     "## Limites",
@@ -91,7 +92,7 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "registrar_rotina",
     description:
-      "Registra na rotina de um aluno, numa data de hoje em diante (AAAA-MM-DD, dia útil): falta, atraso, +time e/ou observação. Só chame depois de a pessoa confirmar o nome completo do aluno, a data e o que marcar, com confirmado_pela_pessoa = true. Marcações já existentes são mantidas; a observação é somada à que já houver no dia.",
+      "Registra na rotina de um aluno, numa data de hoje em diante (AAAA-MM-DD, dia útil): falta, atraso, +time e/ou observação. Identifique o aluno por aluno_nome_completo e turma, exatamente como a pessoa confirmou (aluno_id é opcional; deixe vazio se não o tiver nesta resposta). Só chame depois de a pessoa confirmar o aluno, a data e o que marcar, com confirmado_pela_pessoa = true. Marcações já existentes são mantidas; a observação é somada à que já houver no dia.",
   },
   {
     name: "situacao_pedido",
