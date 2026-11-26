@@ -38,9 +38,18 @@
   --surface-container-medium: #d3dad7;
   --surface-container-high: #bfc9c5;
 
-  /* Sombras */
-  --shadow-premium-soft: none;
-  --shadow-premium-hover: 0 0 0 1px var(--color-primary);
+  /* Sombras: esverdeadas e leves, para os cards se destacarem do fundo branco
+     sem traço pesado (26/11). */
+  --shadow-premium-soft: 0 1px 2px rgba(9, 44, 35, 0.06), 0 4px 12px rgba(9, 44, 35, 0.05);
+  --shadow-premium-hover: 0 2px 4px rgba(9, 44, 35, 0.08), 0 10px 24px rgba(9, 44, 35, 0.08);
+
+  /* Contorno dos cards e acentos (26/11). O verde-limão da marca é só para
+     traços, faixas e indicadores: como texto sobre branco fica ilegível. */
+  --card-line: #e1e7e4;
+  --color-lime: #a2c53e;
+  --color-teal: #1f6f78;
+  --tint-lime: #f5f9ec;
+  --tint-lime-line: #dde9bf;
 
   /* Altura da barra de navegação inferior do celular (0 no computador).
      Telas de altura fixa descontam este valor; o resto ganha um respiro embaixo. */
@@ -253,4 +262,10 @@ body {
 /* Números em colunas e cronômetros alinhados. */
 .num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Contorno dos cards um tom acima do anterior (que sumia no fundo branco).
+   Fora de camada de propósito: vale sobre o utilitário do Tailwind. */
+.border-black\/5 {
+  border-color: var(--card-line);
 }

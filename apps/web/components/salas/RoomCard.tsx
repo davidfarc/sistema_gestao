@@ -9,6 +9,7 @@ import {
   isAdultInRoom,
   isStudentPresent,
   ratioBadge,
+  roomGroup,
   sameId,
   translateType,
 } from "@/lib/salas/logic";
@@ -19,6 +20,8 @@ const badgeClasses: Record<"success" | "warning" | "danger", string> = {
   warning: "bg-warning/10 text-warning",
   danger: "bg-danger/10 text-danger",
 };
+
+const GROUP_COLOR = { lk: "var(--color-lime)", k: "var(--color-primary)", j: "var(--color-teal)" } as const;
 
 export default function RoomCard({
   room,
@@ -49,9 +52,18 @@ export default function RoomCard({
   const counting = roomAdults.filter((a) => !isAdultOnLeave(a)).length;
   const ratio = counting > 0 ? roomStudents.length / counting : roomStudents.length;
   const tone = ratioBadge(ratio);
+  const group = roomGroup(room);
 
   return (
-    <div className="bg-surface-lowest border border-black/5 rounded-2xl p-5 shadow-premium-soft transition-shadow hover:shadow-premium-hover">
+    <div className="relative overflow-hidden bg-surface-lowest border border-black/5 rounded-2xl p-5 shadow-premium-soft transition duration-200 hover:shadow-premium-hover motion-safe:hover:-translate-y-px">
+      {/* Faixa de cor do grupo: Little Kids (limão), Kids (verde) e Junior (verde-azulado). */}
+      {group && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-1"
+          style={{ background: GROUP_COLOR[group] }}
+        />
+      )}
       <div className="flex items-start justify-between gap-3 border-b border-surface-medium pb-3 mb-3">
         <div className="min-w-0">
           <h3 className="text-lg font-headline font-bold text-primary flex items-center gap-1.5 truncate">

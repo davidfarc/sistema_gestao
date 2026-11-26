@@ -49,9 +49,8 @@ export default function RoutineSummary({
   const vilaEarly = irregular.filter((s) => early.has(String(s.id).trim())).length;
   const isVila2 = vila === "vila2";
   const accent = isVila2 ? "text-info border-info" : "text-success border-success";
-  const bg = isVila2
-    ? "bg-info/5 border-info/40"
-    : "bg-success/5 border-success/40";
+  // Fundo limão bem claro: separa "o que aconteceu hoje" dos cards de trabalho.
+  const bg = "bg-[color:var(--tint-lime)] border-[color:var(--tint-lime-line)]";
 
   return (
     <section className={clsx("rounded-2xl border p-5 shadow-premium-soft", bg)}>
@@ -93,12 +92,12 @@ export default function RoutineSummary({
           const isEarly = early.has(sid);
           const isExtra = extra.has(sid);
           const note = notes[sid]?.trim();
-          const borderTone = isAbs ? "border-l-danger" : "border-l-info";
+          const borderTone = isAbs ? "border-l-danger" : "border-l-[color:var(--color-lime)]";
           return (
             <div
               key={sid}
               className={clsx(
-                "bg-surface-lowest rounded-lg border border-black/5 border-l-4 p-3",
+                "bg-surface-lowest rounded-lg border border-black/5 border-l-4 p-3 shadow-premium-soft",
                 borderTone
               )}
             >
