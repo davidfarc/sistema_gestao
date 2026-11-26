@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { parseInbound, sendText } from "./evolution.ts";
+import { describeIgnored, parseInbound, sendText } from "./evolution.ts";
 import { handleRequest, replyFor, safeEqual, type Deps, type InboundResult } from "./handler.ts";
 
 const SECRET = "s".repeat(40);
@@ -194,4 +194,16 @@ test("safeEqual", () => {
   assert.equal(safeEqual("abc", "abd"), false);
   assert.equal(safeEqual("abc", "abcd"), false);
   assert.equal(safeEqual("", "abc"), false);
+});
+
+test("parseInbound acha o telefone nos campos novos do formato @lid", () => {
+  assert.equal(parseInbound(upsert({}, { remoteJid: "1@lid", participantAlt: "558499998888@s.whatsapp.net" }))?.phone, "+558499998888");
+  assert.equal(parseInbound(upsert({ senderPn: "558499998888@s.whatsapp.net" }, { remoteJid: "1@lid" }))?.phone, "+558499998888");
+});
+
+test("describeIgnored resume o aviso sem números de telefone", () => {
+  const d = describeIgnored(upsert({}, { remoteJid: "123456789@lid", senderLid: "987@lid" }))!;
+  assert.equal(JSON.stringify(d).match(/\d{5,}/), null);
+  assert.deepEqual((d.chave as Record<string, unknown>).remoteJid, "…@lid");
+  assert.equal(describeIgnored({ event: "connection.update", data: {} }), null);
 });

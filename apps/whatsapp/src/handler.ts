@@ -9,7 +9,7 @@
 
 import { phoneVariants } from "../../../packages/core/src/phone.ts";
 
-import { parseInbound, type Inbound } from "./evolution.ts";
+import { describeIgnored, parseInbound, type Inbound } from "./evolution.ts";
 
 export interface InboundResult {
   /** Mensagem já recebida antes (a Evolution repete avisos): não responder. */
@@ -108,7 +108,11 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
   }
   const msg = parseInbound(payload);
   // Sempre 200 para o que não nos interessa: a Evolution não deve repetir.
-  if (!msg) return text("ignorado");
+  if (!msg) {
+    const why = describeIgnored(payload);
+    if (why) console.log("mensagem ignorada (formato sem telefone?)", JSON.stringify(why));
+    return text("ignorado");
+  }
 
   const result = await deps.recordInbound(msg, phoneVariants(msg.phone));
   if (!result) return text("indisponível", 503);

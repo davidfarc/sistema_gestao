@@ -37,9 +37,18 @@ export function parseInbound(payload: unknown): Inbound | null {
   if (!data || !key || key.fromMe === true) return null;
 
   // Contas novas chegam como "…@lid" (identificador interno); o telefone vem ao lado.
-  const jid = [str(key.remoteJid), str(key.senderPn), str(key.remoteJidAlt)].find((j) =>
-    j.endsWith("@s.whatsapp.net"),
-  );
+  // O WhatsApp passou a identificar contatos por "@lid" (um código interno);
+  // o telefone vem num campo ao lado, cujo nome varia com a versão.
+  const jid = [
+    str(key.remoteJid),
+    str(key.senderPn),
+    str(key.remoteJidAlt),
+    str(key.participantPn),
+    str(key.participantAlt),
+    str(key.previousRemoteJid),
+    str(data.senderPn),
+    str(data.remoteJidAlt),
+  ].find((j) => j.endsWith("@s.whatsapp.net"));
   if (!jid) return null;
   const digits = (jid.split("@")[0] ?? "").split(":")[0] ?? "";
   if (!/^[1-9][0-9]{7,14}$/.test(digits)) return null;
@@ -190,4 +199,30 @@ export async function sendText(
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }
+}
+
+/**
+ * Resumo SEM dados pessoais de um aviso que não foi aproveitado: nomes dos
+ * campos e o tipo de cada endereço (@lid, @s.whatsapp.net…), sem números.
+ * Serve para o log mostrar por que uma mensagem foi ignorada.
+ */
+export function describeIgnored(payload: unknown): Record<string, unknown> | null {
+  const p = payload as { event?: unknown; data?: Record<string, unknown> } | null;
+  const event = str(p?.event);
+  if (!/messages[._]upsert/i.test(event)) return null;
+  const data = p?.data ?? {};
+  const key = (data.key ?? {}) as Record<string, unknown>;
+  const shape = (o: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(o).map(([k, v]) => [
+        k,
+        typeof v === "string" ? (v.includes("@") ? `…@${v.split("@")[1]}` : "texto") : typeof v,
+      ]),
+    );
+  return {
+    evento: event,
+    chave: shape(key),
+    campos: Object.keys(data),
+    tipos_de_mensagem: Object.keys((data.message ?? {}) as Record<string, unknown>),
+  };
 }
