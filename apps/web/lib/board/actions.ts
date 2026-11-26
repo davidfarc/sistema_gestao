@@ -838,12 +838,41 @@ export async function addAttachment(
   if (error) throw new Error(error.message);
 }
 
+export async function updateAttachment(id: string, url: string, label: string): Promise<void> {
+  const actor = await requireActor("card:update");
+  await assertAttachmentScope(actor, id);
+  if (!url.trim()) throw new Error("Informe um link.");
+  const db = createAdminClient();
+  const { error } = await db
+    .from("attachment")
+    .update({ url: normalizeUrl(url), label: label.trim(), updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** Caminho no bucket de imagens dos cards, se a URL for de lá. */
+function cardImagePath(url: string): string | null {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const prefix = base ? `${base.replace(/\/+$/, "")}/storage/v1/object/public/card-images/` : null;
+  if (!prefix || !url.startsWith(prefix)) return null;
+  const path = decodeURIComponent(url.slice(prefix.length).split(/[?#]/)[0] ?? "");
+  return path && !path.includes("..") ? path : null;
+}
+
 export async function deleteAttachment(id: string): Promise<void> {
   const actor = await requireActor("card:update");
   await assertAttachmentScope(actor, id);
   const db = createAdminClient();
+  const { data: row } = await db.from("attachment").select("url").eq("id", id).maybeSingle();
   const { error } = await db.from("attachment").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  // Foto guardada pelo sistema (ex.: enviada pelo WhatsApp): sai também do
+  // armazenamento, se nenhum outro anexo usa o mesmo arquivo.
+  const path = row?.url ? cardImagePath(row.url) : null;
+  if (path) {
+    const { count } = await db.from("attachment").select("id", { count: "exact", head: true }).eq("url", row!.url);
+    if (!count) await db.storage.from("card-images").remove([path]);
+  }
 }
 
 // ── Responsável por etapa (assignment card↔user↔etapa) ───────────────────────

@@ -94,6 +94,12 @@ const CAMPOS = {
   },
 } as const;
 
+/** Fotos pendentes só entram no pedido que a pessoa confirmou. */
+const FOTOS = {
+  type: "boolean",
+  description: "true somente se há foto pendente e a pessoa confirmou que ela é deste pedido. Caso contrário, false.",
+} as const;
+
 export const TOOLS: ChatTool[] = [
   tool(
     "buscar_pedidos",
@@ -109,8 +115,9 @@ export const TOOLS: ChatTool[] = [
       titulo: { type: "string", description: "Curto e específico, com o local. Ex.: 'Ar-condicionado não liga - sala 12'." },
       descricao: { type: "string", description: "O que a pessoa relatou, com as palavras dela." },
       campos: CAMPOS,
+      anexar_fotos: FOTOS,
     },
-    ["pipeline_id", "titulo", "descricao", "campos"],
+    ["pipeline_id", "titulo", "descricao", "campos", "anexar_fotos"],
   ),
   tool(
     "reforcar_pedido",
@@ -124,8 +131,9 @@ export const TOOLS: ChatTool[] = [
         type: "boolean",
         description: "true somente quando a pessoa escolheu este número depois de você listar os pedidos iguais. Caso contrário, false.",
       },
+      anexar_fotos: FOTOS,
     },
-    ["pipeline_id", "numero", "texto", "campos", "confirmado_pela_pessoa"],
+    ["pipeline_id", "numero", "texto", "campos", "confirmado_pela_pessoa", "anexar_fotos"],
   ),
   tool(
     "liberar_pedido",

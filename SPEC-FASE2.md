@@ -721,6 +721,11 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > confirmação à pessoa em vez de abrir outro card (caso Demanda TI #4 e #5); `buscar_pedidos`
 > traz o início da descrição. Migration `0060_whatsapp_same_request_text.sql` (testada em Postgres local).
 
+> **26/11 (fotos e anexos):** o Luix confirma com a pessoa para qual pedido é a foto antes de anexar;
+> `criar_pedido`/`reforcar_pedido` só anexam com `anexar_fotos = true` (migration `0061`, testada em
+> Postgres local). No card, anexos ganham botões visíveis de Editar e Excluir; excluir uma foto guardada
+> pelo sistema apaga também o arquivo, se nenhum outro anexo o usa.
+
 ### Banco
 
 | Migration | O que faz | Situação |

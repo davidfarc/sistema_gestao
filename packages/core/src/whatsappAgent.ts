@@ -29,7 +29,7 @@ export function agentRules(site: string): string[] {
     "- Ao abrir um pedido, confirme com o número (ex.: \"Pedido #142 aberto\"). Se o pipeline tiver exige_liberacao = true, diga também que ele aguarda a liberação da gestão.",
     "- Para \"como está o pedido N?\", use situacao_pedido e responda etapa, responsável e prazo. Se não vier nada, o pedido não existe ou a pessoa não tem acesso a ele.",
     "- Liberação (só nos pipelines com voce_gerencia = true): quando o gestor escrever algo como \"liberar 142\" ou \"pode seguir o 142 com a Maria\", use liberar_pedido. Se a ferramenta devolver a lista da equipe, pergunte com quem fica e chame de novo com o nome. Confirme dizendo a etapa e o responsável. Se o gestor recusar um pedido, registre o motivo com comentar_pedido e avise que mover ou arquivar é pelo site.",
-    "- Fotos: uma mensagem que começa com \"[imagem]\" é uma foto que a pessoa enviou (o texto depois é a legenda). Você não vê a foto; ela fica guardada, pendente, até ir para um pedido. Se a foto veio junto de um pedido novo, siga o fluxo normal: ao abrir ou reforçar o pedido, as fotos pendentes são anexadas sozinhas (a ferramenta devolve imagens_anexadas). Se a pessoa quer colocar a foto num pedido que já existe (por exemplo, a evidência do defeito ou da solução), use anexar_imagens com o número e uma legenda curta. Se chegou uma foto e não está claro de qual pedido é, pergunte. Diga na resposta quantas fotos foram anexadas.",
+    "- Fotos: uma mensagem que começa com \"[imagem]\" é uma foto que a pessoa enviou (o texto depois é a legenda). Você não vê a foto; ela fica guardada, pendente, até ir para um pedido. SEMPRE confirme com a pessoa para qual pedido é a foto antes de anexar, com opções numeradas: os pedidos citados na conversa (\"1 - #12 Impressora sem toner\"), \"Pedido novo (o que você está relatando agora)\", quando for o caso, e \"0 - Não anexar\". Se ela disser outro número, use esse. Depois da escolha: pedido novo ou reforço, chame criar_pedido ou reforcar_pedido com anexar_fotos = true; pedido que já existe, use anexar_imagens com o número e uma legenda curta (ex.: \"Evidência do defeito\", \"Evidência da solução\"). Sem a confirmação, passe anexar_fotos = false. Diga na resposta quantas fotos foram anexadas e em qual pedido.",
     "- Atualização de andamento: quando a pessoa responder a um lembrete ou contar uma novidade de um pedido, registre com comentar_pedido e confirme. Se não estiver claro de qual pedido ela fala, pergunte o número.",
     "- Mensagens suas no histórico que começam com \"Novo pedido\", \"Lembrete\", \"Pedido #\" ou \"Seu pedido\" foram avisos automáticos enviados à pessoa; a resposta dela costuma se referir ao pedido citado ali.",
     "- Se uma ferramenta devolver erro, corrija o que der (por exemplo, perguntando o campo que falta) ou explique em palavras simples.",
@@ -66,7 +66,7 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "criar_pedido",
     description:
-      "Abre um pedido novo no pipeline. Só chame quando tiver todos os campos obrigatórios e depois de buscar_pedidos não mostrar um pedido aberto com o mesmo problema e os mesmos campos obrigatórios. 'campos' usa os nomes exatos dos campos do pipeline; em campo de opções, o valor é uma das opções listadas.",
+      "Abre um pedido novo no pipeline. As fotos pendentes só entram com anexar_fotos = true (a pessoa confirmou que são deste pedido). Só chame quando tiver todos os campos obrigatórios e depois de buscar_pedidos não mostrar um pedido aberto com o mesmo problema e os mesmos campos obrigatórios. 'campos' usa os nomes exatos dos campos do pipeline; em campo de opções, o valor é uma das opções listadas.",
   },
   {
     name: "reforcar_pedido",
@@ -86,7 +86,7 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "anexar_imagens",
     description:
-      "Anexa a um pedido que já existe as fotos que a pessoa enviou há pouco (até uma hora). 'legenda' descreve o que a foto mostra, por exemplo 'Evidência do defeito' ou 'Evidência da solução'. Só funciona para quem pediu, para o responsável ou para quem edita cards. 'pipeline_id' pode ficar vazio; só é preciso se houver pedidos com o mesmo número em pipelines diferentes.",
+      "Anexa a um pedido que já existe as fotos que a pessoa enviou há pouco (até uma hora). Só chame depois de a pessoa confirmar que a foto é deste pedido. 'legenda' descreve o que a foto mostra, por exemplo 'Evidência do defeito' ou 'Evidência da solução'. Só funciona para quem pediu, para o responsável ou para quem edita cards. 'pipeline_id' pode ficar vazio; só é preciso se houver pedidos com o mesmo número em pipelines diferentes.",
   },
   {
     name: "buscar_aluno",
