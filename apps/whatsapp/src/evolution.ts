@@ -214,10 +214,30 @@ export async function sendText(
     const parts: string[] = [];
     res.headers.forEach((v, k) => parts.push(shown.has(k) ? `${k}=${v.slice(0, 40)}` : k));
     const hint = parts.join(", ");
-    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}) [log v3]`;
+    const len = res.headers.get("content-length");
+    const access = cfg.accessClientId && cfg.accessClientSecret ? "com" : "sem";
+    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}; tamanho=${len ?? "?"}; ${access} Access) [log v4]${await probe(cfg, fetcher)}`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }
+}
+
+/**
+ * Diagnóstico de recusa sem motivo: pergunta à Evolution, pelo mesmo caminho,
+ * a página inicial e o estado da instância (nenhum dos dois traz telefone).
+ */
+async function probe(cfg: EvolutionConfig, fetcher: typeof fetch): Promise<string> {
+  const base = cfg.url.replace(/\/+$/, "");
+  const one = async (label: string, path: string) => {
+    try {
+      const r = await fetcher(`${base}${path}`, { headers: headers(cfg), signal: AbortSignal.timeout(10_000) });
+      const body = (await r.text().catch(() => "")).replace(/\d{6,}/g, (d) => `${d.slice(0, 4)}…`).slice(0, 120);
+      return ` | ${label}: HTTP ${r.status} ${body || "(vazio)"}`;
+    } catch (e) {
+      return ` | ${label}: ${e instanceof Error ? e.name : "falha"}`;
+    }
+  };
+  return (await one("início", "/")) + (await one("instância", `/instance/connectionState/${encodeURIComponent(cfg.instance)}`));
 }
 
 /**
