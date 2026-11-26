@@ -43,6 +43,7 @@ export function ListView({
   onPatchCard,
   canConfigure,
   canManage,
+  canMoveCard = () => true,
 }: {
   cards: CardView[];
   stages: StageView[];
@@ -54,6 +55,8 @@ export function ListView({
   canConfigure: boolean;
   /** Gestão do pipeline: mostra o botão de editar prazo e emendas. */
   canManage: boolean;
+  /** A pessoa pode mudar este card de etapa? Sem isso, a etapa aparece só como texto. */
+  canMoveCard?: (card: CardView) => boolean;
 }) {
   const router = useRouter();
   // Célula de prazo ou de emendas aberta para edição: "<cardId>:due" | "<cardId>:rework".
@@ -570,6 +573,7 @@ export function ListView({
                   />
                 </td>
                 <td className="px-3 py-1.5 align-top">
+                  {canMoveCard(card) ? (
                   <WrapSelect
                     value={card.stageId}
                     label={stageName(card.stageId)}
@@ -583,6 +587,11 @@ export function ListView({
                       </option>
                     ))}
                   </WrapSelect>
+                  ) : (
+                    <span className="text-neutral-700" title="Só o responsável ou a gestão do pipeline muda a etapa">
+                      {stageName(card.stageId)}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-1.5 align-top">
                   <WrapSelect

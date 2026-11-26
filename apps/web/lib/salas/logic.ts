@@ -1,7 +1,7 @@
 // Lógica pura portada do app v2.7 (classe EscolaSim). Sem efeitos colaterais —
 // só cálculo de presença, vila e ratios, para reuso em componentes e testes.
 
-import type { Adult, Assignment, Day, Leave, Room, Shift, StaffType, Student, Vila } from "./types";
+import type { Adult, Assignment, DailyRoutine, Day, Leave, Room, Shift, StaffType, Student, Vila } from "./types";
 
 export const DAYS: Day[] = ["segunda", "terca", "quarta", "quinta", "sexta"];
 
@@ -190,4 +190,40 @@ export function ratioBadge(ratio: number): "success" | "warning" | "danger" {
   if (ratio > 15) return "danger";
   if (ratio > 10) return "warning";
   return "success";
+}
+
+/** Uma anotação da rotina: um aluno num dia. */
+export interface RoutineEntry {
+  date: string; // ISO
+  studentId: string;
+  falta: boolean;
+  atraso: boolean;
+  maisTime: boolean;
+  nota: string;
+}
+
+/**
+ * Todas as anotações da rotina (falta, atraso, +time, observação), por aluno e
+ * dia, da mais recente para a mais antiga. Com `studentId`, só as desse aluno.
+ * Base do calendário e do histórico do aluno; vem da mesma `dailyRoutine` que
+ * a tela Rotina e o relatório usam.
+ */
+export function routineEntries(daily: Record<string, DailyRoutine> | undefined, studentId?: string | number): RoutineEntry[] {
+  const only = studentId === undefined ? null : sid(studentId);
+  const out: RoutineEntry[] = [];
+  for (const [date, r] of Object.entries(daily ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !r) continue;
+    const absent = idSet(r.absences);
+    const late = idSet(r.earlyDepartures);
+    const extra = idSet(r.extraTime);
+    const notes = r.studentNotes ?? {};
+    const ids = new Set<string>([...absent, ...late, ...extra, ...Object.keys(notes).map((k) => k.trim())]);
+    for (const id of ids) {
+      if (only !== null && id !== only) continue;
+      const nota = String(notes[id] ?? "").trim();
+      const e = { date, studentId: id, falta: absent.has(id), atraso: late.has(id), maisTime: extra.has(id), nota };
+      if (e.falta || e.atraso || e.maisTime || e.nota) out.push(e);
+    }
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
 }

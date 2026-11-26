@@ -48,9 +48,12 @@ const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
   return sortableKeyboardCoordinates(event, args);
 };
 
-function SortableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) {
+function SortableCard({ card, onOpen, locked }: { card: CardView; onOpen: () => void; locked: boolean }) {
+  // `locked`: a pessoa não pode mudar este card de etapa (não é o responsável
+  // nem gestora do pipeline). O card abre normalmente, mas não se arrasta.
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
+    disabled: locked,
   });
   return (
     <div
@@ -59,7 +62,8 @@ function SortableCard({ card, onOpen }: { card: CardView; onOpen: () => void }) 
       // `touch-manipulation` (e não `touch-none`): no celular o dedo sobre um
       // card continua rolando a tela; arrastar só começa ao segurar (TouchSensor).
       className={
-        "cursor-grab touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing " +
+        (locked ? "cursor-pointer " : "cursor-grab active:cursor-grabbing ") +
+        "touch-manipulation rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary " +
         (isDragging ? "opacity-40" : "")
       }
       onClick={onOpen}
@@ -183,6 +187,7 @@ function Column({
   onAddCard,
   isFirst,
   isLast,
+  canMoveCard,
 }: {
   stage: StageView;
   cards: CardView[];
@@ -192,6 +197,7 @@ function Column({
   onAddCard?: (stageId: string, title: string) => Promise<void>;
   isFirst: boolean;
   isLast: boolean;
+  canMoveCard: (card: CardView) => boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   return (
@@ -213,7 +219,7 @@ function Column({
       >
         <SortableContext items={cards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
           {cards.map((c) => (
-            <SortableCard key={c.id} card={c} onOpen={() => onOpenCard(c.id)} />
+            <SortableCard key={c.id} card={c} onOpen={() => onOpenCard(c.id)} locked={!canMoveCard(c)} />
           ))}
         </SortableContext>
       </div>
@@ -232,6 +238,7 @@ export function KanbanBoard({
   canConfigure,
   onError,
   onAddCard,
+  canMoveCard = () => true,
 }: {
   stages: StageView[];
   /** Na ordem de exibição: dentro de cada etapa vale a ordem desta lista. */
@@ -242,6 +249,8 @@ export function KanbanBoard({
   onError: (message: string) => void;
   /** Presente só quando a pessoa pode criar e o pipeline usa o formulário simples. */
   onAddCard?: (stageId: string, title: string) => Promise<void>;
+  /** A pessoa pode mudar este card de etapa? Sem isso, o card não se arrasta. */
+  canMoveCard?: (card: CardView) => boolean;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   // Cópia da lista enquanto um card está sendo arrastado: é nela que o card
@@ -361,6 +370,7 @@ export function KanbanBoard({
             onAddCard={onAddCard}
             isFirst={i === 0}
             isLast={i === stages.length - 1}
+            canMoveCard={canMoveCard}
           />
         ))}
         {canConfigure && <NewStageButton />}

@@ -288,6 +288,13 @@ export function BoardView({
     document.cookie = `${LAST_BOARD_COOKIE}=${board.id}; path=/; max-age=31536000; samesite=lax`;
   }, [board.id]);
 
+  // Mudar de etapa: a gestão do pipeline (quem gerencia etapas) ou o
+  // responsável pela demanda. O servidor confere de novo (cardOps.moveCardAs).
+  const canMoveCard = useCallback(
+    (card: CardView) => caps.stages || (!!myUserId && card.assignee?.id === myUserId),
+    [caps.stages, myUserId],
+  );
+  const selectedCard = cards.find((c) => c.id === selectedCardId);
   const selectedStageId = cards.find((c) => c.id === selectedCardId)?.stageId;
   const selectedStageName = board.stages.find((s) => s.id === selectedStageId)?.name;
 
@@ -676,6 +683,7 @@ export function BoardView({
               onError={setMoveError}
               onOpenCard={openCard}
               canConfigure={caps.stages}
+              canMoveCard={canMoveCard}
               onAddCard={canAddInColumn ? addCard : undefined}
             />
           ) : (
@@ -685,6 +693,7 @@ export function BoardView({
               onOpenCard={openCard}
               onMove={move}
               onPatchCard={patchCard}
+              canMoveCard={canMoveCard}
               canConfigure={caps.fields}
               canManage={caps.stages}
             />
@@ -722,7 +731,7 @@ export function BoardView({
           onSaved={cardSaved}
           stages={board.stages}
           stageId={selectedStageId}
-          onMoveTo={(toStageId) => move(selectedCardId, toStageId)}
+          onMoveTo={selectedCard && canMoveCard(selectedCard) ? (toStageId) => move(selectedCardId, toStageId) : undefined}
           notice={moveError}
           onDismissNotice={() => setMoveError(null)}
           onArchivedChange={(cardId, archived) => {

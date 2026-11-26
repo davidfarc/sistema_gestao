@@ -116,7 +116,7 @@ test("histórico: começa na pessoa e precisa terminar nela", async () => {
 });
 
 test("ferramentas: esquema fechado, e nenhuma que mova, apague ou configure", () => {
-  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "situacao_pedido"]);
+  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_aluno", "buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "registrar_rotina", "situacao_pedido"]);
   for (const t of TOOLS) {
     const p = t.function.parameters as any;
     assert.equal(t.type, "function");
@@ -439,4 +439,22 @@ test("anexar_imagens respalda a confirmação e o número", async () => {
   });
   assert.equal(await runAgent(a.d), "Anexei 1 foto ao pedido #142.");
   assert.match(a.log.model[0].messages[0].content, /ainda não foram para nenhum pedido: 1/);
+});
+
+test("rotina: confirmação só depois de registrar_rotina dar certo; promessa é cobrada", () => {
+  const none = new Set<string>();
+  assert.match(unbackedClaim("Pronto, registrei a falta do André Elihimas Arcoverde para 30/11.", none, new Set())!, /rotina/);
+  assert.equal(unbackedClaim("Pronto, registrei a falta do André Elihimas Arcoverde para 30/11.", new Set(["registrar_rotina"]), new Set()), null);
+  assert.equal(unbackedClaim("O André do Junior 4 é o André Elihimas Arcoverde?", none, new Set()), null);
+  assert.equal(emptyPromise("Vou marcar a falta dele.", none), true);
+  assert.equal(emptyPromise("Vou marcar a falta dele. Posso registrar?", none), false);
+});
+
+test("rotina: o prompt traz o nome Luix, o menu e o acesso da pessoa", () => {
+  const p = systemPrompt(ctx({ pode_rotina: true, hoje_iso: "2026-11-25" }), "https://x");
+  assert.match(p, /Luix/);
+  assert.match(p, /Ajuste na rotina de aluno/);
+  assert.match(p, /\(pode_rotina\): sim/);
+  assert.match(p, /2026-11-25/);
+  assert.match(systemPrompt(ctx(), "https://x"), /\(pode_rotina\): não/);
 });

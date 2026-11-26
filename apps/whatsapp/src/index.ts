@@ -146,6 +146,24 @@ async function downloadStored(env: Env, url: string): Promise<{ bytes: Uint8Arra
   }
 }
 
+type Out = Record<string, unknown> | null;
+/** Ferramentas da rotina da Gestão de Vila (migration 0057). */
+const ROUTINE_TOOLS = new Set(["buscar_aluno", "registrar_rotina"]);
+
+/**
+ * Porta do agente para o banco. Pedidos vão para `whatsapp_agent`; a rotina
+ * dos alunos para `whatsapp_routine`. O contexto junta os dois: sem a 0057,
+ * a parte da rotina falha e o agente segue só com as demandas.
+ */
+async function agentDb(env: Env, userId: string, tool: string, args: Record<string, unknown>): Promise<Out> {
+  const call = (fn: string, t: string, a: unknown) => rpc(env, fn, { p_user: userId, p_tool: t, p_args: a }) as Promise<Out>;
+  if (tool === "contexto") {
+    const [ctx, routine] = await Promise.all([call("whatsapp_agent", "contexto", {}), call("whatsapp_routine", "rotina_contexto", {})]);
+    return ctx ? { ...ctx, ...(routine && typeof routine.erro !== "string" ? routine : {}) } : null;
+  }
+  return call(ROUTINE_TOOLS.has(tool) ? "whatsapp_routine" : "whatsapp_agent", tool, args);
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }): Promise<Response> {
     const openaiKey = env.OPENAI_API_KEY;
@@ -186,11 +204,7 @@ export default {
         ? (userId) =>
             runAgent({
               appUrl: env.APP_URL,
-              db: async (tool, args) =>
-                (await rpc(env, "whatsapp_agent", { p_user: userId, p_tool: tool, p_args: args })) as Record<
-                  string,
-                  unknown
-                > | null,
+              db: (tool, args) => agentDb(env, userId, tool, args),
               modelName: env.OPENAI_MODEL,
               release: (cardId, assigneeId) => releaseOnSite(env, userId, cardId, assigneeId),
               model: (request) => callOpenAI(openaiKey, request),
