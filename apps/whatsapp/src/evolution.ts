@@ -216,7 +216,7 @@ export async function sendText(
     const hint = parts.join(", ");
     const len = res.headers.get("content-length");
     const access = cfg.accessClientId && cfg.accessClientSecret ? "com" : "sem";
-    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}; tamanho=${len ?? "?"}; ${access} Access) [log v4]${await probe(cfg, fetcher)}`;
+    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}; tamanho=${len ?? "?"}; ${access} Access) [log v5]${await probe(cfg, fetcher)}`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }
@@ -237,7 +237,27 @@ async function probe(cfg: EvolutionConfig, fetcher: typeof fetch): Promise<strin
       return ` | ${label}: ${e instanceof Error ? e.name : "falha"}`;
     }
   };
-  return (await one("início", "/")) + (await one("instância", `/instance/connectionState/${encodeURIComponent(cfg.instance)}`));
+  // Um caractere invisível numa chave (quebra de linha, marca de arquivo) faz o
+  // servidor recusar o pedido inteiro. Aqui só se diz o tamanho e se é "limpa".
+  const clean = (label: string, v?: string) =>
+    ` | ${label}: ${v ? `${v.length} caracteres, ${/^[\x21-\x7e]+$/.test(v) ? "limpa" : "COM CARACTERE ESTRANHO"}` : "ausente"}`;
+  const noKey = async () => {
+    try {
+      const h = { ...headers(cfg) } as Record<string, string>;
+      delete h.apikey;
+      const r = await fetcher(`${base}/`, { headers: h, signal: AbortSignal.timeout(10_000) });
+      return ` | início sem a chave: HTTP ${r.status}`;
+    } catch (e) {
+      return ` | início sem a chave: ${e instanceof Error ? e.name : "falha"}`;
+    }
+  };
+  return (
+    (await one("início", "/")) +
+    (await noKey()) +
+    clean("chave", cfg.apiKey) +
+    clean("access id", cfg.accessClientId) +
+    clean("access segredo", cfg.accessClientSecret)
+  );
 }
 
 /**

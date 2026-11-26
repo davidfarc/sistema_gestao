@@ -194,8 +194,8 @@ test("sendText: recusa sem corpo diz quem respondeu, pelos cabeçalhos", async (
   const bad = (async () =>
     new Response(null, { status: 400, headers: { server: "cloudflare" } })) as unknown as typeof fetch;
   const err = (await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+5584", "oi", bad)) ?? "";
-  assert.match(err, /^HTTP 400 \(sem corpo; server=cloudflare; tamanho=\?; sem Access\) \[log v4\]/);
-  assert.match(err, /\| início: HTTP 400 \(vazio\) \| instância: HTTP 400 \(vazio\)$/);
+  assert.match(err, /^HTTP 400 \(sem corpo; server=cloudflare; tamanho=\?; sem Access\) \[log v5\]/);
+  assert.match(err, /\| início: HTTP 400 \(vazio\) \| início sem a chave: HTTP 400 \| chave: 1 caracteres, limpa \| access id: ausente \| access segredo: ausente$/);
 });
 
 test("safeEqual", () => {
