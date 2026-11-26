@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { PriorityQueue } from "@/components/prioridades/PriorityQueue";
 import { SpendCharts } from "@/components/prioridades/SpendCharts";
+import { PainelTabs } from "@/components/painel/PainelTabs";
 import { provisionAndGetActor } from "@/lib/actor";
+import { loadPanelBoards } from "@/lib/reports/boardPanel";
 import { loadBoards } from "@/lib/board/queries";
 import { loadPriorityQueue } from "@/lib/demandas/queue";
 import { loadSpendData } from "@/lib/demandas/spend";
@@ -17,6 +19,16 @@ export default async function PrioridadesPage({
   const { board: requested } = await searchParams;
   const [actor, boards] = await Promise.all([provisionAndGetActor(), loadBoards()]);
   const active = boards.filter((b) => !b.archived);
+  // Quem vê Relatórios (gestão) recebe as abas; quem chegou pelo quadro, não.
+  const inReports = actor?.permissions.has("stage:manage") ?? false;
+  const panels = inReports ? await loadPanelBoards() : [];
+  const tabs = inReports && (
+    <>
+      <h1 className="text-2xl">Relatórios</h1>
+      <PainelTabs current="prioridades" showTime={actor?.permissions.has("time:read") ?? false} panels={panels} />
+    </>
+  );
+  const Title = inReports ? "h2" : "h1";
 
   // Tenta o pipeline pedido; senão, o primeiro que tiver fila de demandas.
   let queue = requested ? await loadPriorityQueue(requested) : null;
@@ -30,7 +42,8 @@ export default async function PrioridadesPage({
   if (!queue) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-2xl">Prioridades</h1>
+        {tabs}
+        <Title className={inReports ? "mt-5 text-xl" : "text-2xl"}>Fila de prioridade (RICE)</Title>
         <p className="mt-2 text-sm text-secondary">
           Nenhum pipeline de demandas encontrado. A fila aparece em pipelines que usam o
           formulário &ldquo;Demandas de compras&rdquo;.
@@ -44,17 +57,20 @@ export default async function PrioridadesPage({
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <p className="text-sm font-medium uppercase tracking-wide text-secondary">
+      {tabs}
+      <p className={(inReports ? "mt-5 " : "") + "text-sm font-medium uppercase tracking-wide text-secondary"}>
         {queue.boardName}
       </p>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl">Fila de prioridade (RICE)</h1>
-        <Link
-          href={{ pathname: "/prioridades/planejamento", query: { board: queue.boardId } }}
-          className="text-sm text-blue-700 hover:underline"
-        >
-          Planejamento de gastos →
-        </Link>
+        <Title className={inReports ? "text-xl" : "text-2xl"}>Fila de prioridade (RICE)</Title>
+        {!inReports && (
+          <Link
+            href={{ pathname: "/prioridades/planejamento", query: { board: queue.boardId } }}
+            className="text-sm text-blue-700 hover:underline"
+          >
+            Planejamento de gastos →
+          </Link>
+        )}
       </div>
       <p className="mt-2 text-sm text-secondary">
         Demandas ordenadas pelo score RICE. Priorizar registra quem decidiu e libera a demanda

@@ -94,7 +94,7 @@ export function BoardOptionsDialog({
           <label className={row}>
             <input type="checkbox" checked={op} onChange={(e) => setOp(e.target.checked)} className="mt-0.5" />
             <span>
-              <span className="font-medium text-neutral-800">Painel próprio em “Painéis”</span>
+              <span className="font-medium text-neutral-800">Painel próprio em “Relatórios”</span>
               <span className="block text-neutral-600">
                 Uma aba só deste pipeline: cards por etapa, por responsável e por propriedade, emendas,
                 tempo até concluir e atrasados.

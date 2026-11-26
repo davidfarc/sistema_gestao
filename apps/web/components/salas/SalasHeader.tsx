@@ -33,15 +33,17 @@ function StatCard({
     <div
       className={clsx(
         "rounded-2xl p-4 border shadow-premium-soft flex flex-col gap-1",
-        primary ? "bg-primary border-transparent" : "bg-surface-lowest border-black/5"
+        primary ? "border-transparent" : "bg-surface-lowest border-black/5"
       )}
+      // Destaque: degradê do verde do menu para o verde dos botões.
+      style={primary ? { backgroundImage: "linear-gradient(135deg, var(--color-brand), var(--color-primary))" } : undefined}
     >
       <div className="flex items-center gap-2">
         <Icon className={clsx("w-4 h-4", primary ? "text-white/70" : "text-secondary")} aria-hidden="true" />
         <span
           className={clsx(
             "text-[11px] font-semibold uppercase tracking-wide",
-            primary ? "text-white/70" : "text-secondary"
+            primary ? "text-[color:var(--color-lime)]" : "text-secondary"
           )}
         >
           {label}

@@ -45,7 +45,7 @@ export default async function TempoPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">
-      <h1 className="text-2xl">Painéis</h1>
+      <h1 className="text-2xl">Relatórios</h1>
       <PainelTabs current="tempo" showTime panels={panels} />
 
       <form className="mt-5 flex flex-wrap items-end gap-3" method="get">

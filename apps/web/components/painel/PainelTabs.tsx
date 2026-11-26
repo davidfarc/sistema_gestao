@@ -1,9 +1,10 @@
 import Link from "next/link";
 
 /**
- * Abas dos painéis: "Visão geral", um painel por pipeline que tem painel
- * próprio, e "Tempo por tarefa" (só para quem tem `time:read`).
- * `current`: "geral", "tempo" ou o id do pipeline.
+ * Abas de Relatórios: "Visão geral", um painel por pipeline que tem painel
+ * próprio, "Tempo por tarefa" (só para quem tem `time:read`), a fila de
+ * prioridade e o planejamento de gastos.
+ * `current`: "geral", "tempo", "prioridades", "planejamento" ou o id do pipeline.
  */
 export function PainelTabs({
   current,
@@ -14,7 +15,6 @@ export function PainelTabs({
   showTime: boolean;
   panels?: { id: string; name: string }[];
 }) {
-  if (!showTime && panels.length === 0) return null;
   const tab = (id: string, href: string, label: string) => (
     <Link
       key={id}
@@ -29,10 +29,16 @@ export function PainelTabs({
     </Link>
   );
   return (
-    <nav aria-label="Painéis" className="mt-4 flex gap-1 overflow-x-auto border-b border-neutral-200">
+    // No celular as abas rolam de lado (sem barra à mostra); no computador, quebram de linha.
+    <nav
+      aria-label="Relatórios"
+      className="mt-4 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-neutral-200 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden"
+    >
       {tab("geral", "/painel", "Visão geral")}
       {panels.map((p) => tab(p.id, `/painel/pipeline/${p.id}`, p.name))}
       {showTime && tab("tempo", "/painel/tempo", "Tempo por tarefa")}
+      {tab("prioridades", "/prioridades", "Fila de prioridade (RICE)")}
+      {tab("planejamento", "/prioridades/planejamento", "Planejamento de gastos")}
     </nav>
   );
 }

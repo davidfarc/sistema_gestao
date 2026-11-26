@@ -9,7 +9,7 @@
 
 import { phoneVariants } from "../../../packages/core/src/phone.ts";
 
-import { parseInbound, type Inbound } from "./evolution.ts";
+import { describeIgnored, parseInbound, type Inbound } from "./evolution.ts";
 
 export interface InboundResult {
   /** Mensagem já recebida antes (a Evolution repete avisos): não responder. */
@@ -97,6 +97,10 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
   if (!m || request.method !== "POST") return text("não encontrado", 404);
   const given = m[1] ? decodeURIComponent(m[1]) : (request.headers.get("x-webhook-secret") ?? "");
   if (!deps.webhookSecret || deps.webhookSecret.length < 24 || !safeEqual(given, deps.webhookSecret)) {
+    // Sem mostrar a senha: só se veio alguma e de que tamanho, para conferir.
+    console.log(
+      `webhook recusado: senha ${given ? `diferente (${given.length} caracteres recebidos)` : "ausente"}; configurada no serviço: ${deps.webhookSecret ? `${deps.webhookSecret.length} caracteres` : "nenhuma"}`,
+    );
     return text("não autorizado", 401);
   }
 
@@ -108,10 +112,22 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
   }
   const msg = parseInbound(payload);
   // Sempre 200 para o que não nos interessa: a Evolution não deve repetir.
-  if (!msg) return text("ignorado");
+  if (!msg) {
+    const why = describeIgnored(payload);
+    const event = String((payload as { event?: unknown } | null)?.event ?? "?");
+    console.log(why ? `mensagem ignorada (formato sem telefone?) ${JSON.stringify(why)}` : `aviso ignorado: ${event}`);
+    return text("ignorado");
+  }
 
   const result = await deps.recordInbound(msg, phoneVariants(msg.phone));
-  if (!result) return text("indisponível", 503);
+  if (!result) {
+    console.error("entrada: o banco não registrou a mensagem");
+    return text("indisponível", 503);
+  }
+  // Rastro de cada mensagem, sem dados pessoais: ajuda a ver onde parou.
+  console.log(
+    `entrada: ${msg.kind}, cadastrado=${result.usuario ? "sim" : "não"}, repetida=${result.duplicada ? "sim" : "não"}, na última hora=${result.recentes}`,
+  );
 
   // Responde já ao webhook; a conversa com o modelo leva alguns segundos.
   const work = answer(msg, result, deps).catch((e) => {
@@ -124,8 +140,18 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
 
 async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<void> {
   const reply = await chooseReply(msg, result, deps);
-  if (!reply) return;
-  const error = await deps.send(msg.phone, reply);
+  if (!reply) {
+    console.log("resposta: nenhuma (silêncio de propósito)");
+    return;
+  }
+  let error = await deps.send(msg.phone, reply);
+  // Conversa no formato novo ("@lid"): se o WhatsApp recusar pelo número,
+  // responde no próprio endereço da conversa.
+  if (error?.startsWith("HTTP 400") && msg.chatJid && !msg.chatJid.endsWith("@s.whatsapp.net")) {
+    console.log(`resposta: envio pelo número recusado (${error}); tentando pelo endereço da conversa`);
+    error = await deps.send(msg.chatJid, reply);
+  }
+  console.log(error ? `resposta: o envio falhou (${error})` : "resposta: enviada");
   await deps.recordOutbound(msg.phone, result.usuario?.id ?? null, reply, error);
 }
 

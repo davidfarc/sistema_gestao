@@ -709,6 +709,13 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 
 > **18/11:** a seção "Trazer propriedades de outro pipeline" (Opções do pipeline) foi retirada a pedido do David, que relatou propriedades sumindo depois de salvar outras opções do mesmo diálogo. A causa não foi reproduzida: no código a cópia só acrescenta e nada no "Salvar" apaga propriedade. Saíram a tela e a action `syncFieldsFromBoard`; `planFieldSync` continua no core, sem uso.
 
+> **26/11:** gateway do WhatsApp mudou para o computador da escola. Versões da Evolution (2.3.7) e do
+> túnel (2026.11.1) travadas no `docker-compose.yml`; porta local configurável (`EVOLUTION_LOCAL_PORT`).
+> A falha de envio (HTTP 400 sem corpo) era a `EVOLUTION_API_KEY` gravada com um caractere só; o log
+> do Worker agora diagnostica isso sem expor valores. No site: fundo branco, cards com profundidade
+> e acentos limão; "Painéis" passa a se chamar **Relatórios**, com Fila de prioridade (RICE) e
+> Planejamento de gastos como abas; atalhos do Início renomeados (Quadros de demandas, Relatórios).
+
 ### Banco
 
 | Migration | O que faz | Situação |

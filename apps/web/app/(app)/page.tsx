@@ -36,7 +36,7 @@ export default async function Home() {
             <KanbanSquare className="h-5 w-5" />
           </div>
           <div>
-            <h3 className="text-base">Quadro de produção</h3>
+            <h3 className="text-base">Quadros de demandas</h3>
             <p className="text-sm text-secondary">Kanban + lista, cards e checklists</p>
           </div>
         </Link>
@@ -49,7 +49,7 @@ export default async function Home() {
               <BarChart3 className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base">Painel</h3>
+              <h3 className="text-base">Relatórios</h3>
               <p className="text-sm text-secondary">Atrasados, parados e concluídos por pipeline</p>
             </div>
           </Link>

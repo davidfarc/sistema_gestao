@@ -41,7 +41,7 @@ export function BoardPanelView({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-10">
-      <h1 className="text-2xl">Painéis</h1>
+      <h1 className="text-2xl">Relatórios</h1>
       <PainelTabs current={panel.id} showTime={canSeeTime} panels={panels} />
 
       <div className="mt-3 flex flex-wrap items-baseline justify-between gap-2">

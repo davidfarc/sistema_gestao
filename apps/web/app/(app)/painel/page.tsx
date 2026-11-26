@@ -32,7 +32,7 @@ export default async function PainelPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 md:px-6 md:py-10">
-      <h1 className="text-2xl">Painéis</h1>
+      <h1 className="text-2xl">Relatórios</h1>
       <PainelTabs current="geral" showTime={actor?.permissions.has("time:read") ?? false} panels={panels} />
       <p className="mt-3 text-sm text-secondary">
         Situação dos pipelines agora. “Parado” = há mais de {STALLED_DAYS} dias na mesma etapa.

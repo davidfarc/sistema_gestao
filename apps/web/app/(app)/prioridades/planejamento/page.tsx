@@ -1,7 +1,9 @@
 import Link from "next/link";
 
 import { PlanGrid } from "@/components/planejamento/PlanGrid";
+import { PainelTabs } from "@/components/painel/PainelTabs";
 import { provisionAndGetActor } from "@/lib/actor";
+import { loadPanelBoards } from "@/lib/reports/boardPanel";
 import { loadBoards } from "@/lib/board/queries";
 import { loadPlanGrid } from "@/lib/planejamento/plan";
 
@@ -14,6 +16,17 @@ export default async function PlanejamentoPage({
 }) {
   const { board: requested, ano } = await searchParams;
   const [actor, boards] = await Promise.all([provisionAndGetActor(), loadBoards()]);
+
+  // Quem vê Relatórios (gestão) recebe as abas; quem chegou pelo quadro, não.
+  const inReports = actor?.permissions.has("stage:manage") ?? false;
+  const panels = inReports ? await loadPanelBoards() : [];
+  const tabs = inReports && (
+    <>
+      <h1 className="text-2xl">Relatórios</h1>
+      <PainelTabs current="planejamento" showTime={actor?.permissions.has("time:read") ?? false} panels={panels} />
+    </>
+  );
+  const Title = inReports ? "h2" : "h1";
 
   const anoAtual = new Date().getFullYear();
   const parsed = Number(ano);
@@ -32,7 +45,8 @@ export default async function PlanejamentoPage({
   if (!grid) {
     return (
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="text-2xl">Planejamento de gastos</h1>
+        {tabs}
+        <Title className={inReports ? "mt-5 text-xl" : "text-2xl"}>Planejamento de gastos</Title>
         <p className="mt-2 text-sm text-secondary">
           Nenhum pipeline de demandas encontrado. O planejamento acompanha pipelines que usam o
           formulário &ldquo;Demandas de compras&rdquo;.
@@ -46,15 +60,20 @@ export default async function PlanejamentoPage({
 
   return (
     <main className="mx-auto max-w-[1400px] px-6 py-10">
-      <p className="text-sm font-medium uppercase tracking-wide text-secondary">{grid.boardName}</p>
+      {tabs}
+      <p className={(inReports ? "mt-5 " : "") + "text-sm font-medium uppercase tracking-wide text-secondary"}>
+        {grid.boardName}
+      </p>
       <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
-        <h1 className="text-2xl">Planejamento de gastos</h1>
-        <Link
-          href={{ pathname: "/prioridades", query: { board: grid.boardId } }}
-          className="text-sm text-blue-700 hover:underline"
-        >
-          ← Voltar para a fila de prioridade
-        </Link>
+        <Title className={inReports ? "text-xl" : "text-2xl"}>Planejamento de gastos</Title>
+        {!inReports && (
+          <Link
+            href={{ pathname: "/prioridades", query: { board: grid.boardId } }}
+            className="text-sm text-blue-700 hover:underline"
+          >
+            ← Voltar para a fila de prioridade
+          </Link>
+        )}
       </div>
       <p className="mt-2 max-w-3xl text-sm text-secondary">
         Quanto se pretende gastar em cada área, mês a mês. É este número que os gráficos da fila

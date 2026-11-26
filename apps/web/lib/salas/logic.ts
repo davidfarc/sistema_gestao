@@ -121,6 +121,11 @@ function roomGroupRank(room: Room): number {
   return 3;
 }
 
+/** Grupo da turma, para a faixa de cor do card: Little Kids, Kids ou Junior. */
+export function roomGroup(room: Room): "lk" | "k" | "j" | null {
+  return (["lk", "k", "j"] as const)[roomGroupRank(room)] ?? null;
+}
+
 /** Salas do painel: só educação básica, por grupo e, dentro do grupo, por nome. */
 export const panelRooms = (rooms: Room[]) =>
   sortRooms(rooms.filter(isBasicEducationRoom)).sort((a, b) => roomGroupRank(a) - roomGroupRank(b));

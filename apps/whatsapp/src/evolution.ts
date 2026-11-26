@@ -9,6 +9,11 @@ export interface Inbound {
   phone: string;
   /** Identificador da mensagem no WhatsApp (evita processar duas vezes). */
   providerId: string;
+  /**
+   * Endereço da conversa como o WhatsApp a conhece ("…@s.whatsapp.net" ou
+   * "…@lid"). Usado para responder quando o envio pelo número é recusado.
+   */
+  chatJid?: string;
   kind: "text" | "audio" | "image" | "other";
   text: string;
   /** Duração do áudio em segundos, quando o WhatsApp informa. */
@@ -37,24 +42,35 @@ export function parseInbound(payload: unknown): Inbound | null {
   if (!data || !key || key.fromMe === true) return null;
 
   // Contas novas chegam como "…@lid" (identificador interno); o telefone vem ao lado.
-  const jid = [str(key.remoteJid), str(key.senderPn), str(key.remoteJidAlt)].find((j) =>
-    j.endsWith("@s.whatsapp.net"),
-  );
+  // O WhatsApp passou a identificar contatos por "@lid" (um código interno);
+  // o telefone vem num campo ao lado, cujo nome varia com a versão.
+  const jid = [
+    str(key.remoteJid),
+    str(key.senderPn),
+    str(key.remoteJidAlt),
+    str(key.participantPn),
+    str(key.participantAlt),
+    str(key.previousRemoteJid),
+    str(data.senderPn),
+    str(data.remoteJidAlt),
+  ].find((j) => j.endsWith("@s.whatsapp.net"));
   if (!jid) return null;
   const digits = (jid.split("@")[0] ?? "").split(":")[0] ?? "";
   if (!/^[1-9][0-9]{7,14}$/.test(digits)) return null;
   const providerId = str(key.id);
+  const chatJid = str(key.remoteJid) || undefined;
   if (!providerId) return null;
 
   const message = (data.message ?? {}) as Record<string, unknown>;
   const text =
     str(message.conversation) || str((message.extendedTextMessage as { text?: unknown } | undefined)?.text);
-  if (text.trim()) return { phone: `+${digits}`, providerId, kind: "text", text: text.trim().slice(0, 4000) };
+  if (text.trim()) return { phone: `+${digits}`, providerId, chatJid, kind: "text", text: text.trim().slice(0, 4000) };
   if (message.audioMessage) {
     const seconds = Number((message.audioMessage as { seconds?: unknown }).seconds);
     return {
       phone: `+${digits}`,
       providerId,
+      chatJid,
       kind: "audio",
       text: "",
       ...(Number.isFinite(seconds) && seconds > 0 ? { seconds } : {}),
@@ -72,6 +88,7 @@ export function parseInbound(payload: unknown): Inbound | null {
     return {
       phone: `+${digits}`,
       providerId,
+      chatJid,
       kind: "image",
       // A legenda da foto é o texto da mensagem.
       text: str(image.caption).trim().slice(0, 2000),
@@ -83,7 +100,7 @@ export function parseInbound(payload: unknown): Inbound | null {
       },
     };
   }
-  return { phone: `+${digits}`, providerId, kind: "other", text: "" };
+  return { phone: `+${digits}`, providerId, chatJid, kind: "other", text: "" };
 }
 
 export interface EvolutionConfig {
@@ -182,12 +199,89 @@ export async function sendText(
       {
         method: "POST",
         headers: headers(cfg),
-        body: JSON.stringify({ number: phone.replace(/\D/g, ""), text }),
+        // Número (só dígitos) ou, para responder numa conversa "@lid", o endereço completo.
+        body: JSON.stringify({ number: phone.includes("@") ? phone : phone.replace(/\D/g, ""), text }),
         signal: AbortSignal.timeout(15_000),
       },
     );
-    return res.ok ? null : `HTTP ${res.status}`;
+    if (res.ok) return null;
+    // O motivo vem no corpo; números longos são mascarados antes de ir ao log.
+    const why = (await res.text().catch(() => "")).replace(/\d{6,}/g, (d) => `${d.slice(0, 4)}…`).slice(0, 160);
+    if (why) return `HTTP ${res.status}: ${why}`;
+    // Sem corpo: os cabeçalhos dizem quem recusou (a Evolution manda
+    // "x-powered-by"; o Cloudflare manda "server: cloudflare").
+    const shown = new Set(["server", "x-powered-by", "content-type", "cf-mitigated", "location"]);
+    const parts: string[] = [];
+    res.headers.forEach((v, k) => parts.push(shown.has(k) ? `${k}=${v.slice(0, 40)}` : k));
+    const hint = parts.join(", ");
+    const len = res.headers.get("content-length");
+    const access = cfg.accessClientId && cfg.accessClientSecret ? "com" : "sem";
+    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}; tamanho=${len ?? "?"}; ${access} Access) [log v5]${await probe(cfg, fetcher)}`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }
+}
+
+/**
+ * Diagnóstico de recusa sem motivo: pergunta à Evolution, pelo mesmo caminho,
+ * a página inicial e o estado da instância (nenhum dos dois traz telefone).
+ */
+async function probe(cfg: EvolutionConfig, fetcher: typeof fetch): Promise<string> {
+  const base = cfg.url.replace(/\/+$/, "");
+  const one = async (label: string, path: string) => {
+    try {
+      const r = await fetcher(`${base}${path}`, { headers: headers(cfg), signal: AbortSignal.timeout(10_000) });
+      const body = (await r.text().catch(() => "")).replace(/\d{6,}/g, (d) => `${d.slice(0, 4)}…`).slice(0, 120);
+      return ` | ${label}: HTTP ${r.status} ${body || "(vazio)"}`;
+    } catch (e) {
+      return ` | ${label}: ${e instanceof Error ? e.name : "falha"}`;
+    }
+  };
+  // Um caractere invisível numa chave (quebra de linha, marca de arquivo) faz o
+  // servidor recusar o pedido inteiro. Aqui só se diz o tamanho e se é "limpa".
+  const clean = (label: string, v?: string) =>
+    ` | ${label}: ${v ? `${v.length} caracteres, ${/^[\x21-\x7e]+$/.test(v) ? "limpa" : "COM CARACTERE ESTRANHO"}` : "ausente"}`;
+  const noKey = async () => {
+    try {
+      const h = { ...headers(cfg) } as Record<string, string>;
+      delete h.apikey;
+      const r = await fetcher(`${base}/`, { headers: h, signal: AbortSignal.timeout(10_000) });
+      return ` | início sem a chave: HTTP ${r.status}`;
+    } catch (e) {
+      return ` | início sem a chave: ${e instanceof Error ? e.name : "falha"}`;
+    }
+  };
+  return (
+    (await one("início", "/")) +
+    (await noKey()) +
+    clean("chave", cfg.apiKey) +
+    clean("access id", cfg.accessClientId) +
+    clean("access segredo", cfg.accessClientSecret)
+  );
+}
+
+/**
+ * Resumo SEM dados pessoais de um aviso que não foi aproveitado: nomes dos
+ * campos e o tipo de cada endereço (@lid, @s.whatsapp.net…), sem números.
+ * Serve para o log mostrar por que uma mensagem foi ignorada.
+ */
+export function describeIgnored(payload: unknown): Record<string, unknown> | null {
+  const p = payload as { event?: unknown; data?: Record<string, unknown> } | null;
+  const event = str(p?.event);
+  if (!/messages[._]upsert/i.test(event)) return null;
+  const data = p?.data ?? {};
+  const key = (data.key ?? {}) as Record<string, unknown>;
+  const shape = (o: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(o).map(([k, v]) => [
+        k,
+        typeof v === "string" ? (v.includes("@") ? `…@${v.split("@")[1]}` : "texto") : typeof v,
+      ]),
+    );
+  return {
+    evento: event,
+    chave: shape(key),
+    campos: Object.keys(data),
+    tipos_de_mensagem: Object.keys((data.message ?? {}) as Record<string, unknown>),
+  };
 }
