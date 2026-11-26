@@ -716,6 +716,11 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > e acentos limão; "Painéis" passa a se chamar **Relatórios**, com Fila de prioridade (RICE) e
 > Planejamento de gastos como abas; atalhos do Início renomeados (Quadros de demandas, Relatórios).
 
+> **26/11 (Luix):** um lançamento por vez (um pedido ou um aluno por resposta; o Worker barra o
+> segundo). Pedido repetido comparado pelo sentido: texto livre escrito de outro jeito pede
+> confirmação à pessoa em vez de abrir outro card (caso Demanda TI #4 e #5); `buscar_pedidos`
+> traz o início da descrição. Migration `0060_whatsapp_same_request_text.sql` (testada em Postgres local).
+
 ### Banco
 
 | Migration | O que faz | Situação |

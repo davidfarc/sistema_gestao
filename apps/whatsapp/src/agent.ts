@@ -224,6 +224,11 @@ function toolArgs(name: string, raw: string): Record<string, unknown> | null {
 /** O que o texto afirma ter feito, por ferramenta que precisa ter dado certo. */
 const CLAIMS: { tool: string; what: string; pattern: RegExp }[] = [
   {
+    tool: "reforcar_pedido",
+    what: "um reforço foi registrado",
+    pattern: /\brefor[çc]o\b[^.!?\n]{0,40}\b(registrad[oa]|anotad[oa]|lan[çc]ad[oa]|feito)\b|\b(registrei|anotei|lancei|fiz)\b[^.!?\n]{0,20}\brefor[çc]o\b/i,
+  },
+  {
     tool: "criar_pedido",
     what: "um pedido foi aberto",
     pattern: /\b(pedido|demanda|chamado|card)\b[^.!?\n]{0,60}\b(abert[oa]|criad[oa]|registrad[oa]|cadastrad[oa])\b|\b(abri|criei|registrei|cadastrei)\b[^.!?\n]{0,40}\b(pedido|demanda|chamado|card)\b/i,
@@ -295,6 +300,8 @@ export function unbackedClaim(reply: string, done: ReadonlySet<string>, known: R
   const mentioned = [...text.matchAll(/#\s*(\d{1,9})|\b(?:pedido|demanda|chamado|card)\s+(?:n[ºo.]*\s*)?(\d{1,9})\b/gi)].map((m) =>
     Number(m[1] ?? m[2]),
   );
+  // Reforço só se confirma com o reforço feito: achar o pedido não basta.
+  if (claim.tool === "reforcar_pedido") return done.has("reforcar_pedido") ? null : claim.what;
   if (mentioned.length > 0) return mentioned.every((n) => known.has(n)) ? null : claim.what;
   const wrote =
     done.has("criar_pedido") ||
@@ -327,6 +334,11 @@ async function runTool(deps: AgentDeps, name: string, args: Record<string, unkno
  * Roda o agente para a última mensagem da pessoa. Devolve o texto da resposta,
  * ou null se não deu (o chamador manda a resposta de contingência).
  */
+/** Lançamentos: um por resposta (um pedido ou um aluno de cada vez). */
+const LAUNCHES = new Set(["criar_pedido", "reforcar_pedido", "registrar_rotina"]);
+const ONE_AT_A_TIME =
+  "Só um lançamento por vez: este não foi feito. Confirme à pessoa o que já foi registrado e diga que o próximo (outro pedido ou outro aluno) precisa ser enviado em outra mensagem, um de cada vez.";
+
 export async function runAgent(deps: AgentDeps): Promise<string | null> {
   const ctx = (await deps.db("contexto", {})) as unknown as AgentContext | null;
   if (!ctx || !Array.isArray(ctx.conversa)) return null;
@@ -338,6 +350,7 @@ export async function runAgent(deps: AgentDeps): Promise<string | null> {
   const numbers = new Set<number>();
   let corrected = false;
 
+  let launched = false;
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const res = await deps.model({ model: deps.modelName, messages, tools: TOOLS });
     const choice = res?.choices?.[0];
@@ -355,10 +368,16 @@ export async function runAgent(deps: AgentDeps): Promise<string | null> {
           ? { erro: "Ferramenta desconhecida." }
           : !args
             ? { erro: "Argumentos inválidos." }
-            : ((await runTool(deps, name, args)) ?? { erro: "O sistema não respondeu. Peça para tentar de novo em instantes." });
+            : launched && LAUNCHES.has(name)
+              ? { erro: ONE_AT_A_TIME }
+              : ((await runTool(deps, name, args)) ?? { erro: "O sistema não respondeu. Peça para tentar de novo em instantes." });
+        // "confirmar" = a ferramenta pede a palavra da pessoa antes; nada foi feito ainda.
         if (typeof out.erro !== "string") {
-          done.add(name);
           collectNumbers(out, numbers);
+          if (out.confirmar === undefined) {
+            done.add(name);
+            if (LAUNCHES.has(name)) launched = true;
+          }
         }
         messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(out) });
       }

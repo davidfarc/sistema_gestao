@@ -458,3 +458,30 @@ test("rotina: o prompt traz o nome Luix, o menu e o acesso da pessoa", () => {
   assert.match(p, /2026-11-25/);
   assert.match(systemPrompt(ctx(), "https://x"), /\(pode_rotina\): não/);
 });
+
+test("um lançamento por vez: o segundo registro na mesma resposta é barrado", async () => {
+  const a = deps([
+    call("registrar_rotina", { aluno_nome_completo: "Ana Lima", turma: "K3B", data: "2026-11-30", falta: true, confirmado_pela_pessoa: true }, "t1"),
+    call("registrar_rotina", { aluno_nome_completo: "Rui Lima", turma: "K3B", data: "2026-11-30", falta: true, confirmado_pela_pessoa: true }, "t2"),
+    say("Registrei a falta da Ana Lima. O Rui fica para a próxima mensagem."),
+  ]);
+  assert.equal(await runAgent(a.d), "Registrei a falta da Ana Lima. O Rui fica para a próxima mensagem.");
+  // Só o primeiro chegou ao banco; o segundo voltou ao modelo como recusa.
+  assert.deepEqual(a.log.db.map((c) => c[0]).filter((n) => n === "registrar_rotina").length, 1);
+  assert.match(a.log.model[2].messages.at(-1).content, /Só um lançamento por vez/);
+});
+
+test("reforço que pede confirmação não conta como feito", async () => {
+  const a = deps(
+    [
+      call("reforcar_pedido", { pipeline_id: "p1", numero: "4", texto: "x", campos: { Local: "sala prof" } }),
+      say("Registrei o seu reforço no pedido #4."),
+      say("O pedido #4 (Impressora sem toner, aberto em 25/11) parece ser o mesmo. 1 - Sim, é o mesmo; 2 - Não, é outro"),
+    ],
+    ctx(),
+    { confirmar: "Pergunte à pessoa se é o mesmo.", numero: 4 },
+  );
+  assert.match((await runAgent(a.d))!, /1 - Sim/);
+  // A falsa confirmação ("registrei o seu reforço") foi cobrada antes.
+  assert.equal(a.log.model.length, 3);
+});
