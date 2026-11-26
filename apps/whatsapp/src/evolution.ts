@@ -207,7 +207,14 @@ export async function sendText(
     if (res.ok) return null;
     // O motivo vem no corpo; números longos são mascarados antes de ir ao log.
     const why = (await res.text().catch(() => "")).replace(/\d{6,}/g, (d) => `${d.slice(0, 4)}…`).slice(0, 160);
-    return `HTTP ${res.status}${why ? `: ${why}` : ""}`;
+    if (why) return `HTTP ${res.status}: ${why}`;
+    // Sem corpo: os cabeçalhos dizem quem recusou (a Evolution manda
+    // "x-powered-by"; o Cloudflare manda "server: cloudflare").
+    const hint = ["server", "x-powered-by", "content-type", "cf-mitigated"]
+      .map((k) => (res.headers.get(k) ? `${k}=${res.headers.get(k)!.slice(0, 40)}` : ""))
+      .filter(Boolean)
+      .join(", ");
+    return hint ? `HTTP ${res.status} (sem corpo; ${hint})` : `HTTP ${res.status}`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }
