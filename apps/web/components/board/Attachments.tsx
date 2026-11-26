@@ -57,9 +57,9 @@ export function Attachments({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 grid-cols-1 gap-2">
       {attachments.length > 0 && (
-        <ul className="grid gap-1">
+        <ul className="grid min-w-0 grid-cols-1 gap-1">
           {attachments.map((a) =>
             editing === a.id ? (
               <li key={a.id}>
@@ -91,7 +91,7 @@ export function Attachments({
                 </form>
               </li>
             ) : (
-              <li key={a.id} className="flex items-center gap-2">
+              <li key={a.id} className="flex min-w-0 items-center gap-2">
                 <span className="text-neutral-600" aria-hidden="true">
                   {IMAGE.test(a.url) ? "🖼️" : "🔗"}
                 </span>
@@ -111,7 +111,7 @@ export function Attachments({
                     setEditUrl(a.url);
                     setEditLabel(a.label);
                   }}
-                  className={smallBtn}
+                  className={`${smallBtn} shrink-0`}
                   aria-label={`Editar anexo ${a.label || a.url}`}
                 >
                   Editar
@@ -122,7 +122,7 @@ export function Attachments({
                     if (!window.confirm(`Excluir o anexo "${a.label || a.url}"?`)) return;
                     void run(() => deleteAttachment(a.id));
                   }}
-                  className={`${smallBtn} hover:bg-red-50 hover:text-red-700`}
+                  className={`${smallBtn} shrink-0 hover:bg-red-50 hover:text-red-700`}
                   aria-label={`Excluir anexo ${a.label || a.url}`}
                 >
                   Excluir

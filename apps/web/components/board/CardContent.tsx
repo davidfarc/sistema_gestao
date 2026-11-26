@@ -24,13 +24,13 @@ function emptyValue(fieldId: string): FieldValueRaw {
 // quadro o conteúdo é mais estreito que a tela, então a troca acontece depois.
 const SPLIT = {
   lg: {
-    grid: "lg:grid-cols-[7fr_3fr]",
+    grid: "lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]",
     comments: "lg:col-start-1 lg:row-start-2",
     aside: "lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0",
     sticky: "lg:sticky lg:top-8",
   },
   xl: {
-    grid: "xl:grid-cols-[7fr_3fr]",
+    grid: "xl:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]",
     comments: "xl:col-start-1 xl:row-start-2",
     aside: "xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0",
     sticky: "xl:sticky xl:top-4",
