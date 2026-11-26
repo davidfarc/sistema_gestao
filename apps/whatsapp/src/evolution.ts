@@ -9,6 +9,11 @@ export interface Inbound {
   phone: string;
   /** Identificador da mensagem no WhatsApp (evita processar duas vezes). */
   providerId: string;
+  /**
+   * Endereço da conversa como o WhatsApp a conhece ("…@s.whatsapp.net" ou
+   * "…@lid"). Usado para responder quando o envio pelo número é recusado.
+   */
+  chatJid?: string;
   kind: "text" | "audio" | "image" | "other";
   text: string;
   /** Duração do áudio em segundos, quando o WhatsApp informa. */
@@ -53,17 +58,19 @@ export function parseInbound(payload: unknown): Inbound | null {
   const digits = (jid.split("@")[0] ?? "").split(":")[0] ?? "";
   if (!/^[1-9][0-9]{7,14}$/.test(digits)) return null;
   const providerId = str(key.id);
+  const chatJid = str(key.remoteJid) || undefined;
   if (!providerId) return null;
 
   const message = (data.message ?? {}) as Record<string, unknown>;
   const text =
     str(message.conversation) || str((message.extendedTextMessage as { text?: unknown } | undefined)?.text);
-  if (text.trim()) return { phone: `+${digits}`, providerId, kind: "text", text: text.trim().slice(0, 4000) };
+  if (text.trim()) return { phone: `+${digits}`, providerId, chatJid, kind: "text", text: text.trim().slice(0, 4000) };
   if (message.audioMessage) {
     const seconds = Number((message.audioMessage as { seconds?: unknown }).seconds);
     return {
       phone: `+${digits}`,
       providerId,
+      chatJid,
       kind: "audio",
       text: "",
       ...(Number.isFinite(seconds) && seconds > 0 ? { seconds } : {}),
@@ -81,6 +88,7 @@ export function parseInbound(payload: unknown): Inbound | null {
     return {
       phone: `+${digits}`,
       providerId,
+      chatJid,
       kind: "image",
       // A legenda da foto é o texto da mensagem.
       text: str(image.caption).trim().slice(0, 2000),
@@ -92,7 +100,7 @@ export function parseInbound(payload: unknown): Inbound | null {
       },
     };
   }
-  return { phone: `+${digits}`, providerId, kind: "other", text: "" };
+  return { phone: `+${digits}`, providerId, chatJid, kind: "other", text: "" };
 }
 
 export interface EvolutionConfig {
@@ -191,11 +199,15 @@ export async function sendText(
       {
         method: "POST",
         headers: headers(cfg),
-        body: JSON.stringify({ number: phone.replace(/\D/g, ""), text }),
+        // Número (só dígitos) ou, para responder numa conversa "@lid", o endereço completo.
+        body: JSON.stringify({ number: phone.includes("@") ? phone : phone.replace(/\D/g, ""), text }),
         signal: AbortSignal.timeout(15_000),
       },
     );
-    return res.ok ? null : `HTTP ${res.status}`;
+    if (res.ok) return null;
+    // O motivo vem no corpo; números longos são mascarados antes de ir ao log.
+    const why = (await res.text().catch(() => "")).replace(/\d{6,}/g, (d) => `${d.slice(0, 4)}…`).slice(0, 160);
+    return `HTTP ${res.status}${why ? `: ${why}` : ""}`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }

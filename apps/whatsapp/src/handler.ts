@@ -144,7 +144,13 @@ async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<
     console.log("resposta: nenhuma (silêncio de propósito)");
     return;
   }
-  const error = await deps.send(msg.phone, reply);
+  let error = await deps.send(msg.phone, reply);
+  // Conversa no formato novo ("@lid"): se o WhatsApp recusar pelo número,
+  // responde no próprio endereço da conversa.
+  if (error?.startsWith("HTTP 400") && msg.chatJid && !msg.chatJid.endsWith("@s.whatsapp.net")) {
+    console.log(`resposta: envio pelo número recusado (${error}); tentando pelo endereço da conversa`);
+    error = await deps.send(msg.chatJid, reply);
+  }
   console.log(error ? `resposta: o envio falhou (${error})` : "resposta: enviada");
   await deps.recordOutbound(msg.phone, result.usuario?.id ?? null, reply, error);
 }

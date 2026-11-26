@@ -50,6 +50,7 @@ test("parseInbound lê texto simples e texto estendido", () => {
   assert.deepEqual(parseInbound(upsert()), {
     phone: "+558499998888",
     providerId: "ABC123",
+    chatJid: "558499998888@s.whatsapp.net",
     kind: "text",
     text: "O ar da sala 12 não liga",
   });
@@ -206,4 +207,23 @@ test("describeIgnored resume o aviso sem números de telefone", () => {
   assert.equal(JSON.stringify(d).match(/\d{5,}/), null);
   assert.deepEqual((d.chave as Record<string, unknown>).remoteJid, "…@lid");
   assert.equal(describeIgnored({ event: "connection.update", data: {} }), null);
+});
+
+test("resposta: envio recusado pelo número tenta o endereço @lid da conversa", async () => {
+  const sent: string[] = [];
+  const d = deps({ usuario: { id: "u1", nome: "Ana" } });
+  d.d.send = async (to) => (sent.push(to), to.startsWith("+") ? "HTTP 400: exists false" : null);
+  await handleRequest(post(upsert({}, { remoteJid: "123@lid", senderPn: "558499998888@s.whatsapp.net" })), d.d);
+  assert.deepEqual(sent, ["+558499998888", "123@lid"]);
+});
+
+test("sendText: endereço completo vai como está; erro traz o motivo com números mascarados", async () => {
+  let body = "";
+  const ok = (async (_u: string, init: RequestInit) => ((body = String(init.body)), new Response("{}"))) as unknown as typeof fetch;
+  await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "123@lid", "oi", ok);
+  assert.equal(JSON.parse(body).number, "123@lid");
+  const bad = (async () => new Response('{"exists":false,"number":"558499998888"}', { status: 400 })) as unknown as typeof fetch;
+  const err = await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+558499998888", "oi", bad);
+  assert.match(err!, /^HTTP 400: /);
+  assert.equal(/\d{6,}/.test(err!), false);
 });
