@@ -13,8 +13,11 @@ services:
     image: evoapicloud/evolution-api:latest
     restart: unless-stopped
     depends_on: [postgres, redis]
+    # Porta só deste computador, para abrir o painel (http://localhost:PORTA/manager).
+    # O túnel não usa esta porta: ele fala com evolution:8080 por dentro do Docker.
+    # Se a 8080 já estiver em uso por outro sistema, defina EVOLUTION_LOCAL_PORT no .env.
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${EVOLUTION_LOCAL_PORT:-8080}:8080"
     environment:
       SERVER_URL: ${SERVER_URL}
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
