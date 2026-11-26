@@ -97,6 +97,10 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
   if (!m || request.method !== "POST") return text("não encontrado", 404);
   const given = m[1] ? decodeURIComponent(m[1]) : (request.headers.get("x-webhook-secret") ?? "");
   if (!deps.webhookSecret || deps.webhookSecret.length < 24 || !safeEqual(given, deps.webhookSecret)) {
+    // Sem mostrar a senha: só se veio alguma e de que tamanho, para conferir.
+    console.log(
+      `webhook recusado: senha ${given ? `diferente (${given.length} caracteres recebidos)` : "ausente"}; configurada no serviço: ${deps.webhookSecret ? `${deps.webhookSecret.length} caracteres` : "nenhuma"}`,
+    );
     return text("não autorizado", 401);
   }
 
