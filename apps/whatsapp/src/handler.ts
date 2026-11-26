@@ -110,12 +110,20 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
   // Sempre 200 para o que não nos interessa: a Evolution não deve repetir.
   if (!msg) {
     const why = describeIgnored(payload);
-    if (why) console.log("mensagem ignorada (formato sem telefone?)", JSON.stringify(why));
+    const event = String((payload as { event?: unknown } | null)?.event ?? "?");
+    console.log(why ? `mensagem ignorada (formato sem telefone?) ${JSON.stringify(why)}` : `aviso ignorado: ${event}`);
     return text("ignorado");
   }
 
   const result = await deps.recordInbound(msg, phoneVariants(msg.phone));
-  if (!result) return text("indisponível", 503);
+  if (!result) {
+    console.error("entrada: o banco não registrou a mensagem");
+    return text("indisponível", 503);
+  }
+  // Rastro de cada mensagem, sem dados pessoais: ajuda a ver onde parou.
+  console.log(
+    `entrada: ${msg.kind}, cadastrado=${result.usuario ? "sim" : "não"}, repetida=${result.duplicada ? "sim" : "não"}, na última hora=${result.recentes}`,
+  );
 
   // Responde já ao webhook; a conversa com o modelo leva alguns segundos.
   const work = answer(msg, result, deps).catch((e) => {
@@ -128,8 +136,12 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
 
 async function answer(msg: Inbound, result: InboundResult, deps: Deps): Promise<void> {
   const reply = await chooseReply(msg, result, deps);
-  if (!reply) return;
+  if (!reply) {
+    console.log("resposta: nenhuma (silêncio de propósito)");
+    return;
+  }
   const error = await deps.send(msg.phone, reply);
+  console.log(error ? `resposta: o envio falhou (${error})` : "resposta: enviada");
   await deps.recordOutbound(msg.phone, result.usuario?.id ?? null, reply, error);
 }
 
