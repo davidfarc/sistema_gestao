@@ -5,12 +5,16 @@
 #   computador (127.0.0.1) e o sistema chega até ela pelo túnel do Cloudflare.
 # - Senhas e chaves ficam no arquivo `.env` desta pasta (NUNCA no repositório;
 #   copie o `env.exemplo` para `.env` e preencha).
+# - Versões TRAVADAS (nada de "latest"): em 23/11/2026 a Evolution 2.3.8 e o
+#   cloudflared 2026.11.2 saíram e o envio pelo túnel passou a ser recusado
+#   (HTTP 400 sem corpo). Para atualizar, troque a versão aqui, rode
+#   `docker compose up -d` e teste uma resposta do agente antes de seguir.
 # - `restart: unless-stopped`: volta sozinho depois de queda de luz, desde que o
 #   Docker Desktop esteja configurado para abrir junto com o Windows.
 
 services:
   evolution:
-    image: evoapicloud/evolution-api:latest
+    image: evoapicloud/evolution-api:v2.3.7
     restart: unless-stopped
     depends_on: [postgres, redis]
     # Porta só deste computador, para abrir o painel (http://localhost:PORTA/manager).
@@ -61,7 +65,7 @@ services:
   # Túnel do Cloudflare: liga um endereço público (definido no painel do
   # Cloudflare) a http://evolution:8080, sem abrir porta no roteador da escola.
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.11.1
     restart: unless-stopped
     depends_on: [evolution]
     command: tunnel --no-autoupdate run
