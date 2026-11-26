@@ -56,6 +56,68 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
     options: { myTasks: true, timeTracking: true, ownPanel: true },
   },
   {
+    id: "coordenacao",
+    label: "Coordenação",
+    description:
+      "Demandas de uma coordenação: Backlog → Em avaliação → Em produção → Aguardando aprovação → Feito, com turma, segmento e prioridade.",
+    stages: [
+      { name: "Backlog", category: "backlog" },
+      { name: "Em avaliação", category: "review" },
+      { name: "Em produção", category: "in_progress" },
+      { name: "Aguardando aprovação", category: "review" },
+      { name: "Feito", category: "done" },
+    ],
+    fields: [
+      {
+        name: "Turma",
+        type: "select",
+        options: [
+          "Little Kids A",
+          "Little Kids B",
+          "Little Kids C",
+          "Kids 1A",
+          "Kids 1B",
+          "Kids 2A",
+          "Kids 2B",
+          "Kids 3A",
+          "Kids 3B",
+          "Junior 1A",
+          "Junior 1B",
+          "Junior 2A",
+          "Junior 2B",
+          "Junior 3A",
+          "Junior 3B",
+          "Junior 4",
+          "Junior 5",
+          "Junior 6",
+          "Junior 7",
+          "Junior 8",
+          "Junior 9",
+          "Junior 10",
+          "Junior 11",
+          "Junior 12",
+        ],
+        showOnCard: true,
+        showOnCreate: true,
+      },
+      {
+        name: "Segmento",
+        type: "select",
+        options: ["Infantil", "Fundamental 1", "Fundamental 2", "Ensino Médio"],
+        showOnCard: true,
+        showOnCreate: true,
+      },
+      {
+        name: "Prioridade",
+        type: "select",
+        options: ["Alta", "Moderada", "Baixa"],
+        showOnCard: true,
+        showOnCreate: true,
+      },
+    ],
+    options: {},
+  },
+  {
     id: "editora_revisao",
     label: "Editora Revisão",
     description:
@@ -121,6 +183,12 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
 ];
 
 const OPTION_COLORS = ["#1d4ed8", "#047857", "#b45309", "#ba1a1a", "#7c3aed", "#0891b2"];
+/** Prioridade com cor de semáforo; o resto segue a paleta em ordem. */
+const FIXED_COLORS: Record<string, string> = { Alta: "#ba1a1a", Moderada: "#b45309", Baixa: "#047857" };
 export function templateOptions(labels: string[]) {
-  return labels.map((label, i) => ({ id: `opt${i}`, label, color: OPTION_COLORS[i % OPTION_COLORS.length]! }));
+  return labels.map((label, i) => ({
+    id: `opt${i}`,
+    label,
+    color: FIXED_COLORS[label] ?? OPTION_COLORS[i % OPTION_COLORS.length]!,
+  }));
 }
