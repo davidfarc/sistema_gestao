@@ -25,6 +25,8 @@ import { UnreadBadge } from "./UnreadBadge";
 interface MenuItem {
   Icon: LucideIcon;
   label: string;
+  /** Outros caminhos que também acendem este item. */
+  match?: string[];
   href: string;
   disabled?: boolean;
   /** Item que só aparece para quem tem o acesso correspondente. */
@@ -41,9 +43,8 @@ export interface MenuAccess {
 const MENU: MenuItem[] = [
   { Icon: LayoutDashboard, label: "Início", href: "/" },
   { Icon: KanbanSquare, label: "Quadro", href: "/board" },
-  { Icon: BarChart3, label: "Painéis", href: "/painel", needs: "painel" },
-  // "Prioridades" NÃO entra aqui: é específico do pipeline de demandas, e o
-  // acesso fica no próprio quadro (e no badge do card).
+  // A fila de prioridade e o planejamento de gastos são abas de Relatórios.
+  { Icon: BarChart3, label: "Relatórios", href: "/painel", needs: "painel", match: ["/prioridades"] },
   { Icon: School, label: "Gestão de Vila", href: "/salas", needs: "salas" },
   // Central de agendamento de anamneses (famílias de novos alunos).
   { Icon: UserPlus, label: "Novos alunos", href: "/novos-alunos", needs: "novos" },
@@ -125,7 +126,7 @@ export function Sidebar({
           {/* Nav */}
           <nav className="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2" aria-label="Navegação">
             {MENU.filter((item) => !item.needs || access[item.needs]).map((item) => {
-              const active = !item.disabled && isActive(item.href);
+              const active = !item.disabled && (isActive(item.href) || (item.match ?? []).some(isActive));
               return (
                 <Link
                   key={item.label}
