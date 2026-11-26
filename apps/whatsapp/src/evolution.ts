@@ -210,11 +210,11 @@ export async function sendText(
     if (why) return `HTTP ${res.status}: ${why}`;
     // Sem corpo: os cabeçalhos dizem quem recusou (a Evolution manda
     // "x-powered-by"; o Cloudflare manda "server: cloudflare").
-    const hint = ["server", "x-powered-by", "content-type", "cf-mitigated"]
-      .map((k) => (res.headers.get(k) ? `${k}=${res.headers.get(k)!.slice(0, 40)}` : ""))
-      .filter(Boolean)
-      .join(", ");
-    return hint ? `HTTP ${res.status} (sem corpo; ${hint})` : `HTTP ${res.status}`;
+    const shown = new Set(["server", "x-powered-by", "content-type", "cf-mitigated", "location"]);
+    const parts: string[] = [];
+    res.headers.forEach((v, k) => parts.push(shown.has(k) ? `${k}=${v.slice(0, 40)}` : k));
+    const hint = parts.join(", ");
+    return `HTTP ${res.status} (sem corpo; ${hint || "nenhum cabeçalho"}) [log v3]`;
   } catch (e) {
     return e instanceof Error ? e.name : "falha de rede";
   }

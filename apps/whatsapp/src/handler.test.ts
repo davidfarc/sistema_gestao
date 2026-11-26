@@ -187,7 +187,7 @@ test("sendText chama a Evolution com a instância codificada e só os dígitos",
   assert.equal(h["CF-Access-Client-Id"], "id.access");
   assert.equal(h["CF-Access-Client-Secret"], "seg");
   const bad = (async () => new Response(null, { status: 401 })) as unknown as typeof fetch;
-  assert.equal(await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+5584", "oi", bad), "HTTP 401");
+  assert.equal(await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+5584", "oi", bad), "HTTP 401 (sem corpo; nenhum cabeçalho) [log v3]");
 });
 
 test("sendText: recusa sem corpo diz quem respondeu, pelos cabeçalhos", async () => {
@@ -195,7 +195,7 @@ test("sendText: recusa sem corpo diz quem respondeu, pelos cabeçalhos", async (
     new Response(null, { status: 400, headers: { server: "cloudflare" } })) as unknown as typeof fetch;
   assert.equal(
     await sendText({ url: "https://z", instance: "i", apiKey: "k" }, "+5584", "oi", bad),
-    "HTTP 400 (sem corpo; server=cloudflare)",
+    "HTTP 400 (sem corpo; server=cloudflare) [log v3]",
   );
 });
 
