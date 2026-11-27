@@ -685,6 +685,44 @@ O visual novo mexe em todas as telas e deve partir de uma base já validada.
 
 ---
 
+## F. Triagem das mensagens das famílias (planejado em 27/11/2026)
+
+Agente que lê as mensagens das famílias, classifica e avisa quem precisa agir. Só lê: nunca
+responde às famílias. Os avisos saem pelo Luix (número da equipe).
+
+**Fontes**
+- **Agenda Edu** (API oficial): webhook `message_sent_by_responsible` e varredura das conversas
+  com `answered = false`. Prazo de resposta: o do canal (2 dias úteis; Ouvidoria, 5).
+- **WhatsApp da Gestão de Vila** (número institucional, sem grupos): segunda instância da
+  Evolution, só leitura. Respondida = a equipe mandou mensagem depois, pelo celular. Prazo:
+  **4 horas úteis**. Só conversas individuais; começa do zero (sem histórico).
+
+**Classificação** (modelo, prompt `PROMPT-CLASSIFICADOR` v3): assunto (multi), ação, gravidade,
+risco de escalar, queixa formal, confiança, motivo para a direção. O modelo não decide o segmento.
+
+**Prioridade** (regra fixa, sem modelo)
+| Prioridade | Regra | Quem | Quando |
+|---|---|---|---|
+| P1 Direção | gravidade alta, risco alto, queixa formal, risco psíquico, instância externa ou ameaça de saída | direção + coordenador do segmento | na hora |
+| P2 Coordenação | pediu algo e passou do prazo, ou risco médio | coordenador do segmento | resumo diário |
+| P3 Acompanhar | atenção dentro do prazo, assunto sensível já respondido | coordenador do segmento | resumo semanal |
+
+**Segmento** pela turma do aluno (telefone ou aluno → cadastro de responsáveis/ActiveSoft):
+Little Kids e Kids → Vila 1; Junior 1–5 → Fundamental 1; Junior 6–12 → Fundamental 2 e Médio.
+Exceções: Ouvidoria também para a direção; Psicologia para a psicóloga do segmento; Financeiro e
+Secretaria para a secretaria.
+
+**Revisão humana**: só confiança baixa, ou "nenhuma" com sinal forte no texto; no máximo 10 por
+dia. Reincidência, conflito entre alunos e doença não mandam para revisão.
+
+**Janela**: o resumo olha 30 dias; o resto é histórico para calibrar.
+
+**Fechamento**: cada P1/P2 avisado traz "1 - Abrir card na coordenação; 2 - Já resolvido;
+3 - Classificação errada". As correções formam o conjunto-ouro.
+
+**Dados**: texto completo guardado por 30 dias; depois só a classificação. Famílias avisadas na
+política de privacidade.
+
 ## Resumo
 
 | Bloco | Dias | Custo mensal novo |
