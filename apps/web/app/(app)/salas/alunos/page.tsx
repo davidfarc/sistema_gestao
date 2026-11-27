@@ -134,7 +134,15 @@ export default function AlunosPage() {
       alert(
         `Sincronização de ${year} OK:\n- Novos alunos: ${result.countNew}\n- Atualizados: ${result.countUpdated}\n- Novas salas: ${result.newRoomsCount}` +
           (mark ? `\n- Marcados como fora da turma: ${missing}` : missing > 0 ? `\n- Fora da lista do ActiveSoft (não marcados): ${missing}` : "") +
-          (result.countBack > 0 ? `\n- Voltaram a constar: ${result.countBack}` : "")
+          (result.countBack > 0 ? `\n- Voltaram a constar: ${result.countBack}` : "") +
+          (body.guardians?.error
+            ? `\n\nResponsáveis: não atualizados (${body.guardians.error})`
+            : body.guardians
+              ? `\n\nResponsáveis atualizados: ${body.guardians.guardians}` +
+                (body.guardians.studentsWithoutPhone > 0
+                  ? ` (${body.guardians.studentsWithoutPhone} aluno(s) sem nenhum celular de responsável no ActiveSoft)`
+                  : "")
+              : "")
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

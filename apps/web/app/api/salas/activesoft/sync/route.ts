@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { provisionAndGetActor } from "@/lib/actor";
 import { loadSigaStudents, SigaError } from "@/lib/salas/activesoftApi";
+import { importGuardians } from "@/lib/salas/guardians";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -45,7 +46,17 @@ export async function POST(request: Request) {
 
   try {
     const result = await loadSigaStudents(apiUrl, token, ano);
-    return NextResponse.json(result);
+    // No ano corrente, atualiza também o cadastro de responsáveis (migration 0063).
+    // Falhar aqui não impede a importação dos alunos.
+    let guardians: { guardians: number; studentsWithoutPhone: number } | { error: string } | null = null;
+    if (result.year === result.currentYear) {
+      try {
+        guardians = await importGuardians(apiUrl, token, actor.organizationId as string, result.students);
+      } catch (e) {
+        guardians = { error: e instanceof Error ? e.message : "erro" };
+      }
+    }
+    return NextResponse.json({ ...result, guardians });
   } catch (err) {
     const msg = err instanceof SigaError ? err.message : `Falha ao consultar ActiveSoft: ${err instanceof Error ? err.name : "erro"}`;
     return NextResponse.json({ error: msg }, { status: 502 });

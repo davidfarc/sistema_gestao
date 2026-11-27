@@ -737,8 +737,11 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > **27/11 (responsáveis):** cadastro de responsáveis dos alunos (até 3 por aluno, com telefone), migration
 > `0063` (testada em Postgres local). O Luix busca os responsáveis ao registrar uma reunião
 > (`buscar_responsaveis`); o pedido de confirmação à secretaria ganhou o texto novo, com o nome dela, o
-> aluno e a turma; card sem telefone usa o do cadastro. **Falta a importação do ActiveSoft**: descobrir o
-> recurso da API que traz os responsáveis com telefone.
+> aluno e a turma; card sem telefone usa o do cadastro. Importação: junto com a de alunos do ano corrente
+> (Gestão de Vila → Alunos → ActiveSoft), juntando `/lista_alunos/` (ids: principal, secundário,
+> filiação 1 e 2, adicionais) com `/lista_responsaveis/` (celular, 5 máscaras, normalizado para +55).
+> Até 3 por aluno, sem repetir a mesma pessoa; o parentesco não vem decodificado da API
+> (`tipo_responsavel` 1, 2, 11 sem tabela), então o papel é o do cadastro (principal, secundário, filiação).
 
 ### Banco
 

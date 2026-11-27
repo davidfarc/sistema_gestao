@@ -161,3 +161,73 @@ export async function loadSigaStudents(base: string, token: string, askedYear?: 
   }
   return { year, currentYear, students, rooms: roomById.size };
 }
+
+// ── Responsáveis (migration 0063) ───────────────────────────────────────────
+
+export interface SigaGuardian {
+  studentId: string;
+  slot: 1 | 2 | 3;
+  name: string;
+  /** Papel no cadastro do aluno (o parentesco não vem decodificado da API). */
+  relation: string;
+  /** "+55…" só com dígitos, ou "" se o cadastro não tiver um celular válido. */
+  phone: string;
+  email: string;
+}
+
+/** Celular do ActiveSoft em "+55DDDNÚMERO". Cinco máscaras convivem na base. */
+export function normalizeSigaPhone(raw: unknown): string {
+  const d = str(raw).replace(/\D/g, "");
+  if (d.length === 10 || d.length === 11) return `+55${d}`;
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) return `+${d}`;
+  return "";
+}
+
+/**
+ * Até 3 responsáveis por aluno, na ordem do cadastro do aluno: principal,
+ * secundário, filiação 1, filiação 2, adicionais — sem repetir a mesma pessoa
+ * (o secundário é igual ao principal em boa parte dos casos). A ligação mora no
+ * aluno (`/lista_alunos/`); o celular, em `/lista_responsaveis/`. Só para os
+ * alunos informados (os atuais): a lista de responsáveis tem muitos ex-alunos.
+ */
+export async function loadSigaGuardians(base: string, token: string, studentIds: Set<string>): Promise<SigaGuardian[]> {
+  const root = base.replace(/\/+$/, "");
+  const [alunos, responsaveis] = await Promise.all([
+    getAll(root, token, "/lista_alunos/"),
+    getAll(root, token, "/lista_responsaveis/"),
+  ]);
+  const byId = new Map(responsaveis.map((r) => [str(r.id), r]));
+  const out: SigaGuardian[] = [];
+  for (const a of alunos) {
+    const studentId = str(a.id);
+    if (!studentIds.has(studentId)) continue;
+    const extra = Array.isArray(a.responsaveis_adicionais_ids) ? (a.responsaveis_adicionais_ids as unknown[]) : [];
+    const links: [unknown, string][] = [
+      [a.responsavel_id, "Responsável principal"],
+      [a.responsavel_secundario_id, "Responsável secundário"],
+      [a.filiacao_1_id, "Filiação"],
+      [a.filiacao_2_id, "Filiação"],
+      ...extra.map((x): [unknown, string] => [x, "Responsável adicional"]),
+    ];
+    const seen = new Set<string>();
+    let slot = 0;
+    for (const [rawId, relation] of links) {
+      const id = str(rawId);
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const r = byId.get(id);
+      if (!r || !str(r.nome)) continue;
+      slot++;
+      out.push({
+        studentId,
+        slot: slot as 1 | 2 | 3,
+        name: str(r.nome),
+        relation,
+        phone: normalizeSigaPhone(r.celular),
+        email: str(r.email).includes("@") ? str(r.email) : "",
+      });
+      if (slot === 3) break;
+    }
+  }
+  return out;
+}
