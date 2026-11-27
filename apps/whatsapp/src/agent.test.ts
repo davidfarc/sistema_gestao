@@ -116,7 +116,7 @@ test("histórico: começa na pessoa e precisa terminar nela", async () => {
 });
 
 test("ferramentas: esquema fechado, e nenhuma que mova, apague ou configure", () => {
-  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_aluno", "buscar_pedidos", "comentar_pedido", "confirmar_telefone", "criar_pedido", "liberar_pedido", "pesquisas_pendentes", "reforcar_pedido", "registrar_rotina", "situacao_pedido"]);
+  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_aluno", "buscar_pedidos", "buscar_responsaveis", "comentar_pedido", "confirmar_telefone", "criar_pedido", "liberar_pedido", "pesquisas_pendentes", "reforcar_pedido", "registrar_rotina", "situacao_pedido"]);
   for (const t of TOOLS) {
     const p = t.function.parameters as any;
     assert.equal(t.type, "function");

@@ -155,7 +155,7 @@ type Out = Record<string, unknown> | null;
 /** Ferramentas da rotina da Gestão de Vila (migration 0057). */
 const ROUTINE_TOOLS = new Set(["buscar_aluno", "registrar_rotina"]);
 /** Ferramentas da pesquisa de satisfação das reuniões (migration 0062). */
-const SURVEY_TOOLS = new Set(["pesquisas_pendentes", "confirmar_telefone"]);
+const SURVEY_TOOLS = new Set(["pesquisas_pendentes", "confirmar_telefone", "buscar_responsaveis"]);
 
 /**
  * Porta do agente para o banco. Pedidos vão para `whatsapp_agent`; a rotina

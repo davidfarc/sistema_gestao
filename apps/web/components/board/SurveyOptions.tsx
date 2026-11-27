@@ -58,6 +58,22 @@ export function SurveyOptions({
     </label>
   );
 
+  const fieldPick = (label: string, key: "studentFieldId" | "classFieldId", withSelect: boolean) => (
+    <label className="grid gap-1 text-sm text-neutral-700">
+      {label}
+      <select value={value?.[key] ?? ""} onChange={(e) => change({ [key]: e.target.value })} className={select}>
+        <option value="">Nenhuma</option>
+        {choices?.fields
+          .filter((f) => withSelect || f.type !== "select")
+          .map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  );
+
   return (
     <div className="grid gap-3 border-t border-neutral-200 p-5">
       <div>
@@ -84,7 +100,7 @@ export function SurveyOptions({
                 Propriedade com o telefone do participante
                 <select value={value.phoneFieldId} onChange={(e) => change({ phoneFieldId: e.target.value })} className={select}>
                   <option value="">Escolha a propriedade</option>
-                  {choices.fields.map((f) => (
+                  {choices.fields.filter((f) => f.type !== "select").map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
@@ -95,13 +111,15 @@ export function SurveyOptions({
                 Propriedade com o nome do participante (opcional)
                 <select value={value.nameFieldId} onChange={(e) => change({ nameFieldId: e.target.value })} className={select}>
                   <option value="">Usar o título do card</option>
-                  {choices.fields.map((f) => (
+                  {choices.fields.filter((f) => f.type !== "select").map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
                   ))}
                 </select>
               </label>
+              {fieldPick("Propriedade com o nome do aluno (opcional)", "studentFieldId", false)}
+              {fieldPick("Propriedade com a turma (opcional)", "classFieldId", true)}
               <fieldset className="grid gap-1 text-sm text-neutral-700">
                 <legend className="mb-1">Quem confirma o telefone</legend>
                 <div className="grid max-h-48 gap-1 overflow-y-auto rounded-lg border border-neutral-200 p-2">

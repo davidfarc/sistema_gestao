@@ -15,12 +15,15 @@ export interface BoardSurvey {
   doneStageId: string;
   phoneFieldId: string;
   nameFieldId: string;
+  /** Propriedades com o nome do aluno e a turma (opcionais, migration 0063). */
+  studentFieldId: string;
+  classFieldId: string;
   confirmerIds: string[];
 }
 
 export interface BoardSurveyChoices {
   stages: { id: string; name: string }[];
-  fields: { id: string; name: string }[];
+  fields: { id: string; name: string; type: string }[];
   people: { id: string; name: string; hasPhone: boolean }[];
 }
 
@@ -32,6 +35,8 @@ const EMPTY: BoardSurvey = {
   doneStageId: "",
   phoneFieldId: "",
   nameFieldId: "",
+  studentFieldId: "",
+  classFieldId: "",
   confirmerIds: [],
 };
 
@@ -53,7 +58,7 @@ export async function loadBoardSurvey(
       .select("id, name, type")
       .eq("board_id", boardId)
       .is("archived_at", null)
-      .in("type", ["text", "number", "long_text"])
+      .in("type", ["text", "number", "long_text", "select"])
       .order("position"),
     db.from("app_user").select("id, name, email").eq("organization_id", org).eq("is_internal", true).is("archived_at", null).order("name"),
     db.from("user_phone").select("user_id"),
@@ -70,11 +75,13 @@ export async function loadBoardSurvey(
       doneStageId: str("done_stage_id"),
       phoneFieldId: str("phone_field_id"),
       nameFieldId: str("name_field_id"),
+      studentFieldId: str("student_field_id"),
+      classFieldId: str("class_field_id"),
       confirmerIds: Array.isArray(cfg.confirmer_ids) ? (cfg.confirmer_ids as unknown[]).filter((x): x is string => typeof x === "string") : [],
     },
     choices: {
       stages: (stages ?? []).map((s) => ({ id: s.id as string, name: s.name as string })),
-      fields: (fields ?? []).map((f) => ({ id: f.id as string, name: f.name as string })),
+      fields: (fields ?? []).map((f) => ({ id: f.id as string, name: f.name as string, type: f.type as string })),
       people: (users ?? []).map((u) => ({
         id: u.id as string,
         name: (u.name as string) || (u.email as string),
@@ -101,13 +108,14 @@ export async function setBoardSurvey(
     if (value.confirmerIds.length === 0) return { ok: false, error: "Escolha quem confirma o telefone." };
 
     // Tudo precisa ser deste pipeline e desta organização.
+    const fieldIds = [...new Set([value.phoneFieldId, value.nameFieldId, value.studentFieldId, value.classFieldId].filter(Boolean))];
     const [{ data: stages }, { data: fields }, { data: users }] = await Promise.all([
       db.from("stage").select("id").eq("board_id", boardId).in("id", stageIds),
-      db.from("field_definition").select("id").eq("board_id", boardId).in("id", [value.phoneFieldId, value.nameFieldId].filter(Boolean)),
+      db.from("field_definition").select("id").eq("board_id", boardId).in("id", fieldIds),
       db.from("app_user").select("id").eq("organization_id", org).eq("is_internal", true).is("archived_at", null).in("id", value.confirmerIds),
     ]);
     if ((stages ?? []).length !== 3) return { ok: false, error: "Etapa inválida." };
-    if ((fields ?? []).length !== [value.phoneFieldId, value.nameFieldId].filter(Boolean).length) {
+    if ((fields ?? []).length !== fieldIds.length) {
       return { ok: false, error: "Propriedade inválida." };
     }
     if ((users ?? []).length !== value.confirmerIds.length) return { ok: false, error: "Pessoa inválida." };
@@ -119,6 +127,8 @@ export async function setBoardSurvey(
       done_stage_id: value.doneStageId,
       phone_field_id: value.phoneFieldId,
       name_field_id: value.nameFieldId || null,
+      student_field_id: value.studentFieldId || null,
+      class_field_id: value.classFieldId || null,
       confirmer_ids: value.confirmerIds,
     };
   }

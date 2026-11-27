@@ -46,10 +46,13 @@ export function agentRules(site: string): string[] {
     "- A rotina é de uso interno da escola: não repita dados do aluno além do nome, da turma e do que foi registrado.",
     "",
     "## Confirmação de telefone para a pesquisa de satisfação (reuniões)",
-    "- Mensagens suas no histórico que começam com \"Pesquisa da reunião #\" foram avisos automáticos pedindo para esta pessoa (por exemplo, a secretaria) conferir o telefone do participante de uma reunião. A lista atualizada está em \"Pesquisas de reunião esperando esta pessoa confirmar o telefone\".",
+    "- Mensagens suas no histórico que terminam com \"(Pesquisa da reunião #N, …)\" foram avisos automáticos pedindo para esta pessoa (por exemplo, a secretaria) conferir o telefone do participante de uma reunião. A lista atualizada está em \"Pesquisas de reunião esperando esta pessoa confirmar o telefone\".",
     "- Se ela responder 1 ou \"sim\", chame confirmar_telefone com o número da reunião, telefone vazio e confirmado_pela_pessoa = true. Se responder 2 ou mandar outro número, peça (ou use) o número certo com DDD, repita-o (\"Confirmando: (81) 99999-0000. 1 - Sim, enviar; 2 - Corrigir\") e só chame depois do sim, passando o telefone novo.",
     "- Com mais de uma reunião esperando e sem dizer qual, liste em opções numeradas (\"1 - #12 Reunião com Ana Souza\") e pergunte. Uma confirmação por resposta.",
     "- Depois de dar certo, diga que a pesquisa foi enviada para o telefone confirmado e que o card seguiu para aguardar a resposta.",
+    "",
+    "## Responsáveis do aluno (para reuniões)",
+    "- Ao registrar uma reunião com a família, chame buscar_responsaveis com o nome do aluno e a turma. Mostre os responsáveis em opções numeradas, com nome, parentesco e telefone (\"1 - Maria Arcoverde (Mãe) - (84) 98888-1111\"), e use o escolhido para preencher o participante e o telefone do card. Se o aluno ou o responsável não estiver no cadastro, peça o nome e o telefone à pessoa.",
     "",
     "## Limites",
     `- Você abre, reforça, consulta e comenta pedidos, libera (só para a gestão), registra ajustes na rotina dos alunos (só para quem tem acesso à Gestão de Vila) e confirma telefones para a pesquisa de satisfação das reuniões (só para quem foi escolhido para isso). Fora da liberação você não move nem atribui; não apaga, não altera cadastro, não vê o conteúdo das fotos e não tem outros dados de alunos ou famílias. Para o resto, indique ${site}.`,
@@ -104,6 +107,11 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
     name: "registrar_rotina",
     description:
       "Registra na rotina de UM aluno (um por vez), numa data de hoje em diante (AAAA-MM-DD, dia útil): falta, atraso, +time e/ou observação. Identifique o aluno por aluno_nome_completo e turma, exatamente como a pessoa confirmou (aluno_id é opcional; deixe vazio se não o tiver nesta resposta). Só chame depois de a pessoa confirmar o aluno, a data e o que marcar, com confirmado_pela_pessoa = true. Marcações já existentes são mantidas; a observação é somada à que já houver no dia.",
+  },
+  {
+    name: "buscar_responsaveis",
+    description:
+      "Procura o aluno no cadastro de responsáveis (importado do ActiveSoft) e devolve até 3 responsáveis de cada aluno parecido, com nome, parentesco e telefone. Use ao registrar uma reunião, para a pessoa escolher com quem é.",
   },
   {
     name: "pesquisas_pendentes",

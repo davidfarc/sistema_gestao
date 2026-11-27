@@ -734,6 +734,12 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > Nos testes, o envio ao participante sai pelo número do Luix (Evolution); depois, pela API da Meta.
 > Fica para depois: telefone puxado do ActiveSoft e sincronização com as agendas dos coordenadores.
 
+> **27/11 (responsáveis):** cadastro de responsáveis dos alunos (até 3 por aluno, com telefone), migration
+> `0063` (testada em Postgres local). O Luix busca os responsáveis ao registrar uma reunião
+> (`buscar_responsaveis`); o pedido de confirmação à secretaria ganhou o texto novo, com o nome dela, o
+> aluno e a turma; card sem telefone usa o do cadastro. **Falta a importação do ActiveSoft**: descobrir o
+> recurso da API que traz os responsáveis com telefone.
+
 ### Banco
 
 | Migration | O que faz | Situação |

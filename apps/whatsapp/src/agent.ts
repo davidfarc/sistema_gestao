@@ -180,6 +180,15 @@ export const TOOLS: ChatTool[] = [
     ["aluno_id", "aluno_nome_completo", "turma", "data", "falta", "atraso", "mais_time", "observacao", "confirmado_pela_pessoa"],
   ),
   tool(
+    "buscar_responsaveis",
+    describe("buscar_responsaveis"),
+    {
+      aluno: { type: "string", description: "Nome do aluno como a pessoa falou." },
+      turma: { type: "string", description: "Turma, se a pessoa disse; senão, vazio." },
+    },
+    ["aluno", "turma"],
+  ),
+  tool(
     "pesquisas_pendentes",
     describe("pesquisas_pendentes"),
     {},
