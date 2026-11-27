@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { loadActorById } from "@/lib/actor";
-import { managesBoard, moveCardAs, setResponsibleAs } from "@/lib/board/cardOps";
+import { managesBoard, moveCardAs, setResponsibleAs, surveyMove } from "@/lib/board/cardOps";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -41,7 +41,24 @@ export async function POST(request: Request) {
   } catch {
     return no("corpo inválido", 400);
   }
-  if (body.acao !== "liberar" || !isId(body.userId) || !isId(body.cardId)) return no("pedido inválido", 400);
+  if (!isId(body.userId) || !isId(body.cardId)) return no("pedido inválido", 400);
+
+  // Pesquisa de satisfação: a secretaria acabou de confirmar o telefone (o
+  // banco já conferiu e registrou); o card segue para "aguardando feedback".
+  if (body.acao === "pesquisa_enviada") {
+    const { data: survey } = await createAdminClient()
+      .from("meeting_survey")
+      .select("id")
+      .eq("card_id", body.cardId)
+      .eq("status", "enviada")
+      .eq("confirmed_by", body.userId)
+      .maybeSingle();
+    if (!survey) return no("Pesquisa não encontrada.");
+    const moved = await surveyMove(body.userId, body.cardId, "enviada");
+    return moved.ok ? NextResponse.json({ ok: true }) : no(moved.reason);
+  }
+
+  if (body.acao !== "liberar") return no("pedido inválido", 400);
   const assigneeId = isId(body.assigneeId) ? body.assigneeId : null;
 
   const actor = await loadActorById(body.userId);

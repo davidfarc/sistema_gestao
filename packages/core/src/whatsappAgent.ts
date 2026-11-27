@@ -44,8 +44,14 @@ export function agentRules(site: string): string[] {
     "4. Confirmação final: repita aluno (nome completo e turma), data (DD/MM/AAAA e dia da semana) e o que será marcado, com \"1 - Sim, registrar\" e \"2 - Corrigir\". Depois do 1 (ou \"sim\"), chame registrar_rotina com confirmado_pela_pessoa = true, passando aluno_nome_completo e turma exatamente como confirmados (o aluno_id pode ir vazio: o histórico da conversa não guarda o id da busca). Depois confirme o que foi registrado.",
     "- A rotina é de uso interno da escola: não repita dados do aluno além do nome, da turma e do que foi registrado.",
     "",
+    "## Confirmação de telefone para a pesquisa de satisfação (reuniões)",
+    "- Mensagens suas no histórico que começam com \"Pesquisa da reunião #\" foram avisos automáticos pedindo para esta pessoa (por exemplo, a secretaria) conferir o telefone do participante de uma reunião. A lista atualizada está em \"Pesquisas de reunião esperando esta pessoa confirmar o telefone\".",
+    "- Se ela responder 1 ou \"sim\", chame confirmar_telefone com o número da reunião, telefone vazio e confirmado_pela_pessoa = true. Se responder 2 ou mandar outro número, peça (ou use) o número certo com DDD, repita-o (\"Confirmando: (81) 99999-0000. 1 - Sim, enviar; 2 - Corrigir\") e só chame depois do sim, passando o telefone novo.",
+    "- Com mais de uma reunião esperando e sem dizer qual, liste em opções numeradas (\"1 - #12 Reunião com Ana Souza\") e pergunte. Uma confirmação por resposta.",
+    "- Depois de dar certo, diga que a pesquisa foi enviada para o telefone confirmado e que o card seguiu para aguardar a resposta.",
+    "",
     "## Limites",
-    `- Você abre, reforça, consulta e comenta pedidos, libera (só para a gestão) e registra ajustes na rotina dos alunos (só para quem tem acesso à Gestão de Vila). Fora da liberação você não move nem atribui; não apaga, não altera cadastro, não vê o conteúdo das fotos e não tem outros dados de alunos ou famílias. Para o resto, indique ${site}.`,
+    `- Você abre, reforça, consulta e comenta pedidos, libera (só para a gestão), registra ajustes na rotina dos alunos (só para quem tem acesso à Gestão de Vila) e confirma telefones para a pesquisa de satisfação das reuniões (só para quem foi escolhido para isso). Fora da liberação você não move nem atribui; não apaga, não altera cadastro, não vê o conteúdo das fotos e não tem outros dados de alunos ou famílias. Para o resto, indique ${site}.`,
     "- Nunca diga que abriu, reforçou, liberou ou registrou algo sem ter chamado a ferramenta NESTA resposta e ela ter devolvido ok. O histórico da conversa mostra só os textos, não as chamadas de ferramenta de antes: uma confirmação antiga sua não é modelo de resposta nem prova de que algo foi feito agora.",
     "- Nunca prometa para depois (\"vou registrar\", \"vou abrir\"): você só age dentro da própria resposta. Se já tem os dados, chame a ferramenta agora e responda com o que foi feito. Ao encontrar um pedido repetido, chame reforcar_pedido na mesma resposta, usando o relato da pessoa como texto, sem esperar ela pedir de novo.",
     "- Ao confirmar um pedido aberto, use o número e o nome do pipeline que a ferramenta devolveu, e diga o pipeline na mensagem.",
@@ -97,6 +103,16 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
     name: "registrar_rotina",
     description:
       "Registra na rotina de UM aluno (um por vez), numa data de hoje em diante (AAAA-MM-DD, dia útil): falta, atraso, +time e/ou observação. Identifique o aluno por aluno_nome_completo e turma, exatamente como a pessoa confirmou (aluno_id é opcional; deixe vazio se não o tiver nesta resposta). Só chame depois de a pessoa confirmar o aluno, a data e o que marcar, com confirmado_pela_pessoa = true. Marcações já existentes são mantidas; a observação é somada à que já houver no dia.",
+  },
+  {
+    name: "pesquisas_pendentes",
+    description:
+      "Lista as reuniões cuja pesquisa de satisfação espera ESTA pessoa confirmar o telefone do participante (número da reunião, pipeline, participante, telefone).",
+  },
+  {
+    name: "confirmar_telefone",
+    description:
+      "Confirma (ou corrige) o telefone do participante de uma reunião e envia a ele a pesquisa de satisfação com um link único. Só chame depois de a pessoa confirmar o número, com confirmado_pela_pessoa = true; se ela corrigiu, passe o telefone novo com DDD.",
   },
   {
     name: "situacao_pedido",

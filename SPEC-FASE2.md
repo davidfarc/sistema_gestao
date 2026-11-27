@@ -726,6 +726,14 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > Postgres local). No card, anexos ganham botões visíveis de Editar e Excluir; excluir uma foto guardada
 > pelo sistema apaga também o arquivo, se nenhum outro anexo o usa.
 
+> **27/11 (Reuniões):** pesquisa de satisfação depois da reunião (migration `0062`, testada em Postgres
+> local). Em Opções do pipeline: etapa que dispara, etapa de espera, etapa de resposta, propriedade do
+> telefone (e do nome) e quem confirma. Ao entrar na etapa, o Luix pede a confirmação do telefone; com o
+> sim, o participante recebe um link único (`/pesquisa/<token>`, página pública) e o card vai para a
+> espera; ao responder, as respostas viram comentário e o card vai para a etapa de resposta (CardService).
+> Nos testes, o envio ao participante sai pelo número do Luix (Evolution); depois, pela API da Meta.
+> Fica para depois: telefone puxado do ActiveSoft e sincronização com as agendas dos coordenadores.
+
 ### Banco
 
 | Migration | O que faz | Situação |

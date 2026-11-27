@@ -116,7 +116,7 @@ test("histórico: começa na pessoa e precisa terminar nela", async () => {
 });
 
 test("ferramentas: esquema fechado, e nenhuma que mova, apague ou configure", () => {
-  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_aluno", "buscar_pedidos", "comentar_pedido", "criar_pedido", "liberar_pedido", "reforcar_pedido", "registrar_rotina", "situacao_pedido"]);
+  assert.deepEqual(TOOLS.map((t) => t.function.name).sort(), ["anexar_imagens", "buscar_aluno", "buscar_pedidos", "comentar_pedido", "confirmar_telefone", "criar_pedido", "liberar_pedido", "pesquisas_pendentes", "reforcar_pedido", "registrar_rotina", "situacao_pedido"]);
   for (const t of TOOLS) {
     const p = t.function.parameters as any;
     assert.equal(t.type, "function");
@@ -484,4 +484,17 @@ test("reforço que pede confirmação não conta como feito", async () => {
   assert.match((await runAgent(a.d))!, /1 - Sim/);
   // A falsa confirmação ("registrei o seu reforço") foi cobrada antes.
   assert.equal(a.log.model.length, 3);
+});
+
+test("pesquisa: confirmar o telefone leva o card adiante pelo site; sem confirmar, não vale dizer que enviou", async () => {
+  const moved: string[] = [];
+  const a = deps(
+    [call("confirmar_telefone", { numero: "12", telefone: "", confirmado_pela_pessoa: true }), say("Pronto! Pesquisa enviada para (81) 99999-0000.")],
+    ctx(),
+    { ok: true, numero: 12, card_id: "card-12", telefone: "+5581999990000" },
+  );
+  a.d.surveySent = async (cardId) => (moved.push(cardId), { ok: true });
+  assert.equal(await runAgent(a.d), "Pronto! Pesquisa enviada para (81) 99999-0000.");
+  assert.deepEqual(moved, ["card-12"]);
+  assert.match(unbackedClaim("Pesquisa enviada para a Ana.", new Set(["pesquisas_pendentes"]), new Set([12]))!, /pesquisa/);
 });

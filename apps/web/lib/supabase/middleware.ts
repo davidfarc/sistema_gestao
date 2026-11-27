@@ -46,6 +46,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/auth") ||
     path === "/agendar" ||
     path === "/privacidade" ||
+    // Pesquisa de satisfação da reunião: link único enviado pelo WhatsApp.
+    /^\/pesquisa\/[0-9a-f]{64}$/.test(path) ||
     // Manifesto do PWA: o navegador o busca sem os cookies de login.
     path === "/manifest.webmanifest" ||
     // Service worker das notificações: o navegador o rebusca por conta própria.

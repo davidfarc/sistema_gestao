@@ -75,23 +75,28 @@ async function releaseOnSite(
   cardId: string,
   assigneeId: string | null,
 ): Promise<Record<string, unknown> | null> {
-  if (!env.SITE || !env.WHATSAPP_SERVICE_SECRET) return { erro: "A liberação por mensagem não está configurada. Libere pelo site." };
+  return siteAction(env, { acao: "liberar", userId, cardId, assigneeId });
+}
+
+/** Ação no site, pelas regras dele (liberação; card da pesquisa que seguiu). */
+async function siteAction(env: Env, body: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  if (!env.SITE || !env.WHATSAPP_SERVICE_SECRET) return { erro: "A ação por mensagem não está configurada. Faça pelo site." };
   try {
     const res = await env.SITE.fetch(
       new Request(`${env.APP_URL.replace(/\/+$/, "")}/api/whatsapp/acao`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-service-secret": env.WHATSAPP_SERVICE_SECRET },
-        body: JSON.stringify({ acao: "liberar", userId, cardId, assigneeId }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(20_000),
       }),
     );
     if (!res.ok) {
-      console.error("site liberar HTTP", res.status);
+      console.error("site ação HTTP", res.status, String(body.acao));
       return null;
     }
     return (await res.json()) as Record<string, unknown>;
   } catch (e) {
-    console.error("site liberar", e instanceof Error ? e.name : "erro");
+    console.error("site ação", e instanceof Error ? e.name : "erro");
     return null;
   }
 }
@@ -149,6 +154,8 @@ async function downloadStored(env: Env, url: string): Promise<{ bytes: Uint8Arra
 type Out = Record<string, unknown> | null;
 /** Ferramentas da rotina da Gestão de Vila (migration 0057). */
 const ROUTINE_TOOLS = new Set(["buscar_aluno", "registrar_rotina"]);
+/** Ferramentas da pesquisa de satisfação das reuniões (migration 0062). */
+const SURVEY_TOOLS = new Set(["pesquisas_pendentes", "confirmar_telefone"]);
 
 /**
  * Porta do agente para o banco. Pedidos vão para `whatsapp_agent`; a rotina
@@ -158,10 +165,17 @@ const ROUTINE_TOOLS = new Set(["buscar_aluno", "registrar_rotina"]);
 async function agentDb(env: Env, userId: string, tool: string, args: Record<string, unknown>): Promise<Out> {
   const call = (fn: string, t: string, a: unknown) => rpc(env, fn, { p_user: userId, p_tool: t, p_args: a }) as Promise<Out>;
   if (tool === "contexto") {
-    const [ctx, routine] = await Promise.all([call("whatsapp_agent", "contexto", {}), call("whatsapp_routine", "rotina_contexto", {})]);
-    return ctx ? { ...ctx, ...(routine && typeof routine.erro !== "string" ? routine : {}) } : null;
+    const [ctx, routine, survey] = await Promise.all([
+      call("whatsapp_agent", "contexto", {}),
+      call("whatsapp_routine", "rotina_contexto", {}),
+      call("whatsapp_survey", "pesquisas_pendentes", {}),
+    ]);
+    if (!ctx) return null;
+    const pending = survey && Array.isArray(survey.pendentes) ? { pesquisas_a_confirmar: survey.pendentes } : {};
+    return { ...ctx, ...(routine && typeof routine.erro !== "string" ? routine : {}), ...pending };
   }
-  return call(ROUTINE_TOOLS.has(tool) ? "whatsapp_routine" : "whatsapp_agent", tool, args);
+  const fn = ROUTINE_TOOLS.has(tool) ? "whatsapp_routine" : SURVEY_TOOLS.has(tool) ? "whatsapp_survey" : "whatsapp_agent";
+  return call(fn, tool, args);
 }
 
 export default {
@@ -207,6 +221,7 @@ export default {
               db: (tool, args) => agentDb(env, userId, tool, args),
               modelName: env.OPENAI_MODEL,
               release: (cardId, assigneeId) => releaseOnSite(env, userId, cardId, assigneeId),
+              surveySent: (cardId) => siteAction(env, { acao: "pesquisa_enviada", userId, cardId }),
               model: (request) => callOpenAI(openaiKey, request),
             })
         : undefined,
@@ -235,7 +250,8 @@ export default {
       enqueueReminders: async () => void (await rpc(env, "whatsapp_enqueue_reminders", {})),
       take: async () => (await rpc(env, "whatsapp_outbox_take", { p_limit: 20 })) as OutboxItem[] | null,
       done: async (id, error) => void (await rpc(env, "whatsapp_outbox_done", { p_id: id, p_error: error })),
-      send: (phone, text) => sendText(evolution, phone, text),
+      // O link da pesquisa (0062) chega com %APP_URL% no lugar do endereço do site.
+      send: (phone, text) => sendText(evolution, phone, text.replaceAll("%APP_URL%", env.APP_URL.replace(/\/+$/, ""))),
     });
 
     // Evidências no Google Drive (migration 0056): só com a credencial configurada.

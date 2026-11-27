@@ -2,9 +2,11 @@
 
 import { useRef, useState } from "react";
 
+import { setBoardSurvey, type BoardSurvey } from "@/lib/board/survey";
 import { setBoardWhatsapp, type BoardWhatsapp } from "@/lib/board/whatsapp";
 import { setBoardOptions } from "@/lib/time/actions";
 
+import { SurveyOptions } from "./SurveyOptions";
 import { WhatsappOptions } from "./WhatsappOptions";
 
 /** Opções do pipeline: visão "Minhas demandas" e controle de tempo. */
@@ -32,6 +34,8 @@ export function BoardOptionsDialog({
   const [error, setError] = useState<string | null>(null);
   // Atendimento pelo WhatsApp: só grava se a pessoa mexeu.
   const whatsapp = useRef<BoardWhatsapp | null>(null);
+  // Pesquisa de satisfação: idem.
+  const survey = useRef<BoardSurvey | null>(null);
 
   async function save() {
     setBusy(true);
@@ -50,6 +54,13 @@ export function BoardOptionsDialog({
         const wa = await setBoardWhatsapp(boardId, whatsapp.current);
         if (!wa.ok) {
           setError(`Atendimento pelo WhatsApp: ${wa.error}`);
+          return;
+        }
+      }
+      if (survey.current) {
+        const sv = await setBoardSurvey(boardId, survey.current);
+        if (!sv.ok) {
+          setError(`Pesquisa de satisfação: ${sv.error}`);
           return;
         }
       }
@@ -107,6 +118,12 @@ export function BoardOptionsDialog({
           boardName={boardName}
           onChange={(value, dirty) => {
             if (dirty) whatsapp.current = value;
+          }}
+        />
+        <SurveyOptions
+          boardId={boardId}
+          onChange={(value) => {
+            survey.current = value;
           }}
         />
         {error && (

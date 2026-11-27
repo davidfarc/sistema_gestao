@@ -12,6 +12,7 @@ import {
   type RuleViolation,
 } from "@ecco/core";
 
+import { loadActorById } from "@/lib/actor";
 import { createSupabaseMovePort } from "@/lib/board/cardMoveAdapter";
 import { ensureDmChannel } from "@/lib/comms/dm";
 import { sendPush } from "@/lib/push/send";
@@ -169,6 +170,49 @@ async function responsibleBlock(actor: Actor, cardId: string, toStageId: string)
     .maybeSingle();
   if (mine) return null;
   return "Só o responsável pela demanda ou a gestão do pipeline pode mudar o card de etapa.";
+}
+
+/**
+ * Movimento do fluxo da pesquisa de satisfação (migration 0062): só as duas
+ * passagens que a configuração do pipeline autoriza — da etapa que dispara para
+ * "aguardando" (a secretaria confirmou o telefone) e de "aguardando" para
+ * "recebido" (o participante respondeu). Passa pelo CardService como quem
+ * confirmou o telefone, sem exigir que seja o responsável pelo card.
+ */
+export async function surveyMove(
+  userId: string,
+  cardId: string,
+  step: "enviada" | "respondida",
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const db = createAdminClient();
+  const { data: card } = await db.from("card").select("board_id, stage_id").eq("id", cardId).maybeSingle();
+  if (!card) return { ok: false, reason: "Card não encontrado." };
+  const { data: board } = await db.from("board").select("survey_config").eq("id", card.board_id).maybeSingle();
+  const cfg = (board as { survey_config?: Record<string, unknown> | null } | null)?.survey_config ?? null;
+  if (!cfg || cfg.enabled !== true) return { ok: false, reason: "Pesquisa desligada neste pipeline." };
+  const from = step === "enviada" ? cfg.trigger_stage_id : cfg.waiting_stage_id;
+  const to = step === "enviada" ? cfg.waiting_stage_id : cfg.done_stage_id;
+  if (typeof to !== "string" || !to) return { ok: false, reason: "Etapa da pesquisa não configurada." };
+  // O card já saiu da etapa esperada (alguém moveu à mão): não mexe.
+  if (card.stage_id !== from) return { ok: true };
+  const person = await loadActorById(userId);
+  if (!person) return { ok: false, reason: "Pessoa não encontrada." };
+  const actor: Actor = { ...person, permissions: new Set([...person.permissions, "card:move"]) };
+  const service = new CardService(createSupabaseMovePort(), () => new Date().toISOString());
+  try {
+    const res = await service.move(actor, cardId, to);
+    if (res.moved) {
+      await recordActivity(cardId, actor.userId, "card_moved", { toStageId: to, fromStageId: from, via: "pesquisa" });
+      await placeCardInStage(db, cardId, to, undefined);
+    }
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof GateBlockedError) {
+      const violations = (e.details ?? []) as RuleViolation[];
+      return { ok: false, reason: violations[0]?.message ?? "Transição bloqueada." };
+    }
+    throw e;
+  }
 }
 
 /** Move o card pelo CardService (regras de fluxo, histórico, cronômetro, ordem). */

@@ -43,6 +43,8 @@ export interface AgentContext {
   pode_rotina?: boolean;
   /** Data de hoje em São Paulo, AAAA-MM-DD. */
   hoje_iso?: string;
+  /** Pesquisas de reunião esperando esta pessoa confirmar o telefone (migration 0062). */
+  pesquisas_a_confirmar?: unknown[];
 }
 
 export interface AgentDeps {
@@ -53,6 +55,8 @@ export interface AgentDeps {
    * Ausente = liberação por mensagem indisponível.
    */
   release?(cardId: string, assigneeId: string | null): Promise<Record<string, unknown> | null>;
+  /** Pesquisa enviada: o site leva o card para "aguardando feedback". */
+  surveySent?(cardId: string): Promise<Record<string, unknown> | null>;
   /** Uma chamada ao modelo (injetável nos testes). Null se a API falhar. */
   model(request: ChatRequest): Promise<ChatResponse | null>;
   /** Nome do modelo da OpenAI (variável OPENAI_MODEL). */
@@ -176,6 +180,22 @@ export const TOOLS: ChatTool[] = [
     ["aluno_id", "aluno_nome_completo", "turma", "data", "falta", "atraso", "mais_time", "observacao", "confirmado_pela_pessoa"],
   ),
   tool(
+    "pesquisas_pendentes",
+    describe("pesquisas_pendentes"),
+    {},
+    [],
+  ),
+  tool(
+    "confirmar_telefone",
+    describe("confirmar_telefone"),
+    {
+      numero: { type: "string", description: "Número da reunião (do card), como na mensagem de confirmação." },
+      telefone: { type: "string", description: "O número certo, se a pessoa corrigiu (com DDD); senão, vazio." },
+      confirmado_pela_pessoa: { type: "boolean" },
+    },
+    ["numero", "telefone", "confirmado_pela_pessoa"],
+  ),
+  tool(
     "situacao_pedido",
     describe("situacao_pedido"),
     { numero: text },
@@ -194,6 +214,7 @@ export function systemPrompt(ctx: AgentContext, appUrl: string): string {
     `Quem escreve agora: ${ctx.pessoa}. Data e hora em São Paulo: ${ctx.hoje}.`,
     `Fotos que esta pessoa enviou há pouco e ainda não foram para nenhum pedido: ${ctx.imagens_pendentes ?? 0}.`,
     `Ajuste na rotina de aluno disponível para esta pessoa (pode_rotina): ${ctx.pode_rotina ? "sim" : "não"}. Data de hoje (AAAA-MM-DD): ${ctx.hoje_iso ?? "desconhecida"}.`,
+    `Pesquisas de reunião esperando esta pessoa confirmar o telefone: ${ctx.pesquisas_a_confirmar?.length ? JSON.stringify(ctx.pesquisas_a_confirmar) : "nenhuma"}.`,
     "",
     "## Pipelines que você atende para esta pessoa",
     pipelines,
@@ -231,6 +252,11 @@ function toolArgs(name: string, raw: string): Record<string, unknown> | null {
 
 /** O que o texto afirma ter feito, por ferramenta que precisa ter dado certo. */
 const CLAIMS: { tool: string; what: string; pattern: RegExp }[] = [
+  {
+    tool: "confirmar_telefone",
+    what: "a pesquisa foi enviada",
+    pattern: /\bpesquisa\b[^.!?\n]{0,40}\benviad[ao]\b|\benviei\b[^.!?\n]{0,30}\bpesquisa\b/i,
+  },
   {
     tool: "reforcar_pedido",
     what: "um reforço foi registrado",
@@ -309,7 +335,9 @@ export function unbackedClaim(reply: string, done: ReadonlySet<string>, known: R
     Number(m[1] ?? m[2]),
   );
   // Reforço só se confirma com o reforço feito: achar o pedido não basta.
-  if (claim.tool === "reforcar_pedido") return done.has("reforcar_pedido") ? null : claim.what;
+  if (claim.tool === "reforcar_pedido" || claim.tool === "confirmar_telefone") {
+    return done.has(claim.tool) ? null : claim.what;
+  }
   if (mentioned.length > 0) return mentioned.every((n) => known.has(n)) ? null : claim.what;
   const wrote =
     done.has("criar_pedido") ||
@@ -329,6 +357,15 @@ async function runTool(deps: AgentDeps, name: string, args: Record<string, unkno
   // A busca devolve todos os abertos: quem compara é o modelo. Um filtro de
   // texto escolhido por ele já deixou passar pedido repetido.
   if (name === "buscar_pedidos") return deps.db(name, { pipeline_id: args.pipeline_id, texto: "" });
+  if (name === "confirmar_telefone") {
+    const out = await deps.db(name, args);
+    // Pesquisa enviada: o card segue para "aguardando feedback" pelas regras do site.
+    if (out && out.ok === true && typeof out.card_id === "string" && deps.surveySent) {
+      const moved = await deps.surveySent(out.card_id).catch(() => null);
+      if (!moved || typeof moved.erro === "string") console.error("pesquisa: card não avançou", moved?.erro ?? "sem resposta");
+    }
+    return out;
+  }
   if (name !== "liberar_pedido") return deps.db(name, args);
   if (!deps.release) return { erro: "A liberação por mensagem não está disponível. Libere pelo site." };
   const plan = await deps.db("preparar_liberacao", args);
@@ -343,7 +380,7 @@ async function runTool(deps: AgentDeps, name: string, args: Record<string, unkno
  * ou null se não deu (o chamador manda a resposta de contingência).
  */
 /** Lançamentos: um por resposta (um pedido ou um aluno de cada vez). */
-const LAUNCHES = new Set(["criar_pedido", "reforcar_pedido", "registrar_rotina"]);
+const LAUNCHES = new Set(["criar_pedido", "reforcar_pedido", "registrar_rotina", "confirmar_telefone"]);
 const ONE_AT_A_TIME =
   "Só um lançamento por vez: este não foi feito. Confirme à pessoa o que já foi registrado e diga que o próximo (outro pedido ou outro aluno) precisa ser enviado em outra mensagem, um de cada vez.";
 
