@@ -235,3 +235,16 @@ test("sendText: endereço completo vai como está; erro traz o motivo com númer
   assert.match(err!, /^HTTP 400: /);
   assert.equal(/\d{6,}/.test(err!), false);
 });
+
+test("aviso de outra instância (WhatsApp da Gestão de Vila) é ignorado: o Luix não lê nem responde por ele", async () => {
+  const { d, log } = deps({ usuario: { id: "u", nome: "Ana" } });
+  d.instance = "Eccoprime Zap";
+  const other = { ...upsert(), instance: "Gestão Vila-2" };
+  const res = await handleRequest(post(other), d);
+  assert.equal(await res.text(), "ignorado");
+  assert.equal(log.inbound.length, 0);
+  assert.equal(log.sent.length, 0);
+  // A própria instância continua normal.
+  await handleRequest(post(upsert()), d);
+  assert.equal(log.inbound.length, 1);
+});

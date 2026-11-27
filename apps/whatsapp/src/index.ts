@@ -226,6 +226,7 @@ export default {
             })
         : undefined,
       webhookSecret: env.WEBHOOK_SECRET ?? "",
+      instance: env.EVOLUTION_INSTANCE,
       appUrl: env.APP_URL,
       async recordInbound(msg, phones) {
         return (await rpc(env, "whatsapp_inbound", {

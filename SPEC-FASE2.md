@@ -720,6 +720,15 @@ dia. Reincidência, conflito entre alunos e doença não mandam para revisão.
 **Fechamento**: cada P1/P2 avisado traz "1 - Abrir card na coordenação; 2 - Já resolvido;
 3 - Classificação errada". As correções formam o conjunto-ouro.
 
+**Separação entre os dois números** (pedido do David, 27/11): o Luix (instância "Eccoprime Zap")
+e a leitura da Gestão de Vila (instância "Gestão Vila-2") rodam separados.
+- Workers separados (`ecco-whatsapp` e o da triagem), cada um com os próprios segredos.
+- Cada Worker usa a chave **da própria instância** na Evolution, não a chave geral: um não
+  consegue ler nem enviar pelo número do outro. A chave geral fica só no `.env` do computador.
+- Webhooks com endereços e senhas diferentes; o Luix ignora qualquer aviso de outra instância.
+- Tabelas próprias da triagem; o Luix só vê o que as funções da triagem entregam (resumos),
+  nunca as conversas.
+
 **Dados**: texto completo guardado por 30 dias; depois só a classificação. Famílias avisadas na
 política de privacidade.
 

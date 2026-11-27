@@ -25,6 +25,12 @@ export interface InboundResult {
 
 export interface Deps {
   webhookSecret: string;
+  /**
+   * Instância da Evolution que este agente atende (EVOLUTION_INSTANCE). Aviso de
+   * outra instância (ex.: o WhatsApp da Gestão de Vila, só leitura) é ignorado:
+   * o Luix nunca responde por um número que não é o dele.
+   */
+  instance?: string;
   appUrl: string;
   recordInbound(msg: Inbound, phones: string[]): Promise<InboundResult | null>;
   recordOutbound(phone: string, userId: string | null, body: string, error: string | null): Promise<void>;
@@ -109,6 +115,11 @@ export async function handleRequest(request: Request, deps: Deps): Promise<Respo
     payload = await request.json();
   } catch {
     return text("corpo inválido", 400);
+  }
+  const from = (payload as { instance?: unknown } | null)?.instance;
+  if (deps.instance && typeof from === "string" && from.trim().toLowerCase() !== deps.instance.trim().toLowerCase()) {
+    console.log("aviso de outra instância ignorado");
+    return text("ignorado");
   }
   const msg = parseInbound(payload);
   // Sempre 200 para o que não nos interessa: a Evolution não deve repetir.
