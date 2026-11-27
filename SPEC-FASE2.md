@@ -740,8 +740,9 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > aluno e a turma; card sem telefone usa o do cadastro. Importação: junto com a de alunos do ano corrente
 > (Gestão de Vila → Alunos → ActiveSoft), juntando `/lista_alunos/` (ids: principal, secundário,
 > filiação 1 e 2, adicionais) com `/lista_responsaveis/` (celular, 5 máscaras, normalizado para +55).
-> Até 3 por aluno, sem repetir a mesma pessoa; o parentesco não vem decodificado da API
-> (`tipo_responsavel` 1, 2, 11 sem tabela), então o papel é o do cadastro (principal, secundário, filiação).
+> Ordem do relatório do ActiveSoft: filiação 1, filiação 2 e, só se forem outras pessoas, responsável
+> financeiro (`responsavel_id`) e pedagógico (`responsavel_secundario_id`); até 4 (migration `0064`).
+> Aparecem, discretos e com celular, na ficha do aluno da Gestão de Vila.
 
 ### Banco
 

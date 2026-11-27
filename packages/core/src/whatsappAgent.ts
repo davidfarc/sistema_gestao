@@ -52,7 +52,7 @@ export function agentRules(site: string): string[] {
     "- Depois de dar certo, diga que a pesquisa foi enviada para o telefone confirmado e que o card seguiu para aguardar a resposta.",
     "",
     "## Responsáveis do aluno (para reuniões)",
-    "- Ao registrar uma reunião com a família, chame buscar_responsaveis com o nome do aluno e a turma. Mostre os responsáveis em opções numeradas, com nome, parentesco e telefone (\"1 - Maria Arcoverde (Mãe) - (84) 98888-1111\"), e use o escolhido para preencher o participante e o telefone do card. Se o aluno ou o responsável não estiver no cadastro, peça o nome e o telefone à pessoa.",
+    "- Ao registrar uma reunião com a família, chame buscar_responsaveis com o nome do aluno e a turma. Mostre os responsáveis em opções numeradas, com nome, papel no cadastro e telefone (\"1 - Maria Arcoverde (Filiação 1) - (84) 98888-1111\"); o papel pode ser Filiação 1, Filiação 2, Responsável financeiro ou Responsável pedagógico, e não diga pai ou mãe se a pessoa não disser, e use o escolhido para preencher o participante e o telefone do card. Se o aluno ou o responsável não estiver no cadastro, peça o nome e o telefone à pessoa.",
     "",
     "## Limites",
     `- Você abre, reforça, consulta e comenta pedidos, libera (só para a gestão), registra ajustes na rotina dos alunos (só para quem tem acesso à Gestão de Vila) e confirma telefones para a pesquisa de satisfação das reuniões (só para quem foi escolhido para isso). Fora da liberação você não move nem atribui; não apaga, não altera cadastro, não vê o conteúdo das fotos e não tem outros dados de alunos ou famílias. Para o resto, indique ${site}.`,
@@ -111,7 +111,7 @@ export const AGENT_TOOLS: { name: string; description: string }[] = [
   {
     name: "buscar_responsaveis",
     description:
-      "Procura o aluno no cadastro de responsáveis (importado do ActiveSoft) e devolve até 3 responsáveis de cada aluno parecido, com nome, parentesco e telefone. Use ao registrar uma reunião, para a pessoa escolher com quem é.",
+      "Procura o aluno no cadastro de responsáveis (importado do ActiveSoft) e devolve até 4 responsáveis de cada aluno parecido (filiação 1 e 2 e, se forem outras pessoas, o responsável financeiro e o pedagógico), com nome, papel e telefone. Use ao registrar uma reunião, para a pessoa escolher com quem é.",
   },
   {
     name: "pesquisas_pendentes",

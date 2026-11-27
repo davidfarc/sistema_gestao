@@ -6,6 +6,7 @@ import Modal, { fieldInput, fieldLabel } from "./Modal";
 import { useSalasWrite } from "@/lib/salas/SalasContext";
 import { DAYS, formatBR, routineEntries, sameId, sortRooms } from "@/lib/salas/logic";
 import { useSalasData } from "@/lib/salas/SalasContext";
+import { loadStudentGuardians, type GuardianView } from "@/lib/salas/guardianActions";
 import type { Day, Room, Student } from "@/lib/salas/types";
 
 const DAY_SHORT: Record<Day, string> = {
@@ -65,6 +66,19 @@ export default function StudentFormModal({
   const [left, setLeft] = useState(false);
   const { data: salas } = useSalasData();
   const history = student ? routineEntries(salas?.dailyRoutine, student.id) : [];
+
+  // Responsáveis vindos do ActiveSoft (importação de alunos). Sem cadastro, a seção some.
+  const [guardians, setGuardians] = useState<GuardianView[]>([]);
+  useEffect(() => {
+    if (!student) return setGuardians([]);
+    let alive = true;
+    loadStudentGuardians(String(student.id))
+      .then((g) => alive && setGuardians(g))
+      .catch(() => alive && setGuardians([]));
+    return () => {
+      alive = false;
+    };
+  }, [student]);
 
   const sorted = sortRooms(rooms);
 
@@ -167,6 +181,20 @@ export default function StudentFormModal({
         <label className={fieldLabel}>Almoço</label>
         <DayPicker value={lunch} onToggle={toggler(setLunch)} />
       </div>
+      {guardians.length > 0 && (
+        <div>
+          <label className={fieldLabel}>Responsáveis</label>
+          <ul className="grid gap-1 text-sm">
+            {guardians.map((g) => (
+              <li key={g.slot} className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-xs text-secondary">{g.relation}</span>
+                <span className="text-primary">{g.name}</span>
+                <span className="tabular-nums text-secondary">{showPhone(g.phone)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {student && (
         <div>
           <label className={fieldLabel}>Histórico da rotina</label>
@@ -198,4 +226,12 @@ export default function StudentFormModal({
       </label>
     </Modal>
   );
+}
+
+/** "+5584988881111" → "(84) 98888-1111"; sem celular, avisa. */
+function showPhone(p: string): string {
+  const d = p.replace(/\D/g, "").replace(/^55/, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return d ? p : "sem celular";
 }
