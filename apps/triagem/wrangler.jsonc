@@ -1,0 +1,26 @@
+{
+  // Worker SEPARADO do Luix: triagem das mensagens das famílias (SPEC-FASE2 §F).
+  // SÓ LÊ o WhatsApp da Gestão de Vila (instância "Gestão Vila-2" da Evolution):
+  // não tem a chave da Evolution e não envia nada por esse número. Os avisos à
+  // equipe vão para a fila do Luix (whatsapp_outbox), que os entrega pelo número dele.
+  //
+  // SEGREDOS (nunca neste arquivo; `npx wrangler secret put NOME`):
+  //   WEBHOOK_SECRET             senha do webhook da instância Gestão Vila-2 (diferente da do Luix)
+  //   SUPABASE_SERVICE_ROLE_KEY  chave de servidor do Supabase
+  //   OPENAI_API_KEY             chave da OpenAI (classificação)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ecco-triagem",
+  "main": "src/index.ts",
+  "workers_dev": true,
+  "compatibility_date": "2026-11-01",
+  "vars": {
+    "SUPABASE_URL": "https://rcjjwoajuvnrgeuzsgsj.supabase.co",
+    // A única instância da Evolution que este Worker aceita.
+    "EVOLUTION_INSTANCE": "Gestão Vila-2",
+    "OPENAI_MODEL": "gpt-5.4-mini"
+  },
+  // A cada 5 minutos: classifica e roda o relógio das 4 horas úteis.
+  // 10h30 UTC = 7h30 em São Paulo, de segunda a sexta: resumos.
+  "triggers": { "crons": ["*/5 * * * *", "30 10 * * 1-5"] },
+  "observability": { "enabled": true }
+}

@@ -703,12 +703,16 @@ risco de escalar, queixa formal, confiança, motivo para a direção. O modelo n
 **Prioridade** (regra fixa, sem modelo)
 | Prioridade | Regra | Quem | Quando |
 |---|---|---|---|
-| P1 Direção | gravidade alta, risco alto, queixa formal, risco psíquico, instância externa ou ameaça de saída | direção + coordenador do segmento | na hora |
-| P2 Coordenação | pediu algo e passou do prazo, ou risco médio | coordenador do segmento | resumo diário |
-| P3 Acompanhar | atenção dentro do prazo, assunto sensível já respondido | coordenador do segmento | resumo semanal |
+| P1 Grave | gravidade alta, risco alto ou queixa formal | coordenação do segmento **na hora**; direção **só no resumo das 7h30** | na hora / resumo |
+| P2 Coordenação | pediu algo e passou do prazo, risco médio ou exige escalonamento | coordenação do segmento | na hora + resumo diário |
+| P3 Acompanhar | atenção, ou convivência, saúde e socioemocional | coordenação do segmento | resumo semanal (segunda) |
+
+Horário útil: segunda a sexta, **7h às 17h**. Resumos às **7h30** dos dias úteis (diário para
+coordenação e direção; semanal, na segunda, para a coordenação).
 
 **Segmento** pela turma do aluno (telefone ou aluno → cadastro de responsáveis/ActiveSoft):
-Little Kids e Kids → Vila 1; Junior 1–5 → Fundamental 1; Junior 6–12 → Fundamental 2 e Médio.
+Little Kids, Kids e **Junior 1** → Infantil (coordenação da Vila 1, também o pipeline do Infantil);
+Junior 2–5 → Fundamental 1; Junior 6–12 → Fundamental 2 e Médio.
 Exceções: Ouvidoria também para a direção; Psicologia para a psicóloga do segmento; Financeiro e
 Secretaria para a secretaria.
 
@@ -790,6 +794,10 @@ atuando como agente; gateway próprio, com os dados no Supabase da Eccoprime.
 > Ordem do relatório do ActiveSoft: filiação 1, filiação 2 e, só se forem outras pessoas, responsável
 > financeiro (`responsavel_id`) e pedagógico (`responsavel_secundario_id`); até 4 (migration `0064`).
 > Aparecem, discretos e com celular, na ficha do aluno da Gestão de Vila.
+
+> **27/11 (triagem):** migration `0065` (testada em Postgres local) e Worker `ecco-triagem`
+> (`apps/triagem`, só leitura da instância "Gestão Vila-2"; 5,6 KiB). Quem recebe fica em
+> `triage_recipient` (infantil, fund1, fund2em, direcao). Agenda Edu entra depois como outra fonte.
 
 ### Banco
 
